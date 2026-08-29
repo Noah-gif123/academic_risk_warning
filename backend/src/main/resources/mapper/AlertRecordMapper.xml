@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.academic_risk_warning.mapper.AlertRecordMapper">
+
+    <insert id="insertBatch" parameterType="java.util.List">
+        INSERT INTO alert_record (
+            student_id, course_id, alert_level, alert_type, risk_score,
+            predicted_score, academic_risk_score, homework_risk_score,
+            attendance_risk_score, knowledge_risk_score, history_risk_score,
+            status, alert_reason, create_time, expire_time, notified
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.studentId}, #{item.courseId}, #{item.alertLevel}, #{item.alertType},
+                #{item.riskScore}, #{item.predictedScore}, #{item.academicRiskScore},
+                #{item.homeworkRiskScore}, #{item.attendanceRiskScore},
+                #{item.knowledgeRiskScore}, #{item.historyRiskScore},
+                #{item.status}, #{item.alertReason}, #{item.createTime},
+                #{item.expireTime}, #{item.notified}
+            )
+        </foreach>
+    </insert>
+
+</mapper>

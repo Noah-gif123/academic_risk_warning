@@ -1,0 +1,72 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.0.6'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'academic_risk_warning'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    maven { url = uri('https://maven.aliyun.com/repository/public') }
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.15'
+    implementation 'com.mysql:mysql-connector-j:9.2.0'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.apache.poi:poi-ooxml:5.2.5'
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    implementation 'com.mysql:mysql-connector-j:9.2.0'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-jdbc-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testImplementation 'com.h2database:h2'
+    testCompileOnly 'org.projectlombok:lombok'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// ==================== 前端构建 & 复制到 static ====================
+task buildFrontend(type: Exec) {
+    workingDir '../frontend'
+    commandLine 'npm', 'run', 'build'
+}
+
+task copyFrontend(type: Copy) {
+    dependsOn buildFrontend
+    from '../frontend/dist'
+    into 'src/main/resources/static'
+}
+
+// 打包前自动构建前端并复制
+tasks.named('compileJava') {
+    // 仅在 frontend/dist 不存在时自动构建，避免每次编译都构建
+    // 如需每次强制构建：dependsOn copyFrontend
+    // 当前设计：手动运行 gradlew copyFrontend 来更新前端
+}
+
+// 便捷任务：一键构建 + 复制前端
+task buildAll {
+    dependsOn copyFrontend, compileJava
+}
