@@ -259,6 +259,44 @@ cd backend
 
 ---
 
+## 📌 版本更新记录
+
+### v1.1.0（2026-09-11）— 智能体能力与工程化增强
+
+> 相比 v1.0.0 共变更 102 个文件。在原有「六智能体骨架」之上，重点补齐 **工具调用、输出校验、运行可观测、前端可视化、单元测试** 五块能力。
+
+#### 🤖 智能体能力升级
+- **新增工具调用框架**（`agent/tool/`）：`AgentTool`、`ToolRegistry`（工具注册表）、`ToolCallingLoop`（工具调用循环）、`DataQueryAgent`（数据查询智能体）。
+- **落地 8 个数据工具**：预警列表、风险画像、风险趋势、成绩信息、薄弱知识点、三维画像、选课信息、学生记忆。
+- **新增输出校验 `AgentOutputValidator`**：对结构化输出做三层校验 —— 结构（必需字段）、取值（枚举 / 百分比 0~100）、**真值一致性**（输出中的 `riskScore` / `predictedScore` 必须与库中真值一致，防止幻觉数值）。
+- **新增反思重写 `ReflectionLoop`**：校验不通过时触发 **Self-Refine 反思**（默认 1 轮，带着批评重写，仅「改后更合规」才采用）。
+- **画像升级为三维**：`ProfileAgent` 由基础画像升级为「知识掌握 / 学习习惯 / 学习目标」三维画像，支持 `(学生, 课程)` 粒度。
+- **新增学生记忆**：`StudentMemory` 实体 + `MemoryTool`，支持智能体跨轮次记住学生信息。
+
+#### 📈 运行可观测（W1）
+- 新增 `agent_run` / `agent_run_step` 表，记录每次流水线的触发方式、状态、每步智能体、耗时、输出摘要与失败原因。
+- 新增接口：`GET /api/agent/runs`（运行历史）、`GET /api/agent/runs/{runId}`（运行明细）、`GET /api/agent/stats`（真实成功率、各智能体失败率、平均耗时、P95）。
+- 教师端新增「学生详情 → 智能体运行历史」卡片，运行历史里提供「🧪 golden set 评测」入口。
+
+#### 🎨 前端可视化
+- 新增组件：`RiskRadarChart.vue`（风险雷达图）、`RiskTrendChart.vue`（风险趋势图）、`ThreeDimProfile.vue`（三维画像）、`AgentRunHistory.vue`（运行历史）、`AgentToolAsk.vue`（智能体工具问答）。
+- 新增 `utils/riskLevel.js` 统一风险等级逻辑；升级 `useAuth.js`（Token 失效返回真实 401 并自动续期重试一次）。
+
+#### 🗄️ 数据库与配置
+- 新增脚本：`agent_run_tables.sql`、`student_memory.sql`、`missing_tables.sql`、`migrate_student_profile_course.sql`、`dedupe_alert_snapshots.sql`。
+- 新增 `ProfileController`，增强 `AgentController` / `AlertController` / `StudentAgentController`。
+- 新增配置：`agent.enabled`（总开关）、`agent.llm-timeout`、`agent.agent-timeout`、`agent.reflection-enabled`。
+
+#### 🧪 测试体系
+- 从 0 到 1 建立单元测试，新增 **17 个测试类**，覆盖输出校验、反思循环、三维画像、工具调用、运行记录、预警生成与快照去重、定时任务升级等核心逻辑。
+
+### v1.0.0（2026-08-29）— 初始版本
+- 搭建基础项目框架：**Spring Boot 后端 + Vue 3 前端**工程。
+- 实现六智能体骨架（监测 / 分析 / 画像 / 推荐 / 策略 / 反馈）与智能体编排器 `AgentOrchestrator`。
+- 完成基础 REST 控制器、业务服务、数据库脚本与项目文档。
+
+---
+
 ## 📜 License
 
 本项目仅供学习研究使用。
