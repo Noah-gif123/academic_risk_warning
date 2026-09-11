@@ -31,6 +31,7 @@ public class StudentContextService {
     private final HomeworkInfoMapper homeworkInfoMapper;
     private final ClassPerformanceMapper classPerformanceMapper;
     private final KnowledgeMasteryMapper knowledgeMasteryMapper;
+    private final AlertSnapshotMapper alertSnapshotMapper;
 
     public StudentContextService(StudentMapper studentMapper,
                                   StudentCourseMapper studentCourseMapper,
@@ -41,7 +42,8 @@ public class StudentContextService {
                                   ScoreInfoMapper scoreInfoMapper,
                                   HomeworkInfoMapper homeworkInfoMapper,
                                   ClassPerformanceMapper classPerformanceMapper,
-                                  KnowledgeMasteryMapper knowledgeMasteryMapper) {
+                                  KnowledgeMasteryMapper knowledgeMasteryMapper,
+                                  AlertSnapshotMapper alertSnapshotMapper) {
         this.studentMapper = studentMapper;
         this.studentCourseMapper = studentCourseMapper;
         this.courseMapper = courseMapper;
@@ -52,6 +54,7 @@ public class StudentContextService {
         this.homeworkInfoMapper = homeworkInfoMapper;
         this.classPerformanceMapper = classPerformanceMapper;
         this.knowledgeMasteryMapper = knowledgeMasteryMapper;
+        this.alertSnapshotMapper = alertSnapshotMapper;
     }
 
     /**
@@ -126,19 +129,52 @@ public class StudentContextService {
         result.put("alerts", alertList);
         result.put("totalAlerts", alerts.size());
 
-        // 最高风险等级
+        // 最高风险等级/风险分：优先 ACTIVE 预警；没有预警时退回最新每日快照
+        // （方案A之后每个选了课的学生每天都有快照，不能再用 0 冒充"风险分"）
         if (!alerts.isEmpty()) {
             AlertRecord top = alerts.get(0);
             result.put("highestLevel", top.getAlertLevel());
             result.put("highestLevelName", levelName(top.getAlertLevel()));
             result.put("highestRiskScore", top.getRiskScore());
+            result.put("riskSource", "ALERT");
         } else {
-            result.put("highestLevel", "GREEN");
-            result.put("highestLevelName", "正常");
-            result.put("highestRiskScore", 0);
+            AlertSnapshot snapshot = latestSnapshot(studentId, courseId);
+            if (snapshot != null) {
+                result.put("highestLevel", snapshot.getAlertLevel());
+                result.put("highestLevelName", levelName(snapshot.getAlertLevel()));
+                result.put("highestRiskScore", snapshot.getRiskScore());
+                result.put("snapshotDate", snapshot.getSnapshotDate());
+                result.put("riskSource", "SNAPSHOT");
+            } else {
+                result.put("highestLevel", "NONE");
+                result.put("highestLevelName", "暂无数据");
+                result.put("highestRiskScore", null);
+                result.put("riskSource", "NONE");
+            }
         }
 
         return result;
+    }
+
+    /** 取该生(指定课程优先，其次综合快照)的最新一条每日快照 */
+    private AlertSnapshot latestSnapshot(Long studentId, Long courseId) {
+        AlertSnapshot snapshot = alertSnapshotMapper.selectOne(
+                new LambdaQueryWrapper<AlertSnapshot>()
+                        .eq(AlertSnapshot::getStudentId, studentId)
+                        .eq(courseId != null, AlertSnapshot::getCourseId, courseId)
+                        .orderByDesc(AlertSnapshot::getSnapshotDate)
+                        .orderByDesc(AlertSnapshot::getId)
+                        .last("LIMIT 1"));
+        if (snapshot == null && courseId != null) {
+            snapshot = alertSnapshotMapper.selectOne(
+                    new LambdaQueryWrapper<AlertSnapshot>()
+                            .eq(AlertSnapshot::getStudentId, studentId)
+                            .isNull(AlertSnapshot::getCourseId)
+                            .orderByDesc(AlertSnapshot::getSnapshotDate)
+                            .orderByDesc(AlertSnapshot::getId)
+                            .last("LIMIT 1"));
+        }
+        return snapshot;
     }
 
     /**
@@ -281,7 +317,11 @@ public class StudentContextService {
         Map<String, Object> risk = getStudentRiskProfile(studentId, courseId);
         ctx.append("【风险状态】\n");
         ctx.append("最高风险等级：").append(risk.get("highestLevelName")).append("\n");
-        ctx.append("最高风险分：").append(risk.get("highestRiskScore")).append("\n");
+        Object highestRisk = risk.get("highestRiskScore");
+        ctx.append("最高风险分：").append(highestRisk != null ? highestRisk : "暂无").append("\n");
+        if ("SNAPSHOT".equals(risk.get("riskSource"))) {
+            ctx.append("（以上风险分来自最近的每日快照：").append(risk.get("snapshotDate")).append("）\n");
+        }
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> alerts = (List<Map<String, Object>>) risk.get("alerts");
         if (alerts != null && !alerts.isEmpty()) {
@@ -299,7 +339,7 @@ public class StudentContextService {
                    .append(" 历史").append(a.get("historyRiskScore")).append("\n");
             }
         } else {
-            ctx.append("当前暂无预警，状态良好。\n");
+            ctx.append("当前暂无处理中的预警。\n");
         }
         ctx.append("\n");
 
@@ -409,10 +449,13 @@ public class StudentContextService {
     }
 
     private String levelName(String level) {
+        if (level == null) return "暂无数据";
         return switch (level) {
             case "RED" -> "红色预警（高风险）";
             case "ORANGE" -> "橙色预警（中风险）";
             case "YELLOW" -> "黄色预警（低风险）";
+            case "GREEN" -> "正常";
+            case "NONE" -> "暂无数据";
             default -> "正常";
         };
     }

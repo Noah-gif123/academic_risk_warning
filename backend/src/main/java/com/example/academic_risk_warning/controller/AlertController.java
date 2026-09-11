@@ -150,12 +150,16 @@ public class AlertController {
         }
     }
 
-    /** GET /alert/student/{id}/radar (学生风险雷达图) */
+    /** GET /alert/student/{id}/radar (学生风险雷达图；教师可查任意学生，学生仅可查本人) */
     @GetMapping("/student/{studentId}/radar")
     public Map<String, Object> getStudentRadar(@PathVariable Long studentId,
                                                 @RequestParam Long courseId,
                                                 HttpServletRequest request) {
-        if (resolveTeacherId(request) == null) return errorResult("未登录");
+        Long loginTeacherId = resolveTeacherId(request);
+        Long loginStudentId = resolveStudentId(request);
+        // 教师可查任意学生；学生只能查自己的画像
+        if (loginTeacherId == null && !studentId.equals(loginStudentId))
+            return errorResult("未登录或无权查看");
         try {
             Map<String, Object> result = successResult();
             result.put("data", alertQueryService.getStudentRadar(studentId, courseId));
@@ -223,6 +227,37 @@ public class AlertController {
             return successResult("全量分析完成，共生成 " + count + " 条预警", Map.of("count", count));
         } catch (Exception e) {
             return errorResult("全量分析失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * POST /alert/teacher/generate-snapshots (为本教师学生生成"当日全量快照")
+     *
+     * 与生成预警不同：无论学生当天是否触发预警都会写一条当天快照（GREEN 也写），
+     * 一人一课一天只保留一条，用于填充风险趋势曲线。
+     */
+    @PostMapping("/teacher/generate-snapshots")
+    public Map<String, Object> generateSnapshots(HttpServletRequest request) {
+        Long teacherId = resolveTeacherId(request);
+        if (teacherId == null) return errorResult("未登录");
+        try {
+            int count = warningGenerationService.generateSnapshotsForTeacher(teacherId);
+            return successResult("已生成当日快照 " + count + " 条", Map.of("count", count));
+        } catch (Exception e) {
+            return errorResult("生成当日快照失败：" + e.getMessage());
+        }
+    }
+
+    /** POST /alert/teacher/generate-snapshots-all (为全体学生生成"当日全量快照"，演示/管理用) */
+    @PostMapping("/teacher/generate-snapshots-all")
+    public Map<String, Object> generateAllSnapshots(HttpServletRequest request) {
+        Long teacherId = resolveTeacherId(request);
+        if (teacherId == null) return errorResult("未登录");
+        try {
+            int count = warningGenerationService.generateDailySnapshots();
+            return successResult("已生成全体当日快照 " + count + " 条", Map.of("count", count));
+        } catch (Exception e) {
+            return errorResult("生成全体当日快照失败：" + e.getMessage());
         }
     }
 

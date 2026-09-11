@@ -7,8 +7,13 @@ import {
   getStudentAlerts, acknowledgeAlert, studentRespond,
   getMyRecommends, submitAnswer, getSubQuestions,
   submitAnswerSub, saveDraft, getDraft, deleteDraft,
-  studentAgentChat, studentAgentCourses
+  studentAgentChat, studentAgentCourses,
+  getStudentRadar, getStudentTrend, getMyProfile
 } from '../../api/http.js'
+import RiskRadarChart from '../../components/RiskRadarChart.vue'
+import RiskTrendChart from '../../components/RiskTrendChart.vue'
+import ThreeDimProfile from '../../components/ThreeDimProfile.vue'
+import { riskLevelFromScore, riskLevelLabel } from '../../utils/riskLevel.js'
 // PDF 渲染按需初始化，避免 ESM 导入时崩溃导致整个组件白屏
 let pdfjsLib = null
 async function ensurePdfJs() {
@@ -77,15 +82,9 @@ const currentCourseWeakPoints = computed(() => {
   return list.filter(wp => Number(wp.courseId) === Number(selectedCourseId.value)).slice(0, 10)
 })
 
-// 风险等级（用于风险画像标签）
+// 风险等级（用于风险画像标签）：阈值口径统一收敛到 utils/riskLevel.js
 function getAlertLevel() {
-  const score = currentCourseScore.value
-  if (!score || score.calculatedScore == null) return 'GREEN'
-  const cs = score.calculatedScore
-  if (cs < 60) return 'RED'
-  if (cs < 70) return 'ORANGE'
-  if (cs < 80) return 'YELLOW'
-  return 'GREEN'
+  return riskLevelFromScore(currentCourseScore.value?.calculatedScore)
 }
 
 function emptyText(text) {
@@ -381,6 +380,54 @@ function alertLevelBg(l) {
 
 // 监听数据变化
 watch(studentData, async (val) => { if (val) await loadStudentAlerts() })
+
+// ============ 风险画像（雷达图 + 趋势图） ============
+const showRiskProfile = ref(false)
+const profileLoading = ref(false)
+const profileError = ref('')
+const profileRadar = ref(null)
+const profileTrend = ref([])
+const profileTrendSource = ref('')
+const profileTrendSourceText = ref('')
+const profile3d = ref(null)
+
+async function openRiskProfile() {
+  const studentId = studentData.value?.basicInfo?.id
+  const courseId = selectedCourseId.value
+  if (!studentId || !courseId) { setMessage('暂无画像数据，请先选择课程', 'warning'); return }
+  showRiskProfile.value = true
+  profileLoading.value = true
+  profileError.value = ''
+  profileRadar.value = null
+  profileTrend.value = []
+  profileTrendSource.value = ''
+  profileTrendSourceText.value = ''
+  profile3d.value = null
+  try {
+    const [radarRes, trendRes, profileRes] = await Promise.all([
+      getStudentRadar(studentToken.value, studentId, courseId),
+      getStudentTrend(studentToken.value, studentId, courseId),
+      getMyProfile(studentToken.value, courseId)
+    ])
+    if (radarRes?.success && radarRes.data) profileRadar.value = radarRes.data
+    if (trendRes?.success) {
+      // 新接口返回 {points, source, sourceText}，同时兼容旧的数组返回
+      const trendData = trendRes.data || {}
+      profileTrend.value = Array.isArray(trendData) ? trendData : (trendData.points || [])
+      profileTrendSource.value = Array.isArray(trendData) ? '' : (trendData.source || '')
+      profileTrendSourceText.value = Array.isArray(trendData) ? '' : (trendData.sourceText || '')
+    }
+    // 三维画像可能尚未生成（exists=false），不算加载失败
+    profile3d.value = profileRes?.success ? profileRes.data : null
+    if (!radarRes?.success || !trendRes?.success) {
+      profileError.value = (radarRes?.message || trendRes?.message || '画像数据加载失败') + '（请联系老师或稍后重试）'
+    }
+  } catch (e) {
+    profileError.value = '画像数据加载失败，请检查网络或后端服务'
+  } finally { profileLoading.value = false }
+}
+
+function closeRiskProfile() { showRiskProfile.value = false }
 </script>
 
 <template>
@@ -423,7 +470,8 @@ watch(studentData, async (val) => { if (val) await loadStudentAlerts() })
           <div class="student-meta">
             <div class="student-name-row">
               <span class="student-name">{{ studentData?.basicInfo?.studentName }}</span>
-              <span class="risk-badge" :class="getAlertLevel().toLowerCase()">风险画像</span>
+              <button class="risk-badge profile-entry" :class="getAlertLevel().toLowerCase()"
+                      @click="openRiskProfile" title="点击查看我的风险画像图表">📊 风险画像</button>
             </div>
             <div class="student-tags">
               <span class="info-tag">{{ studentData?.basicInfo?.studentNo }}</span>
@@ -725,6 +773,47 @@ watch(studentData, async (val) => { if (val) await loadStudentAlerts() })
       </div>
     </div>
 
+    <!-- ====== 风险画像弹窗 ====== -->
+    <div v-if="showRiskProfile" class="profile-overlay" @click.self="closeRiskProfile">
+      <div class="profile-modal">
+        <div class="profile-modal-header">
+          <div class="profile-modal-title">
+            <strong>学情画像</strong>
+            <span>{{ studentData?.basicInfo?.studentName }} · {{ currentCourseScore?.courseName || '当前课程' }}</span>
+          </div>
+          <button class="btn-ghost" @click="closeRiskProfile">✕ 关闭</button>
+        </div>
+
+        <div v-if="profileLoading" class="profile-state">⏳ 正在加载画像数据...</div>
+        <div v-else-if="profileError" class="profile-state profile-error">{{ profileError }}</div>
+        <div v-else class="profile-modal-body">
+          <div class="profile-block">
+            <div class="profile-block-title">① 五维风险雷达</div>
+            <RiskRadarChart
+              :student="profileRadar?.student"
+              :class-avg="profileRadar?.classAvg"
+              :has-data="profileRadar?.student?.hasData !== false"
+              :scope="profileRadar?.scope || ''"
+              :scope-text="profileRadar?.scopeText || ''"
+              :missing-dimensions="profileRadar?.missingDimensions || []" />
+          </div>
+          <div class="profile-block">
+            <div class="profile-block-title">② 综合风险分趋势</div>
+            <RiskTrendChart
+              :points="profileTrend"
+              :source="profileTrendSource"
+              :source-text="profileTrendSourceText" />
+          </div>
+          <div class="profile-block">
+            <div class="profile-block-title">③ 三维学情画像（知识掌握 / 学习习惯 / 学习目标）</div>
+            <ThreeDimProfile
+              :profile="profile3d"
+              empty-text="你还没有三维学情画像，可联系老师发起一次学习画像分析" />
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
   <div v-else style="padding:40px;text-align:center;">
     <p>请先登录</p>
@@ -943,4 +1032,41 @@ watch(studentData, async (val) => { if (val) await loadStudentAlerts() })
 .goal-levels { display: flex; gap: 8px; }
 .goal-levels button { padding: 6px 16px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; }
 .goal-levels button.active { background: var(--text-primary); color: #fff; }
+
+/* ===== 风险画像 ===== */
+.profile-entry { cursor: pointer; border: none; transition: filter .15s, transform .15s; }
+.profile-entry:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+.profile-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.15s ease;
+}
+.profile-modal {
+  width: min(680px, 100%);
+  max-height: 86vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-card, #fff);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
+}
+.profile-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--bg-card-subtle);
+  border-bottom: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+.profile-modal-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.profile-modal-title strong { font-size: 17px; color: var(--text-primary); }
+.profile-modal-title span { font-size: 13px; color: var(--text-tertiary); }
+.profile-modal-body { overflow-y: auto; padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+.profile-block { background: var(--bg-card-subtle); border: 1px solid var(--border-light); border-radius: 10px; padding: 12px; }
+.profile-block-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.profile-state { padding: 48px 16px; text-align: center; color: var(--text-tertiary); font-size: 14px; }
+.profile-error { color: var(--semantic-red-dark); }
 </style>

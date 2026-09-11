@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.academic_risk_warning.agent.core.AgentContext;
 import com.example.academic_risk_warning.agent.core.BaseAgent;
 import com.example.academic_risk_warning.agent.core.JsonUtils;
+import com.example.academic_risk_warning.agent.core.ReflectionLoop;
+import com.example.academic_risk_warning.config.AgentProperties;
 import com.example.academic_risk_warning.config.WarningSystemProperties;
 import com.example.academic_risk_warning.entity.*;
 import com.example.academic_risk_warning.llm.LLMClient;
@@ -36,6 +38,7 @@ public class StrategyAgent extends BaseAgent<Map<String, Object>> {
     private final ExerciseRecommendationMapper recommendMapper;
     private final StudentWeakPointMapper weakPointMapper;
     private final WarningSystemProperties warningProps;
+    private final AgentProperties agentProperties;
 
     public StrategyAgent(LLMClient llmClient,
                          AlertRecordMapper alertRecordMapper,
@@ -44,7 +47,8 @@ public class StrategyAgent extends BaseAgent<Map<String, Object>> {
                          StudentMapper studentMapper,
                          ExerciseRecommendationMapper recommendMapper,
                          StudentWeakPointMapper weakPointMapper,
-                         WarningSystemProperties warningProps) {
+                         WarningSystemProperties warningProps,
+                         AgentProperties agentProperties) {
         super(llmClient, "StrategyAgent");
         this.alertRecordMapper = alertRecordMapper;
         this.snapshotMapper = snapshotMapper;
@@ -53,6 +57,7 @@ public class StrategyAgent extends BaseAgent<Map<String, Object>> {
         this.recommendMapper = recommendMapper;
         this.weakPointMapper = weakPointMapper;
         this.warningProps = warningProps;
+        this.agentProperties = agentProperties;
     }
 
     // ===== System Prompt =====
@@ -246,7 +251,15 @@ public class StrategyAgent extends BaseAgent<Map<String, Object>> {
             String llmOutput = callLLM(ctx);
             llmDecision = JsonUtils.parse(llmOutput);
             if (llmDecision.containsKey("raw")) {
-                llmDecision = Map.of("action", "CONTINUE", "reason", "解析异常，保持默认策略");
+                // 注意：Map.of 不可变，后面还要塞参考信息，这里必须用可变 Map
+                llmDecision = new LinkedHashMap<>(Map.of("action", "CONTINUE", "reason", "解析异常，保持默认策略"));
+            }
+            // W3 反思环：action 缺失 / confidence 越界时，带着批评重写一版
+            ReflectionLoop.Outcome outcome = ReflectionLoop.run(ctx, getAgentName(), llmOutput, llmDecision,
+                    agentProperties, critique -> callLLM(ctx, critique));
+            llmDecision = outcome.result();
+            if (outcome.attempts() > 1) {
+                log.info("[StrategyAgent] 触发反思重写，采用重写结果={}", outcome.refined());
             }
             // 规则预判作为参考
             llmDecision.put("ruleBasedFallback", ruleBasedDecision);

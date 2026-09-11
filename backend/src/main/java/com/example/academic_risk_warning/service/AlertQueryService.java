@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -22,6 +23,32 @@ import java.util.stream.Collectors;
  */
 @Service
 public class AlertQueryService {
+
+    /** 风险画像数据范围：本课程 / 综合预警 / 任意课程 / 无数据 */
+    private static final String SCOPE_NONE = "NONE";
+    private static final String SCOPE_COURSE = "COURSE";
+    private static final String SCOPE_COMPREHENSIVE = "COMPREHENSIVE";
+    private static final String SCOPE_ANY_COURSE = "ANY_COURSE";
+
+    /** 趋势数据来源：预警快照 / 预警记录 */
+    private static final String TREND_SOURCE_SNAPSHOT = "SNAPSHOT";
+    private static final String TREND_SOURCE_ALERT = "ALERT_RECORD";
+
+    /** 风险画像取数来源：有效预警 / 每日快照 / 无数据 */
+    private static final String SOURCE_ALERT = "ALERT";
+    private static final String SOURCE_SNAPSHOT = TREND_SOURCE_SNAPSHOT;
+    private static final String SOURCE_NONE = "NONE";
+
+    /** 已撤销/已闭环的预警不再代表"当前风险"，风险画像与班级均值都将其排除 */
+    private static final List<String> INVALID_RADAR_STATUSES = List.of("DISMISSED", "CLOSED");
+
+    /** 雷达图维度中文名（用于缺失维度提示） */
+    private static final Map<String, String> DIMENSION_LABELS = Map.of(
+            "academic", "学业成绩",
+            "homework", "作业完成",
+            "attendance", "出勤表现",
+            "knowledge", "知识掌握",
+            "history", "历史风险");
 
     private final AlertRecordMapper alertRecordMapper;
     private final StudentMapper studentMapper;
@@ -641,36 +668,45 @@ public class AlertQueryService {
                 }).toList();
     }
 
-    /** 学生风险雷达图数据(5维分+班级均值) */
+    /**
+     * 学生风险画像雷达数据(5维分 + 班级均值 + 数据口径说明)
+     *
+     * <p>取数优先级：**仍有效的预警**（已撤销/已闭环不算）→ 没有预警时退回**每日快照**。
+     * 方案A之后每个选了课的学生每天都有快照，因此"学情数据齐全但没触发过预警"的学生
+     * 也能看到真实五维画像，而不是被填成 0；返回的 {@code source} 标明数字来自 ALERT 还是 SNAPSHOT。
+     */
     public Map<String, Object> getStudentRadar(Long studentId, Long courseId) {
         Map<String, Object> radar = new LinkedHashMap<>();
 
-        // 学生5维分: 先按指定课程ID查，没有再查综合预警(course_id IS NULL)
-        AlertRecord alert = alertRecordMapper.selectOne(
-                new LambdaQueryWrapper<AlertRecord>()
-                        .eq(AlertRecord::getStudentId, studentId)
-                        .eq(courseId != null, AlertRecord::getCourseId, courseId)
-                        .orderByDesc(AlertRecord::getCreateTime)
-                        .last("LIMIT 1"));
-
-        if (alert == null) {
-            alert = alertRecordMapper.selectOne(
-                    new LambdaQueryWrapper<AlertRecord>()
-                            .eq(AlertRecord::getStudentId, studentId)
-                            .isNull(AlertRecord::getCourseId)
-                            .orderByDesc(AlertRecord::getCreateTime)
-                            .last("LIMIT 1"));
-        }
+        RadarSource src = pickRadarSource(studentId, courseId);
+        String scope = src.scope();
+        String source = src.alert() != null ? SOURCE_ALERT
+                : (src.snapshot() != null ? SOURCE_SNAPSHOT : SOURCE_NONE);
 
         Map<String, Object> student = new LinkedHashMap<>();
-        if (alert != null) {
-            student.put("academic", alert.getAcademicRiskScore() != null ? alert.getAcademicRiskScore().doubleValue() : 0);
-            student.put("homework", alert.getHomeworkRiskScore() != null ? alert.getHomeworkRiskScore().doubleValue() : 0);
-            student.put("attendance", alert.getAttendanceRiskScore() != null ? alert.getAttendanceRiskScore().doubleValue() : 0);
-            student.put("knowledge", alert.getKnowledgeRiskScore() != null ? alert.getKnowledgeRiskScore().doubleValue() : 0);
-            student.put("history", alert.getHistoryRiskScore() != null ? alert.getHistoryRiskScore().doubleValue() : 0);
+        List<String> missingDimensions = new ArrayList<>();
+        if (src.alert() != null) {
+            AlertRecord alert = src.alert();
+            putDimension(student, "academic", alert.getAcademicRiskScore(), missingDimensions);
+            putDimension(student, "homework", alert.getHomeworkRiskScore(), missingDimensions);
+            putDimension(student, "attendance", alert.getAttendanceRiskScore(), missingDimensions);
+            putDimension(student, "knowledge", alert.getKnowledgeRiskScore(), missingDimensions);
+            putDimension(student, "history", alert.getHistoryRiskScore(), missingDimensions);
             student.put("riskScore", alert.getRiskScore());
             student.put("alertLevel", alert.getAlertLevel());
+            student.put("status", alert.getStatus());
+            student.put("hasData", true);
+        } else if (src.snapshot() != null) {
+            AlertSnapshot snap = src.snapshot();
+            putDimension(student, "academic", snap.getAcademicRiskScore(), missingDimensions);
+            putDimension(student, "homework", snap.getHomeworkRiskScore(), missingDimensions);
+            putDimension(student, "attendance", snap.getAttendanceRiskScore(), missingDimensions);
+            putDimension(student, "knowledge", snap.getKnowledgeRiskScore(), missingDimensions);
+            putDimension(student, "history", snap.getHistoryRiskScore(), missingDimensions);
+            student.put("riskScore", snap.getRiskScore());
+            student.put("alertLevel", snap.getAlertLevel());
+            student.put("status", SOURCE_SNAPSHOT);
+            student.put("dataDate", snap.getSnapshotDate());
             student.put("hasData", true);
         } else {
             for (String k : new String[]{"academic", "homework", "attendance", "knowledge", "history"}) {
@@ -679,57 +715,310 @@ public class AlertQueryService {
             student.put("hasData", false);
         }
         radar.put("student", student);
+        radar.put("scope", scope);
+        radar.put("source", source);
+        radar.put("scopeText", scopeText(scope, source,
+                src.snapshot() != null ? src.snapshot().getSnapshotDate() : null));
+        radar.put("missingDimensions", missingDimensions);
+        radar.put("missingDimensionTexts",
+                missingDimensions.stream().map(DIMENSION_LABELS::get).toList());
 
-            // 班级均值: 每个同学只取最新一条预警, 避免全表扫描
+        // 班级均值: 优先"每人最新一条有效预警"，班级没有预警时退回"每人最新快照"
         Student stu = studentMapper.selectById(studentId);
         if (stu != null && stu.getClassName() != null) {
             List<Student> classmates = studentMapper.selectList(
                     new LambdaQueryWrapper<Student>().eq(Student::getClassName, stu.getClassName()));
-            List<Long> cids = classmates.stream().map(Student::getId).limit(100).toList();
+            if (classmates.size() > 1) {
+                List<Long> cids = classmates.stream().map(Student::getId).toList();
 
-            // 仅取最近200条, 足够计算均值 (同样先按课程ID查，再退查综合预警)
-            Page<AlertRecord> page200 = new Page<>(1, 200);
-            Page<AlertRecord> classAlertsPage = alertRecordMapper.selectPage(page200,
-                    new LambdaQueryWrapper<AlertRecord>()
-                            .in(AlertRecord::getStudentId, cids)
-                            .eq(courseId != null, AlertRecord::getCourseId, courseId)
-                            .orderByDesc(AlertRecord::getCreateTime));
-            List<AlertRecord> classAlerts = classAlertsPage.getRecords();
-            if (classAlerts.isEmpty()) {
-                Page<AlertRecord> classAlertsPage2 = alertRecordMapper.selectPage(new Page<>(1, 200),
-                        new LambdaQueryWrapper<AlertRecord>()
-                                .in(AlertRecord::getStudentId, cids)
-                                .isNull(AlertRecord::getCourseId)
-                                .orderByDesc(AlertRecord::getCreateTime));
-                classAlerts = classAlertsPage2.getRecords();
+                // 班级均值与"学生本人"保持同源：个人走快照时班级也用快照，避免两套口径混在一张图里
+                Map<String, Object> avg = new LinkedHashMap<>();
+                String classSource;
+                String classScope = courseId != null ? SCOPE_COURSE : SCOPE_COMPREHENSIVE;
+                if (SOURCE_SNAPSHOT.equals(source)) {
+                    List<AlertSnapshot> classSnaps = latestSnapshotByStudent(cids, courseId);
+                    if (classSnaps.isEmpty() && courseId != null) {
+                        classSnaps = latestSnapshotByStudent(cids, null);
+                        classScope = SCOPE_COMPREHENSIVE;
+                    }
+                    if (classSnaps.isEmpty()) {
+                        classSnaps = latestSnapshotByStudentAny(cids);
+                        classScope = SCOPE_ANY_COURSE;
+                    }
+                    classSource = classSnaps.isEmpty() ? SOURCE_NONE : SOURCE_SNAPSHOT;
+                    avg.put("academic", avgValue(classSnaps, AlertSnapshot::getAcademicRiskScore));
+                    avg.put("homework", avgValue(classSnaps, AlertSnapshot::getHomeworkRiskScore));
+                    avg.put("attendance", avgValue(classSnaps, AlertSnapshot::getAttendanceRiskScore));
+                    avg.put("knowledge", avgValue(classSnaps, AlertSnapshot::getKnowledgeRiskScore));
+                    avg.put("history", avgValue(classSnaps, AlertSnapshot::getHistoryRiskScore));
+                } else {
+                    // 个人走预警 → 班级均值优先用预警；班级完全没有预警时才退回快照
+                    List<AlertRecord> classAlerts = latestAlertByStudent(cids, courseId);
+                    if (classAlerts.isEmpty() && courseId != null) {
+                        classAlerts = latestAlertByStudent(cids, null);
+                        classScope = SCOPE_COMPREHENSIVE;
+                    }
+                    if (classAlerts.isEmpty()) {
+                        classAlerts = latestAlertByStudentAny(cids);
+                        classScope = SCOPE_ANY_COURSE;
+                    }
+                    if (!classAlerts.isEmpty()) {
+                        classSource = SOURCE_ALERT;
+                        avg.put("academic", avgValue(classAlerts, AlertRecord::getAcademicRiskScore));
+                        avg.put("homework", avgValue(classAlerts, AlertRecord::getHomeworkRiskScore));
+                        avg.put("attendance", avgValue(classAlerts, AlertRecord::getAttendanceRiskScore));
+                        avg.put("knowledge", avgValue(classAlerts, AlertRecord::getKnowledgeRiskScore));
+                        avg.put("history", avgValue(classAlerts, AlertRecord::getHistoryRiskScore));
+                    } else {
+                        List<AlertSnapshot> classSnaps = latestSnapshotByStudent(cids, courseId);
+                        if (classSnaps.isEmpty() && courseId != null) {
+                            classSnaps = latestSnapshotByStudent(cids, null);
+                            classScope = SCOPE_COMPREHENSIVE;
+                        }
+                        if (classSnaps.isEmpty()) {
+                            classSnaps = latestSnapshotByStudentAny(cids);
+                            classScope = SCOPE_ANY_COURSE;
+                        }
+                        classSource = classSnaps.isEmpty() ? SOURCE_NONE : SOURCE_SNAPSHOT;
+                        avg.put("academic", avgValue(classSnaps, AlertSnapshot::getAcademicRiskScore));
+                        avg.put("homework", avgValue(classSnaps, AlertSnapshot::getHomeworkRiskScore));
+                        avg.put("attendance", avgValue(classSnaps, AlertSnapshot::getAttendanceRiskScore));
+                        avg.put("knowledge", avgValue(classSnaps, AlertSnapshot::getKnowledgeRiskScore));
+                        avg.put("history", avgValue(classSnaps, AlertSnapshot::getHistoryRiskScore));
+                    }
+                }
+
+                // 若均值全为 0, 说明班级暂无数据, 不返回 classAvg
+                boolean anyNonZero = avg.values().stream()
+                        .anyMatch(v -> v instanceof Number && ((Number) v).doubleValue() > 0);
+                if (anyNonZero) {
+                    radar.put("classAvg", avg);
+                    radar.put("classAvgSource", classSource);
+                    radar.put("classAvgScope", classScope);
+                    radar.put("classAvgScopeText", scopeText(classScope, classSource, null));
+                }
             }
-
-            Map<String, Object> avg = new LinkedHashMap<>();
-            avg.put("academic", avgVal(classAlerts, AlertRecord::getAcademicRiskScore));
-            avg.put("homework", avgVal(classAlerts, AlertRecord::getHomeworkRiskScore));
-            avg.put("attendance", avgVal(classAlerts, AlertRecord::getAttendanceRiskScore));
-            avg.put("knowledge", avgVal(classAlerts, AlertRecord::getKnowledgeRiskScore));
-            avg.put("history", avgVal(classAlerts, AlertRecord::getHistoryRiskScore));
-            radar.put("classAvg", avg);
         }
 
         return radar;
     }
 
-    private double avgVal(List<AlertRecord> list, java.util.function.Function<AlertRecord, java.math.BigDecimal> getter) {
+    /** 雷达取数来源：有效预警 → 每日快照 → 空 */
+    private record RadarSource(AlertRecord alert, AlertSnapshot snapshot, String scope) {}
+
+    private RadarSource pickRadarSource(Long studentId, Long courseId) {
+        // 1) 有效预警三级兜底: 指定课程 → 综合预警(course_id IS NULL) → 任意课程
+        if (courseId != null) {
+            AlertRecord alert = latestAlert(studentId, courseId, false);
+            if (alert != null) return new RadarSource(alert, null, SCOPE_COURSE);
+        }
+        if (courseId != null) {
+            AlertRecord alert = latestAlert(studentId, null, true);
+            if (alert != null) return new RadarSource(alert, null, SCOPE_COMPREHENSIVE);
+        }
+        AlertRecord anyAlert = latestAlert(studentId, null, false);
+        if (anyAlert != null) return new RadarSource(anyAlert, null, SCOPE_ANY_COURSE);
+
+        // 2) 没有有效预警 → 退回每日快照(方案A: 每个选了课的学生每天一条)
+        if (courseId != null) {
+            AlertSnapshot snap = latestSnapshot(studentId, courseId, false);
+            if (snap != null) return new RadarSource(null, snap, SCOPE_COURSE);
+        }
+        if (courseId != null) {
+            AlertSnapshot snap = latestSnapshot(studentId, null, true);
+            if (snap != null) return new RadarSource(null, snap, SCOPE_COMPREHENSIVE);
+        }
+        AlertSnapshot anySnap = latestSnapshot(studentId, null, false);
+        if (anySnap != null) return new RadarSource(null, anySnap, SCOPE_ANY_COURSE);
+
+        return new RadarSource(null, null, SCOPE_NONE);
+    }
+
+    /** 雷达图维度取值：为空时记 0 分并登记缺失，便于前端提示"该维度暂无数据" */
+    private void putDimension(Map<String, Object> target, String key, BigDecimal value, List<String> missing) {
+        if (value == null) {
+            target.put(key, 0.0);
+            missing.add(key);
+        } else {
+            target.put(key, value.doubleValue());
+        }
+    }
+
+    /** 数据口径文案：说明这张画像来自哪个范围、以及是预警还是快照 */
+    private String scopeText(String scope, String source, LocalDate snapshotDate) {
+        boolean fromSnapshot = SOURCE_SNAPSHOT.equals(source);
+        String base = switch (scope) {
+            case SCOPE_COURSE -> fromSnapshot ? "本课程最新每日快照" : "本课程最新有效预警";
+            case SCOPE_COMPREHENSIVE -> fromSnapshot ? "综合快照（未分课程）" : "综合预警（未分课程）";
+            case SCOPE_ANY_COURSE -> fromSnapshot ? "该课程暂无数据，展示最近一次其他课程快照"
+                                                  : "该课程暂无有效预警，展示最近一次其他课程预警";
+            default -> "暂无预警与快照数据";
+        };
+        return fromSnapshot && snapshotDate != null ? base + "（" + snapshotDate + "）" : base;
+    }
+
+    /** 通用均值计算：预警与快照共用 */
+    private <T> double avgValue(List<T> list, java.util.function.Function<T, BigDecimal> getter) {
         return list.stream()
                 .map(getter)
                 .filter(Objects::nonNull)
-                .mapToDouble(java.math.BigDecimal::doubleValue)
+                .mapToDouble(BigDecimal::doubleValue)
                 .average().orElse(0);
     }
 
-    /** 学生风险趋势(从alert_snapshot读取) */
-    public List<Map<String, Object>> getStudentRiskTrend(Long studentId, Long courseId) {
+    /**
+     * 取指定学生集合在某一课程（或综合预警）下的最新一条预警，按学生去重
+     */
+    /** 取单个学生最新一条有效预警; courseId 为空表示"任意课程", onlyComprehensive=true 时只查综合预警 */
+    private AlertRecord latestAlert(Long studentId, Long courseId, boolean onlyComprehensive) {
+        LambdaQueryWrapper<AlertRecord> wrapper = new LambdaQueryWrapper<AlertRecord>()
+                .eq(AlertRecord::getStudentId, studentId)
+                .notIn(AlertRecord::getStatus, INVALID_RADAR_STATUSES)
+                .orderByDesc(AlertRecord::getCreateTime);
+        if (onlyComprehensive) {
+            wrapper.isNull(AlertRecord::getCourseId);
+        } else if (courseId != null) {
+            wrapper.eq(AlertRecord::getCourseId, courseId);
+        }
+        return alertRecordMapper.selectOne(wrapper.last("LIMIT 1"));
+    }
+
+    /**
+     * 取指定学生集合在某一课程（或综合预警）下的最新一条有效预警，按学生去重。
+     * courseId 为空时只匹配综合预警(course_id IS NULL)
+     */
+    private List<AlertRecord> latestAlertByStudent(List<Long> studentIds, Long courseId) {
+        if (studentIds == null || studentIds.isEmpty()) return List.of();
+        Page<AlertRecord> page = new Page<>(1, 500);
+        Page<AlertRecord> result = alertRecordMapper.selectPage(page,
+                new LambdaQueryWrapper<AlertRecord>()
+                        .in(AlertRecord::getStudentId, studentIds)
+                        .notIn(AlertRecord::getStatus, INVALID_RADAR_STATUSES)
+                        .eq(courseId != null, AlertRecord::getCourseId, courseId)
+                        .isNull(courseId == null, AlertRecord::getCourseId)
+                        .orderByDesc(AlertRecord::getCreateTime));
+        return dedupeByStudent(result.getRecords());
+    }
+
+    /** 取指定学生集合各自最新一条有效预警(任意课程), 按学生去重 */
+    private List<AlertRecord> latestAlertByStudentAny(List<Long> studentIds) {
+        if (studentIds == null || studentIds.isEmpty()) return List.of();
+        Page<AlertRecord> page = new Page<>(1, 500);
+        Page<AlertRecord> result = alertRecordMapper.selectPage(page,
+                new LambdaQueryWrapper<AlertRecord>()
+                        .in(AlertRecord::getStudentId, studentIds)
+                        .notIn(AlertRecord::getStatus, INVALID_RADAR_STATUSES)
+                        .orderByDesc(AlertRecord::getCreateTime));
+        return dedupeByStudent(result.getRecords());
+    }
+
+    private List<AlertRecord> dedupeByStudent(List<AlertRecord> records) {
+        Map<Long, AlertRecord> latest = new LinkedHashMap<>();
+        for (AlertRecord a : records) {
+            latest.putIfAbsent(a.getStudentId(), a);
+        }
+        return List.copyOf(latest.values());
+    }
+
+    // ==================== 快照取数（雷达/班级均值兜底用） ====================
+
+    /** 取单个学生最新一条快照; courseId 为空表示"任意课程", onlyComprehensive=true 时只查综合快照 */
+    private AlertSnapshot latestSnapshot(Long studentId, Long courseId, boolean onlyComprehensive) {
+        LambdaQueryWrapper<AlertSnapshot> wrapper = new LambdaQueryWrapper<AlertSnapshot>()
+                .eq(AlertSnapshot::getStudentId, studentId)
+                .orderByDesc(AlertSnapshot::getSnapshotDate)
+                .orderByDesc(AlertSnapshot::getId);
+        if (onlyComprehensive) {
+            wrapper.isNull(AlertSnapshot::getCourseId);
+        } else if (courseId != null) {
+            wrapper.eq(AlertSnapshot::getCourseId, courseId);
+        }
+        return alertSnapshotMapper.selectOne(wrapper.last("LIMIT 1"));
+    }
+
+    /** 取指定学生集合在某一课程（或综合快照）下的最新快照，按学生去重 */
+    private List<AlertSnapshot> latestSnapshotByStudent(List<Long> studentIds, Long courseId) {
+        if (studentIds == null || studentIds.isEmpty()) return List.of();
+        Page<AlertSnapshot> page = new Page<>(1, 500);
+        Page<AlertSnapshot> result = alertSnapshotMapper.selectPage(page,
+                new LambdaQueryWrapper<AlertSnapshot>()
+                        .in(AlertSnapshot::getStudentId, studentIds)
+                        .eq(courseId != null, AlertSnapshot::getCourseId, courseId)
+                        .isNull(courseId == null, AlertSnapshot::getCourseId)
+                        .orderByDesc(AlertSnapshot::getSnapshotDate)
+                        .orderByDesc(AlertSnapshot::getId));
+        return dedupeSnapshotsByStudent(result.getRecords());
+    }
+
+    /** 取指定学生集合各自最新快照(任意课程), 按学生去重 */
+    private List<AlertSnapshot> latestSnapshotByStudentAny(List<Long> studentIds) {
+        if (studentIds == null || studentIds.isEmpty()) return List.of();
+        Page<AlertSnapshot> page = new Page<>(1, 500);
+        Page<AlertSnapshot> result = alertSnapshotMapper.selectPage(page,
+                new LambdaQueryWrapper<AlertSnapshot>()
+                        .in(AlertSnapshot::getStudentId, studentIds)
+                        .orderByDesc(AlertSnapshot::getSnapshotDate)
+                        .orderByDesc(AlertSnapshot::getId));
+        return dedupeSnapshotsByStudent(result.getRecords());
+    }
+
+    /** 已按 snapshot_date 倒序，每个学生保留第一条（最新） */
+    private List<AlertSnapshot> dedupeSnapshotsByStudent(List<AlertSnapshot> records) {
+        Map<Long, AlertSnapshot> latest = new LinkedHashMap<>();
+        for (AlertSnapshot s : records) {
+            latest.putIfAbsent(s.getStudentId(), s);
+        }
+        return List.copyOf(latest.values());
+    }
+
+    /**
+     * 学生风险趋势：快照优先，无快照时退回预警记录（按天去重）。
+     *
+     * @return {points: [...], source: SNAPSHOT|ALERT_RECORD|NONE, sourceText: 中文说明}
+     */
+    public Map<String, Object> getStudentRiskTrend(Long studentId, Long courseId) {
+        List<Map<String, Object>> points = trendFromSnapshots(studentId, courseId);
+        String source = TREND_SOURCE_SNAPSHOT;
+        if (points.isEmpty() && courseId != null) {
+            points = trendFromSnapshots(studentId, null);
+        }
+        if (points.isEmpty()) {
+            points = trendFromSnapshotsAny(studentId);
+        }
+
+        // 无任何快照时 fallback 到 alert_record 历史
+        if (points.isEmpty()) {
+            source = TREND_SOURCE_ALERT;
+            points = trendFromAlertRecords(studentId, courseId);
+            if (points.isEmpty() && courseId != null) {
+                points = trendFromAlertRecords(studentId, null);
+            }
+            if (points.isEmpty()) {
+                points = trendFromAlertRecordsAny(studentId);
+            }
+        }
+        if (points.isEmpty()) {
+            source = SCOPE_NONE;
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("points", points);
+        result.put("source", source);
+        result.put("sourceText", switch (source) {
+            case TREND_SOURCE_SNAPSHOT -> "预警快照（按日）";
+            case TREND_SOURCE_ALERT -> "预警记录（暂无每日快照，按天去重）";
+            default -> "暂无趋势数据";
+        });
+        return result;
+    }
+
+    /** 快照: courseId 为空表示只查综合预警(course_id IS NULL) */
+    private List<Map<String, Object>> trendFromSnapshots(Long studentId, Long courseId) {
         List<AlertSnapshot> snapshots = alertSnapshotMapper.selectList(
                 new LambdaQueryWrapper<AlertSnapshot>()
                         .eq(AlertSnapshot::getStudentId, studentId)
-                        .eq(AlertSnapshot::getCourseId, courseId)
+                        .eq(courseId != null, AlertSnapshot::getCourseId, courseId)
+                        .isNull(courseId == null, AlertSnapshot::getCourseId)
                         .orderByAsc(AlertSnapshot::getSnapshotDate));
         return snapshots.stream().map(s -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -739,6 +1028,61 @@ public class AlertQueryService {
             m.put("predictedScore", s.getPredictedScore());
             return m;
         }).toList();
+    }
+
+    /** 快照: 任意课程 */
+    private List<Map<String, Object>> trendFromSnapshotsAny(Long studentId) {
+        List<AlertSnapshot> snapshots = alertSnapshotMapper.selectList(
+                new LambdaQueryWrapper<AlertSnapshot>()
+                        .eq(AlertSnapshot::getStudentId, studentId)
+                        .orderByAsc(AlertSnapshot::getSnapshotDate));
+        return snapshots.stream().map(s -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("date", s.getSnapshotDate().toString());
+            m.put("riskScore", s.getRiskScore());
+            m.put("alertLevel", s.getAlertLevel());
+            m.put("predictedScore", s.getPredictedScore());
+            return m;
+        }).toList();
+    }
+
+    /** 预警历史: courseId 为空表示只查综合预警(course_id IS NULL) */
+    private List<Map<String, Object>> trendFromAlertRecords(Long studentId, Long courseId) {
+        return toTrend(alertRecordMapper.selectPage(new Page<>(1, 50),
+                new LambdaQueryWrapper<AlertRecord>()
+                        .eq(AlertRecord::getStudentId, studentId)
+                        .eq(courseId != null, AlertRecord::getCourseId, courseId)
+                        .isNull(courseId == null, AlertRecord::getCourseId)
+                        .orderByDesc(AlertRecord::getCreateTime)).getRecords());
+    }
+
+    /** 预警历史: 任意课程 */
+    private List<Map<String, Object>> trendFromAlertRecordsAny(Long studentId) {
+        return toTrend(alertRecordMapper.selectPage(new Page<>(1, 50),
+                new LambdaQueryWrapper<AlertRecord>()
+                        .eq(AlertRecord::getStudentId, studentId)
+                        .orderByDesc(AlertRecord::getCreateTime)).getRecords());
+    }
+
+    /** 将预警记录按天去重后转趋势点 */
+    private List<Map<String, Object>> toTrend(List<AlertRecord> records) {
+        Map<LocalDate, AlertRecord> byDate = new LinkedHashMap<>();
+        for (AlertRecord a : records) {
+            if (a.getCreateTime() == null || a.getRiskScore() == null) continue;
+            LocalDate d = a.getCreateTime().toLocalDate();
+            byDate.putIfAbsent(d, a);
+        }
+        return byDate.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> {
+                    AlertRecord a = e.getValue();
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("date", e.getKey().toString());
+                    m.put("riskScore", a.getRiskScore());
+                    m.put("alertLevel", a.getAlertLevel());
+                    m.put("predictedScore", a.getPredictedScore());
+                    return m;
+                }).toList();
     }
 
     /** 班级风险热力图 */

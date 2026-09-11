@@ -19,6 +19,9 @@ import java.util.stream.Collectors;
 @Service
 public class StudentQueryService {
 
+    /** 缺失历史数据时的默认历史风险分（与 alert_rule_config.default_history_risk 默认值 15 对齐） */
+    private static final double DEFAULT_HISTORY_RISK_WHEN_MISSING = 15.0;
+
     private final TeacherClassMapper teacherClassMapper;
     private final StudentMapper studentMapper;
     private final CourseMapper courseMapper;
@@ -576,7 +579,7 @@ public class StudentQueryService {
      * 大一新生专属评分体系
      * 学业成绩 45%、作业完成 25%、知识点掌握 16%、课堂表现 14%
      */
-    private Double calculateFreshmanScore(Long courseId, ScoreInfoVO score,
+    static Double calculateFreshmanScore(Long courseId, ScoreInfoVO score,
                                          List<HomeworkInfo> homeworks,
                                          List<ClassPerformance> performances,
                                          List<KnowledgeMastery> masteries,
@@ -666,16 +669,33 @@ public class StudentQueryService {
     /**
      * 老生通用版评分体系
      * 学业成绩 26%、作业完成 12%、知识点掌握 9%、课堂表现 8%、历史风险与学习稳定性 45%
+     *
+     * <p>子指标口径与新生体系、预警风险计算保持一致：
+     * <ol>
+     *   <li>期末成绩缺失时用 平时 40% + 期中 60% 推算，仍缺失则取平时成绩；</li>
+     *   <li>知识点正确率 = (总题数 - 错题数) / 总题数（仅缺少总题数时才退回基础题正确率）；</li>
+     *   <li>作业分 = 提交率 50% + 按时提交率 30% + 均分 20%；</li>
+     *   <li>挂科史字段可能是"是/否"或次数，统一由 parseFailedCount 解析。</li>
+     * </ol>
      */
-    private Double calculateSeniorScore(Long courseId, ScoreInfoVO score,
-                                        List<HomeworkInfo> homeworks,
-                                        List<ClassPerformance> performances,
-                                        List<KnowledgeMastery> masteries,
-                                        List<HistoryRisk> historyRisks) {
+    static Double calculateSeniorScore(Long courseId, ScoreInfoVO score,
+                                       List<HomeworkInfo> homeworks,
+                                       List<ClassPerformance> performances,
+                                       List<KnowledgeMastery> masteries,
+                                       List<HistoryRisk> historyRisks) {
         double total = 0.0;
 
         // ========== 学业成绩 26% ==========
-        double academicScore = (score.getFinalScore() != null) ? score.getFinalScore() : 0;
+        double us = (score.getUsualScore() != null) ? score.getUsualScore() : 0;
+        double ms = (score.getMidScore() != null) ? score.getMidScore() : 0;
+        double academicScore = 0;
+        if (score.getFinalScore() != null) {
+            academicScore = score.getFinalScore();
+        } else if (score.getMidScore() != null) {
+            academicScore = us * 0.4 + ms * 0.6;
+        } else if (score.getUsualScore() != null) {
+            academicScore = us;
+        }
         total += academicScore * 0.26;
 
         // ========== 作业完成 12% ==========
@@ -684,7 +704,14 @@ public class StudentQueryService {
                 .findFirst().orElse(null);
         double homeworkScore = 0;
         if (hw != null && hw.getTotalHomework() != null && hw.getTotalHomework() > 0) {
-            homeworkScore = (hw.getSubmitCount() * 100.0 / hw.getTotalHomework());
+            double submitRate = hw.getSubmitCount() * 100.0 / hw.getTotalHomework();
+            double ontimeRate = submitRate;
+            if (hw.getLateSubmitCount() != null) {
+                ontimeRate = Math.max(0,
+                        (hw.getSubmitCount() - hw.getLateSubmitCount()) * 100.0 / hw.getTotalHomework());
+            }
+            double avgScoreRate = (hw.getAvgScore() != null) ? hw.getAvgScore() : 0;
+            homeworkScore = submitRate * 0.50 + ontimeRate * 0.30 + avgScoreRate * 0.20;
         }
         total += homeworkScore * 0.12;
 
@@ -693,10 +720,14 @@ public class StudentQueryService {
                 .filter(k -> k.getCourseId().equals(courseId))
                 .findFirst().orElse(null);
         double knowledgeScore = 0;
-        if (km != null && km.getTotalQuestion() != null && km.getTotalQuestion() > 0) {
-            int correct = km.getBasicCorrect() != null ? km.getBasicCorrect() : 0;
-            int totalQ = km.getTotalQuestion();
-            knowledgeScore = (correct * 100.0 / totalQ);
+        if (km != null) {
+            if (km.getTotalQuestion() != null && km.getTotalQuestion() > 0) {
+                int errorCount = km.getErrorCount() != null ? km.getErrorCount() : 0;
+                int correct = km.getTotalQuestion() - errorCount;
+                knowledgeScore = Math.max(0, correct * 100.0 / km.getTotalQuestion());
+            } else if (km.getBasicTotal() != null && km.getBasicTotal() > 0) {
+                knowledgeScore = (km.getBasicCorrect() != null ? km.getBasicCorrect() : 0) * 100.0 / km.getBasicTotal();
+            }
         }
         total += knowledgeScore * 0.09;
 
@@ -707,7 +738,7 @@ public class StudentQueryService {
         double classScore = 0;
         if (cp != null && cp.getTotalClassTimes() != null && cp.getTotalClassTimes() > 0) {
             int present = cp.getTotalClassTimes() - (cp.getAbsentCount() != null ? cp.getAbsentCount() : 0);
-            double attendanceRate = present * 100.0 / cp.getTotalClassTimes();
+            double attendanceRate = Math.max(0, present * 100.0 / cp.getTotalClassTimes());
             classScore = attendanceRate;
             if (cp.getQuizScore() != null) {
                 classScore = classScore * 0.6 + cp.getQuizScore() * 0.4;
@@ -719,22 +750,43 @@ public class StudentQueryService {
         HistoryRisk risk = historyRisks.stream()
                 .filter(r -> r.getCourseId().equals(courseId))
                 .findFirst().orElse(null);
-        double riskScore = 100;
-        if (risk != null) {
-            if (risk.getLastTermFailed() != null) {
-                try {
-                    int failed = Integer.parseInt(risk.getLastTermFailed());
-                    riskScore -= failed * 20;
-                } catch (NumberFormatException ignored) {}
-            }
-            if ("不稳定".equals(risk.getStudyStable())) {
-                riskScore -= 15;
-            }
-            riskScore = Math.max(0, riskScore);
-        }
-        total += riskScore * 0.45;
+        total += seniorHistoryScore(risk) * 0.45;
 
         return Math.round(total * 10) / 10.0;
+    }
+
+    /**
+     * 老生体系"历史风险与学习稳定性"得分（0-100，越高越好）。
+     *
+     * <p>缺失历史记录时不再按满分处理，而是扣掉与预警侧 default_history_risk（默认 15）对齐的默认风险，
+     * 避免"没有历史数据 = 历史零风险"的口径失真。
+     */
+    static double seniorHistoryScore(HistoryRisk risk) {
+        if (risk == null) {
+            return 100 - DEFAULT_HISTORY_RISK_WHEN_MISSING;
+        }
+        double score = 100 - parseFailedCount(risk.getLastTermFailed()) * 20;
+        if ("不稳定".equals(risk.getStudyStable())) {
+            score -= 15;
+        }
+        return Math.max(0, score);
+    }
+
+    /**
+     * 解析"上学期是否挂科"字段：兼容 "是/否"、"有/无"、"true/false" 以及具体挂科次数
+     *
+     * @return 挂科次数（无法识别时按 0 处理）
+     */
+    static int parseFailedCount(String lastTermFailed) {
+        if (lastTermFailed == null || lastTermFailed.isBlank()) return 0;
+        String v = lastTermFailed.trim();
+        if ("是".equals(v) || "有".equals(v) || "true".equalsIgnoreCase(v)) return 1;
+        if ("否".equals(v) || "无".equals(v) || "false".equalsIgnoreCase(v)) return 0;
+        try {
+            return Math.max(0, Integer.parseInt(v));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     /**

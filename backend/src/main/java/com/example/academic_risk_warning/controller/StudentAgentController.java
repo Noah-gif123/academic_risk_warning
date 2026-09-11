@@ -1,6 +1,6 @@
 package com.example.academic_risk_warning.controller;
 
-import com.example.academic_risk_warning.llm.LLMClient;
+import com.example.academic_risk_warning.llm.BailianRAGClient;
 import com.example.academic_risk_warning.service.StudentContextService;
 import com.example.academic_risk_warning.service.TokenService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,14 +24,15 @@ public class StudentAgentController {
 
     private final StudentContextService studentContextService;
     private final TokenService tokenService;
-    private final LLMClient llmClient;
+    /** 学生助手必须走"课程级知识库"客户端；注入 LLMClient 会拿到 @Primary 的通用 Chat 客户端（无检索） */
+    private final BailianRAGClient ragClient;
 
     public StudentAgentController(StudentContextService studentContextService,
                                    TokenService tokenService,
-                                   LLMClient llmClient) {
+                                   BailianRAGClient ragClient) {
         this.studentContextService = studentContextService;
         this.tokenService = tokenService;
-        this.llmClient = llmClient;
+        this.ragClient = ragClient;
     }
 
     /**
@@ -70,16 +71,25 @@ public class StudentAgentController {
             // 构建学情上下文
             String context = studentContextService.buildStudentContext(studentId, courseId);
 
-            // 构建系统提示词
-            String systemPrompt = buildSystemPrompt(context);
+            // 走课程级知识库检索：把"个人学情上下文 + 学生问题"一起作为检索问题，
+            // 使答案既来自课程知识库、又结合该生当前学情（此前只构建了 prompt 却没传给模型）
+            String ragQuestion = buildSystemPrompt(context) + "\n【学生问题】\n" + question;
+            BailianRAGClient.RagAnswer answer = ragClient.ragQueryDetailed(ragQuestion, courseId);
+            Map<String, Object> decorated = com.example.academic_risk_warning.service.RiskCenterService
+                    .decorateRagAnswer(answer);
 
-            // 调用 LLM（传入 courseId 以路由到对应课程知识库）
-            String rawReply = llmClient.ragQuery(question, courseId);
+            String reply = String.valueOf(decorated.get("reply"));
+            if (!Boolean.TRUE.equals(decorated.get("grounded")) && !Boolean.TRUE.equals(decorated.get("refusal"))) {
+                // 无引用依据：明确提示学生"这条回答没有知识库出处"，避免被无依据内容误导
+                reply = reply + "\n\n（提示：本条回答未返回知识库引用依据，请以教材和老师讲解为准。）";
+            }
 
             result.put("success", true);
-            result.put("reply", rawReply);
+            result.putAll(decorated);
+            result.put("reply", reply);
             result.put("contextUsed", context);
             result.put("courseId", courseId);
+            result.put("knowledgeBase", courseId != null ? "course-" + courseId : "default");
         } catch (Exception e) {
             log.error("学生AI助手对话失败: studentId={}, question={}", studentId, question, e);
             result.put("success", false);
@@ -189,6 +199,10 @@ public class StudentAgentController {
             6. 如果学生状态良好，也要真诚地表扬和鼓励。
             7. 回答控制在300字以内，重点突出。
             8. 不要透露你是一个AI模型。
+            
+            === 引用要求（必须遵守） ===
+            9. 回答的最后另起一行输出：依据：<你依据的课程知识点或文件名称，多个用「、」分隔>
+            10. 如果课程知识库里没有相关依据，就不要凭记忆作答，只回复「该问题超出本课程范围，建议咨询任课老师」。
             """.formatted(context);
     }
 

@@ -335,9 +335,11 @@ async function saveAlertConfig() {
 
 async function removeAlertConfig(id) {
   if (!confirm('确定删除？')) return
-  const res = await deleteAlertConfig(adminToken.value, id)
-  if (res.success) await loadAlertConfigs()
-  else setMsg(res.message || '删除失败', 'error')
+  try {
+    const res = await deleteAlertConfig(adminToken.value, id)
+    if (res.success) await loadAlertConfigs()
+    else setMsg(res.message || '删除失败', 'error')
+  } catch (e) { setMsg(e?.message || '删除失败', 'error') }
 }
 
 // ============ 题库审核 ============
@@ -354,17 +356,21 @@ async function loadPendingAudits() {
 
 async function auditApprove(id) {
   if (!confirm('确定通过？')) return
-  const res = await approveExercise(adminToken.value, id)
-  if (res.success) { setMsg('审核通过', 'success'); await loadPendingAudits() }
-  else setMsg(res.message || '操作失败', 'error')
+  try {
+    const res = await approveExercise(adminToken.value, id)
+    if (res.success) { setMsg('审核通过', 'success'); await loadPendingAudits() }
+    else setMsg(res.message || '操作失败', 'error')
+  } catch (e) { setMsg(e?.message || '操作失败', 'error') }
 }
 
 async function auditReject(id) {
   const remark = prompt('驳回理由：')
   if (!remark) return
-  const res = await rejectExercise(adminToken.value, id, remark)
-  if (res.success) { setMsg('已驳回', 'info'); await loadPendingAudits() }
-  else setMsg(res.message || '操作失败', 'error')
+  try {
+    const res = await rejectExercise(adminToken.value, id, remark)
+    if (res.success) { setMsg('已驳回', 'info'); await loadPendingAudits() }
+    else setMsg(res.message || '操作失败', 'error')
+  } catch (e) { setMsg(e?.message || '操作失败', 'error') }
 }
 
 // 初始加载

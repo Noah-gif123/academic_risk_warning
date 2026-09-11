@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 学生学习目标服务
@@ -27,6 +28,15 @@ public class StudentGoalService {
         return goalMapper.selectOne(new LambdaQueryWrapper<StudentGoal>()
                 .eq(StudentGoal::getStudentId, studentId)
                 .eq(StudentGoal::getCourseId, courseId));
+    }
+
+    /**
+     * 获取学生的全部课程学习目标（未指定课程时供画像生成参考）
+     */
+    public List<StudentGoal> listByStudent(Long studentId) {
+        return goalMapper.selectList(new LambdaQueryWrapper<StudentGoal>()
+                .eq(StudentGoal::getStudentId, studentId)
+                .orderByDesc(StudentGoal::getUpdateTime));
     }
 
     /**

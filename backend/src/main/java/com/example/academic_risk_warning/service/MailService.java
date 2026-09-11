@@ -1,6 +1,5 @@
 package com.example.academic_risk_warning.service;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +56,9 @@ public class MailService {
             helper.setText(htmlBody, true);
             mailSender.send(message);
             log.info("[MailService] 邮件已发送: to={}, subject={}", to, subject);
-        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+        } catch (Exception e) {
+            // 覆盖 MessagingException、MailException(运行时，如 SMTP 连接失败) 与编码异常：
+            // 邮件只是附加通知渠道，发送失败不应中断预警/画像等主流程
             log.error("[MailService] 邮件发送失败: {}", e.getMessage(), e);
         }
     }

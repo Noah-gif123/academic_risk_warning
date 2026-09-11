@@ -57,3 +57,6 @@ frontend/*.png
 .codebuddy/
 .playwright-cli/
 frontend/.playwright-cli/
+
+### 本地构建缓存（Gradle 用户目录副本，勿提交） ###
+.gradle-home/

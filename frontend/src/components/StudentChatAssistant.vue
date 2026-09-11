@@ -50,6 +50,19 @@
           <div class="sai-msg-avatar">{{ msg.role === 'user' ? (userName?.[0] || '我') : '🤖' }}</div>
           <div class="sai-msg-content">
             <pre class="sai-msg-text">{{ msg.content }}</pre>
+            <!-- W3 引用溯源：回答依据（知识库引用/应用检索命中） -->
+            <div v-if="msg.citations && msg.citations.length > 0" class="sai-citations">
+              <div class="sai-cite-title">📚 回答依据（{{ msg.citations.length }}）</div>
+              <div v-for="(c, ci) in msg.citations" :key="ci" class="sai-cite-item">
+                <span class="sai-cite-index">[{{ c.index }}]</span>
+                <span class="sai-cite-name">{{ c.title || ('依据 ' + c.index) }}</span>
+                <span v-if="c.source === 'APP_RETRIEVAL'" class="sai-cite-tag">知识库检索</span>
+                <div v-if="c.snippet" class="sai-cite-snippet">{{ c.snippet }}</div>
+              </div>
+            </div>
+            <div v-else-if="msg.role === 'assistant' && msg.grounded === false" class="sai-nocite">
+              ⚠️ {{ msg.retrievalNote || '本条回答未返回知识库引用依据' }}
+            </div>
           </div>
         </div>
 
@@ -187,7 +200,14 @@ async function sendMessage() {
   try {
     const res = await studentAgentChat(props.token, text, selectedCourseId.value)
     if (res.success) {
-      messages.value.push({ role: 'assistant', content: res.reply })
+      messages.value.push({
+        role: 'assistant',
+        content: res.reply,
+        citations: res.citations || [],
+        grounded: res.grounded,
+        refusal: res.refusal,
+        retrievalNote: res.retrievalNote
+      })
     } else {
       messages.value.push({ role: 'assistant', content: res.reply || '抱歉，暂时无法回复。' })
     }
@@ -366,6 +386,31 @@ defineExpose({ open, close, isOpen })
 .sai-msg-text {
   margin: 0; white-space: pre-wrap; word-break: break-word;
   font-size: 0.85rem; line-height: 1.6; font-family: inherit;
+}
+
+/* W3 引用溯源 */
+.sai-citations {
+  margin-top: 10px; padding-top: 8px; border-top: 1px dashed #dcdcdc;
+}
+.sai-cite-title {
+  font-size: 0.72rem; color: #6b7280; font-weight: 600; margin-bottom: 6px;
+}
+.sai-cite-item {
+  font-size: 0.74rem; color: #374151; line-height: 1.5; margin-bottom: 5px;
+}
+.sai-cite-index { color: #6366f1; font-weight: 700; margin-right: 4px; }
+.sai-cite-name { font-weight: 600; }
+.sai-cite-tag {
+  margin-left: 6px; font-size: 0.65rem; color: #0f766e;
+  background: #ccfbf1; border-radius: 4px; padding: 1px 5px;
+}
+.sai-cite-snippet {
+  color: #6b7280; margin-top: 2px; padding-left: 14px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.sai-nocite {
+  margin-top: 8px; font-size: 0.72rem; color: #b45309;
+  background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 4px 8px;
 }
 
 /* 输入中动画 */

@@ -232,6 +232,26 @@ public class FeedbackAgent extends BaseAgent<Map<String, Object>> {
     }
 
     /**
+     * 课程答疑 + 引用依据（W3）：返回引用列表与"是否有依据/是否拒答"，供教师端展示溯源
+     */
+    public BailianRAGClient.RagAnswer answerQuestionDetailed(String question, Long courseId) {
+        if (question == null || question.isBlank()) {
+            return BailianRAGClient.of("请输入你的问题。", java.util.List.of(), false, true);
+        }
+        try {
+            // W3：要求应用在回答末尾声明「依据：xxx」，便于前端做引用溯源
+            String questionWithCitationRule = question
+                    + "\n\n（请基于课程知识库作答，并在最后另起一行输出：依据：<知识库中的知识点或文件名称>；"
+                    + "若知识库中没有相关依据，请只回复「该问题超出本课程范围」。）";
+            return bailianRAGClient.ragQueryDetailed(questionWithCitationRule, courseId);
+        } catch (Exception e) {
+            log.error("[FeedbackAgent] RAG 答疑失败", e);
+            return BailianRAGClient.of("抱歉，知识库检索暂时不可用，请稍后再试。",
+                    java.util.List.of(), false, true);
+        }
+    }
+
+    /**
      * 快速意图识别（不经过完整 LLM 流程）
      */
     public Map<String, Object> classifyIntent(String message, Long studentId) {

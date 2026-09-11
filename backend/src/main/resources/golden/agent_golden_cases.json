@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "W2 golden set：每个用例声明目标智能体、输入（学生/课程）与期望产出字段。live=false 用已落库的运行结果评测；live=true 会真实跑一次完整评估（消耗大模型额度）。",
+  "cases": [
+    {
+      "caseId": "profile-student2-course1",
+      "agent": "ProfileAgent",
+      "studentId": 2,
+      "courseId": 1,
+      "expectedFields": ["knowledgeProfile", "habitProfile", "goalProfile"],
+      "note": "高风险学生的三维画像应完整给出知识/习惯/目标三个维度"
+    },
+    {
+      "caseId": "recommend-student2-course1",
+      "agent": "RecommendAgent",
+      "studentId": 2,
+      "courseId": 1,
+      "expectedFields": ["plan"],
+      "note": "推荐智能体必须产出可执行的学习计划"
+    },
+    {
+      "caseId": "profile-student1-course1",
+      "agent": "ProfileAgent",
+      "studentId": 1,
+      "courseId": 1,
+      "expectedFields": ["knowledgeProfile", "habitProfile"],
+      "note": "常规学生画像（该生无预警，用于对比）"
+    }
+  ]
+}

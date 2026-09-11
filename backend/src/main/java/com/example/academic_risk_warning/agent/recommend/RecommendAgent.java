@@ -4,9 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.academic_risk_warning.agent.core.AgentContext;
 import com.example.academic_risk_warning.agent.core.BaseAgent;
 import com.example.academic_risk_warning.agent.core.JsonUtils;
+import com.example.academic_risk_warning.agent.core.ReflectionLoop;
+import com.example.academic_risk_warning.config.AgentProperties;
 import com.example.academic_risk_warning.entity.*;
 import com.example.academic_risk_warning.llm.LLMClient;
 import com.example.academic_risk_warning.mapper.*;
+import com.example.academic_risk_warning.service.StudentMemoryService;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -28,6 +31,8 @@ public class RecommendAgent extends BaseAgent<Map<String, Object>> {
     private final StudentMapper studentMapper;
     private final CourseKnowledgePointMapper kpMapper;
     private final AlertRecordMapper alertRecordMapper;
+    private final AgentProperties agentProperties;
+    private final StudentMemoryService studentMemoryService;
 
     public RecommendAgent(LLMClient llmClient,
                           StudyPlanMapper studyPlanMapper,
@@ -37,7 +42,9 @@ public class RecommendAgent extends BaseAgent<Map<String, Object>> {
                           ExerciseRecommendationMapper recommendMapper,
                           StudentMapper studentMapper,
                           CourseKnowledgePointMapper kpMapper,
-                          AlertRecordMapper alertRecordMapper) {
+                          AlertRecordMapper alertRecordMapper,
+                          AgentProperties agentProperties,
+                          StudentMemoryService studentMemoryService) {
         super(llmClient, "RecommendAgent");
         this.studyPlanMapper = studyPlanMapper;
         this.weakPointMapper = weakPointMapper;
@@ -47,6 +54,8 @@ public class RecommendAgent extends BaseAgent<Map<String, Object>> {
         this.studentMapper = studentMapper;
         this.kpMapper = kpMapper;
         this.alertRecordMapper = alertRecordMapper;
+        this.agentProperties = agentProperties;
+        this.studentMemoryService = studentMemoryService;
     }
 
     @Override
@@ -77,6 +86,13 @@ public class RecommendAgent extends BaseAgent<Map<String, Object>> {
         StringBuilder sb = new StringBuilder();
         sb.append("学生：").append(studentName).append("（ID=").append(studentId).append("）\n");
         sb.append("课程ID：").append(courseId != null ? courseId : "全部").append("\n\n");
+
+        // W3 长期记忆：上次推荐/策略与干预结果，避免重复且体现进展
+        String historyMemory = studentMemoryService.getMemoryText(studentId, courseId);
+        if (historyMemory != null && !historyMemory.isBlank()) {
+            sb.append("=== 历史记忆（上次推荐与干预结论，请体现延续性与进展） ===\n");
+            sb.append(historyMemory).append("\n");
+        }
 
         // 1. 三维画像摘要
         if (profile != null && !profile.isEmpty()) {
@@ -162,6 +178,15 @@ public class RecommendAgent extends BaseAgent<Map<String, Object>> {
             llmResult = Map.of("raw", llmOutput);
         }
 
+        // 1.5 W3 反思环（Self-Refine，已抽成公用组件 ReflectionLoop）：自检不通过时带着批评重写一版
+        ReflectionLoop.Outcome outcome = ReflectionLoop.run(ctx, getAgentName(), llmOutput, llmResult,
+                agentProperties, critique -> callLLM(ctx, critique));
+        llmResult = outcome.result();
+        llmOutput = outcome.raw();
+        if (outcome.attempts() > 1) {
+            log.info("[RecommendAgent] 触发反思重写，采用重写结果={}", outcome.refined());
+        }
+
         // 2. 保存学习计划
         @SuppressWarnings("unchecked")
         Map<String, Object> planData = (Map<String, Object>) llmResult.getOrDefault("plan", new LinkedHashMap<>());
@@ -169,7 +194,12 @@ public class RecommendAgent extends BaseAgent<Map<String, Object>> {
         StudyPlan plan = new StudyPlan();
         plan.setStudentId(studentId);
         plan.setCourseId(courseId);
-        plan.setPlanContent(llmOutput); // 保存完整 LLM 输出
+        // plan_content 是 JSON 列：LLM 输出可能带 ``` 代码块或前后说明，不能直接存原文，
+        // 否则 MySQL 报 "Invalid JSON text"（此前 RecommendAgent 整步因此失败）
+        String planJson = planData.isEmpty()
+                ? JsonUtils.toJsonString(Map.of("raw", llmOutput))
+                : JsonUtils.toJsonString(planData);
+        plan.setPlanContent(planJson);
         plan.setStartDate(LocalDate.now());
         int totalWeeks = parseTotalWeeks(planData);
         plan.setEndDate(LocalDate.now().plusWeeks(Math.max(totalWeeks, 4)));

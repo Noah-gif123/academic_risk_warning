@@ -40,14 +40,41 @@ public abstract class BaseAgent<T> {
 
             AgentResult<T> result = AgentResult.success(agentName, data);
             result.setDurationMs(duration);
+            recordStep(ctx, true, duration, data, null);
             return result;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - start;
             log.error("[{}] 执行失败，耗时 {}ms", agentName, duration, e);
             AgentResult<T> result = AgentResult.failure(agentName, e.getMessage());
             result.setDurationMs(duration);
+            recordStep(ctx, false, duration, null, e.getMessage());
             return result;
         }
+    }
+
+    /**
+     * 把本步执行情况写入运行上下文（供编排器落库到 agent_run_step）。
+     * 不在一次流水线运行中时自动忽略，便于单元测试/单步调用。
+     *
+     * <p>输出还会过一遍 {@link AgentOutputValidator}（结构/取值/真值一致性），
+     * 结果随步骤一起落库，教师端运行历史里能看到"校验未通过"。
+     */
+    private void recordStep(AgentContext ctx, boolean success, long durationMs, T data, String error) {
+        if (!AgentRunContext.isActive()) return;
+        if (success && data instanceof Map<?, ?> map) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> output = (Map<String, Object>) map;
+                AgentOutputValidator.Result validation = AgentOutputValidator.validate(agentName, output, ctx);
+                AgentRunContext.setValidation(validation.status(), validation.detail());
+                if (!validation.pass()) {
+                    log.warn("[{}] 输出校验未通过({}): {}", agentName, validation.status(), validation.detail());
+                }
+            } catch (Exception e) {
+                log.warn("[{}] 输出校验异常（忽略）: {}", agentName, e.getMessage());
+            }
+        }
+        AgentRunContext.record(agentName, success, durationMs, data, error);
     }
 
     /**
@@ -89,6 +116,13 @@ public abstract class BaseAgent<T> {
                 + "\n\n请严格按照以下 JSON 格式输出（不要包含 ```json 标记）：\n"
                 + outputSchema;
         return llmClient.chat(getSystemPrompt(), prompt);
+    }
+
+    /**
+     * 带附加指令调用 LLM（W2 反思环用：把自检批评追加到 user prompt 之后重写一版）
+     */
+    protected String callLLM(AgentContext ctx, String extraInstruction) {
+        return llmClient.chat(getSystemPrompt(), buildUserPrompt(ctx) + "\n\n" + extraInstruction);
     }
 
     // ===== Getters =====

@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -175,6 +176,118 @@ public class WarningGenerationService {
         List<Student> students = studentMapper.selectList(null);
         if (students.isEmpty()) return 0;
         return generateWarningsForStudents(students);
+    }
+
+    // ==================== 每日全量快照（方案A） ====================
+
+    /**
+     * 生成"每日全量快照"：对全体学生、每门课各写一条当天快照。
+     *
+     * <p>方案A要点：快照不再依赖"当天是否触发预警"——等级为 GREEN 的学生同样记录，
+     * 因此每个学生的风险趋势都是连续可画的；一人一课一天只保留一条，
+     * 重复执行会先清理当天旧记录，不会像旧逻辑那样按预警条数翻倍。
+     */
+    @Transactional
+    public int generateDailySnapshots() {
+        return snapshotForStudents(studentMapper.selectList(null));
+    }
+
+    /** 为指定教师负责的学生生成当天全量快照 */
+    @Transactional
+    public int generateSnapshotsForTeacher(Long teacherId) {
+        return snapshotForStudents(getStudentsByTeacherId(teacherId));
+    }
+
+    /**
+     * 为给定学生列表生成"一人一课一天一条"的当天快照（不依赖是否触发预警）
+     *
+     * @return 写入的快照条数（= 学生选课数，跳过无选课/课程不存在的情况）
+     */
+    @Transactional
+    public int snapshotForStudents(List<Student> students) {
+        if (CollectionUtils.isEmpty(students)) return 0;
+
+        Set<Long> studentIds = students.stream().map(Student::getId).collect(Collectors.toSet());
+
+        // 批量预加载，避免 N+1
+        Map<Long, Map<Long, ScoreInfo>> allScores = batchLoadScores(studentIds);
+        Map<Long, Map<Long, HomeworkInfo>> allHomeworks = batchLoadHomeworks(studentIds);
+        Map<Long, Map<Long, ClassPerformance>> allPerformances = batchLoadPerformances(studentIds);
+        Map<Long, Map<Long, KnowledgeMastery>> allMasteries = batchLoadMasteries(studentIds);
+        Map<Long, Map<Long, HistoryRisk>> allRisks = batchLoadRisks(studentIds);
+        Map<Long, Map<Long, List<StudyDuration>>> allStudyDurations = batchLoadStudyDurations(studentIds);
+        Map<Long, Course> courseMap = batchLoadCourses(studentIds);
+        Map<String, AlertRecord> todayAlerts = batchLoadTodayAlerts(studentIds);
+
+        LocalDate today = LocalDate.now();
+
+        // 先整体清理这批学生"今天"的旧快照，保证本方法可重复执行
+        alertSnapshotMapper.delete(new LambdaQueryWrapper<AlertSnapshot>()
+                .in(AlertSnapshot::getStudentId, studentIds)
+                .eq(AlertSnapshot::getSnapshotDate, today));
+
+        int count = 0;
+        for (Student student : students) {
+            List<Long> courseIds = getStudentCourseIds(student.getId());
+            if (courseIds.isEmpty()) continue;
+
+            Map<Long, ScoreInfo> scoreMap = allScores.getOrDefault(student.getId(), Collections.emptyMap());
+            Map<Long, HomeworkInfo> homeworkMap = allHomeworks.getOrDefault(student.getId(), Collections.emptyMap());
+            Map<Long, ClassPerformance> performanceMap = allPerformances.getOrDefault(student.getId(), Collections.emptyMap());
+            Map<Long, KnowledgeMastery> masteryMap = allMasteries.getOrDefault(student.getId(), Collections.emptyMap());
+            Map<Long, HistoryRisk> riskMap = allRisks.getOrDefault(student.getId(), Collections.emptyMap());
+            Map<Long, List<StudyDuration>> studyDurationMap =
+                    allStudyDurations.getOrDefault(student.getId(), Collections.emptyMap());
+
+            for (Long courseId : courseIds) {
+                Course course = courseMap.get(courseId);
+                if (course == null) continue;
+
+                boolean isFreshman = isFreshmanSystem(student.getGrade(), course);
+                AlertRuleConfig config = loadRuleConfig(isFreshman ? SYSTEM_FRESHMAN : SYSTEM_SENIOR);
+
+                ScoreInfo score = scoreMap.get(courseId);
+                HomeworkInfo homework = homeworkMap.get(courseId);
+                ClassPerformance performance = performanceMap.get(courseId);
+                KnowledgeMastery mastery = masteryMap.get(courseId);
+                HistoryRisk historyRisk = riskMap.get(courseId);
+                List<StudyDuration> studyDurations = studyDurationMap.getOrDefault(courseId, Collections.emptyList());
+
+                RiskScore riskScore = calculateRiskScores(score, homework, performance, mastery,
+                        historyRisk, studyDurations, course, config, isFreshman);
+                String alertLevel = determineAlertLevel(riskScore.totalScore, config);
+                List<String> alertTypes =
+                        determineAlertTypes(riskScore, score, homework, performance, mastery, config);
+
+                // 当天若已生成预警，则把快照与其关联（便于溯源）
+                AlertRecord todayAlert = todayAlerts.get(student.getId() + "_" + courseId);
+
+                alertSnapshotMapper.insert(buildSnapshot(student, courseId, alertLevel, alertTypes, riskScore,
+                        score, homework, performance, mastery, studyDurations,
+                        todayAlert != null ? todayAlert.getId() : null, today));
+                count++;
+            }
+        }
+
+        log.info("[每日快照] 写入 {} 条（覆盖学生 {} 人，日期 {}）", count, students.size(), today);
+        return count;
+    }
+
+    /** 加载"今天"生成的预警（非累积类型优先），用于给当日快照回填 relatedAlertId */
+    private Map<String, AlertRecord> batchLoadTodayAlerts(Set<Long> studentIds) {
+        if (studentIds.isEmpty()) return Collections.emptyMap();
+        List<AlertRecord> todayAlerts = alertRecordMapper.selectList(
+                new LambdaQueryWrapper<AlertRecord>()
+                        .in(AlertRecord::getStudentId, studentIds)
+                        .ge(AlertRecord::getCreateTime, LocalDate.now().atStartOfDay())
+                        .orderByDesc(AlertRecord::getCreateTime));
+        Map<String, AlertRecord> result = new HashMap<>();
+        for (AlertRecord a : todayAlerts) {
+            if (TYPE_CUMULATIVE.equals(a.getAlertType())) continue;
+            String key = a.getStudentId() + "_" + (a.getCourseId() != null ? a.getCourseId() : "0");
+            result.putIfAbsent(key, a);
+        }
+        return result;
     }
 
     // ==================== 规则配置加载 ====================
@@ -341,11 +454,16 @@ public class WarningGenerationService {
                 alertRecordMapper.insertBatch(alertsToInsert);
                 alertCount += alertsToInsert.size();
 
-                // 记录快照 + 发送通知
+                // 方案A: 快照按"一人一课一天一条"写入，不再按预警条数重复写
+                Long relatedAlertId = alertsToInsert.stream()
+                        .map(AlertRecord::getId)
+                        .filter(Objects::nonNull)
+                        .findFirst().orElse(null);
+                saveDailySnapshot(buildSnapshot(student, courseId, alertLevel, alertTypes, riskScore,
+                        score, homework, performance, mastery, studyDurations, relatedAlertId, LocalDate.now()));
+
+                // 非累积类型预警才发通知
                 for (AlertRecord alert : alertsToInsert) {
-                    insertSnapshot(student, courseId, alertLevel, alertTypes, riskScore, score,
-                            homework, performance, mastery, studyDurations, alert.getId(), config);
-                    // 非累积类型预警才发通知
                     if (!TYPE_CUMULATIVE.equals(alert.getAlertType())) {
                         notificationService.notifyAlertGenerated(alert);
                     }
@@ -832,7 +950,7 @@ public class WarningGenerationService {
      * 去重规则: 判断是否应该跳过生成
      * 返回true=跳过, false=正常生成
      */
-    private boolean shouldSkipGeneration(AlertRecord lastAlert, String currentLevel, List<String> currentTypes) {
+    boolean shouldSkipGeneration(AlertRecord lastAlert, String currentLevel, List<String> currentTypes) {
         if (lastAlert == null) return false; // 首次生成, 不跳过
 
         String status = lastAlert.getStatus();
@@ -866,12 +984,14 @@ public class WarningGenerationService {
             }
         }
 
-        // ARCHIVED: 若上次生成也是同一数据(最新快照风险分与本次相同, 且等级未变) → 跳过
-        if ("ARCHIVED".equals(status)) {
-            if (lastAlert.getRiskScore() != null) {
-                double lastScore = lastAlert.getRiskScore().doubleValue();
-                // 无法在此获取当前分, 由调用层判断; 此处先不跳过ARCHIVED
-            }
+        // 同一天内不重复生成 → 修复"重复点击生成预警导致预警条数翻倍"
+        // 说明: 当天已生成过、且风险等级没有恶化(相同或更好)时直接跳过;
+        //       这里不区分 ACTIVE/ARCHIVED, 因为同一次生成会先把旧 ACTIVE 归档,
+        //       重复执行时看到的可能是当天刚被归档的那条。
+        if (lastAlert.getCreateTime() != null
+                && lastAlert.getCreateTime().toLocalDate().isEqual(LocalDate.now())
+                && !isLevelWorsened(lastAlert.getAlertLevel(), currentLevel)) {
+            return true;
         }
 
         return false;
@@ -895,7 +1015,7 @@ public class WarningGenerationService {
 
     // ==================== 归档旧预警(D1修复: 不再物理删除, 改为归档) ====================
 
-    private void archiveOldAlerts(Long studentId) {
+    void archiveOldAlerts(Long studentId) {
         // 1. 查出所有ACTIVE预警
         List<AlertRecord> activeAlerts = alertRecordMapper.selectList(
                 new LambdaQueryWrapper<AlertRecord>()
@@ -906,23 +1026,35 @@ public class WarningGenerationService {
         if (activeAlerts.isEmpty()) return;
 
         // 2. 将状态改为ARCHIVED(保留历史数据)
+        //    但"当天生成"的预警仍然有效, 不能归档: 否则同一天重复执行生成时,
+        //    会先把还在待处理(ACTIVE)的预警归档掉, 再被"同日去重"跳过 → 待处理预警凭空消失。
+        LocalDate today = LocalDate.now();
         for (AlertRecord alert : activeAlerts) {
+            if (alert.getCreateTime() != null && alert.getCreateTime().toLocalDate().isEqual(today)) {
+                continue;
+            }
             alert.setStatus(STATUS_ARCHIVED);
             alertRecordMapper.updateById(alert);
         }
     }
 
-    /** 生成预警后插入快照 */
-    private void insertSnapshot(Student student, Long courseId, String alertLevel,
-                                List<String> alertTypes, RiskScore riskScore,
-                                ScoreInfo score, HomeworkInfo homework,
-                                ClassPerformance performance, KnowledgeMastery mastery,
-                                List<StudyDuration> studyDurations,
-                                Long alertId, AlertRuleConfig config) {
+    /**
+     * 构造快照对象（不落库）。
+     *
+     * <p>方案A：快照是"每日全量档案"，等级为 GREEN、未触发预警时同样记录，
+     * 由 isGeneratedAlert 标记当天是否真的触发了预警。
+     */
+    private AlertSnapshot buildSnapshot(Student student, Long courseId, String alertLevel,
+                                        List<String> alertTypes, RiskScore riskScore,
+                                        ScoreInfo score, HomeworkInfo homework,
+                                        ClassPerformance performance, KnowledgeMastery mastery,
+                                        List<StudyDuration> studyDurations,
+                                        Long relatedAlertId, LocalDate snapshotDate) {
         AlertSnapshot snap = new AlertSnapshot();
         snap.setStudentId(student.getId());
         snap.setCourseId(courseId);
-        snap.setSnapshotDate(LocalDate.now());
+        snap.setSnapshotDate(snapshotDate);
+        snap.setSnapshotWeek(snapshotDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR));
         snap.setAlertLevel(alertLevel);
         snap.setRiskScore(bd(riskScore.totalScore));
         snap.setAcademicRiskScore(bd(riskScore.academicScore));
@@ -932,9 +1064,11 @@ public class WarningGenerationService {
         snap.setHistoryRiskScore(bd(riskScore.historyScore));
         snap.setStudyDurationRiskScore(bd(riskScore.studyDurationScore));
         snap.setPredictedScore(bd(riskScore.predictedScore));
-        snap.setAlertTypes(String.join(",", alertTypes));
-        snap.setIsGeneratedAlert(true);
-        snap.setRelatedAlertId(alertId);
+        snap.setAlertTypes(CollectionUtils.isEmpty(alertTypes) ? null : String.join(",", alertTypes));
+        boolean triggeredAlert = relatedAlertId != null
+                || (!LEVEL_GREEN.equals(alertLevel) && !CollectionUtils.isEmpty(alertTypes));
+        snap.setIsGeneratedAlert(triggeredAlert);
+        snap.setRelatedAlertId(relatedAlertId);
 
         if (score != null) {
             snap.setUsualScore(score.getUsualScore());
@@ -960,6 +1094,19 @@ public class WarningGenerationService {
             snap.setStudyTotalMinutes(sum / studyDurations.size());
         }
         snap.setCreateTime(LocalDateTime.now());
+        return snap;
+    }
+
+    /**
+     * 写入"一人一课一天一条"快照：先删除该(学生,课程,日期)的旧记录再插入。
+     * 因此同一天重复执行（定时任务 + 手动生成 + 预警触发生成）不会产生重复行。
+     */
+    private void saveDailySnapshot(AlertSnapshot snap) {
+        alertSnapshotMapper.delete(new LambdaQueryWrapper<AlertSnapshot>()
+                .eq(AlertSnapshot::getStudentId, snap.getStudentId())
+                .eq(snap.getCourseId() != null, AlertSnapshot::getCourseId, snap.getCourseId())
+                .isNull(snap.getCourseId() == null, AlertSnapshot::getCourseId)
+                .eq(AlertSnapshot::getSnapshotDate, snap.getSnapshotDate()));
         alertSnapshotMapper.insert(snap);
     }
 

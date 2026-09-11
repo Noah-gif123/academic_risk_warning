@@ -4,11 +4,16 @@ import com.example.academic_risk_warning.agent.analysis.AnalysisAgent;
 import com.example.academic_risk_warning.agent.core.AgentContext;
 import com.example.academic_risk_warning.agent.core.AgentEvent;
 import com.example.academic_risk_warning.agent.core.AgentResult;
+import com.example.academic_risk_warning.agent.core.AgentRunContext;
 import com.example.academic_risk_warning.agent.feedback.FeedbackAgent;
 import com.example.academic_risk_warning.agent.monitor.MonitorAgent;
 import com.example.academic_risk_warning.agent.profile.ProfileAgent;
 import com.example.academic_risk_warning.agent.recommend.RecommendAgent;
 import com.example.academic_risk_warning.agent.strategy.StrategyAgent;
+import com.example.academic_risk_warning.agent.tool.DataQueryAgent;
+import com.example.academic_risk_warning.config.AgentProperties;
+import com.example.academic_risk_warning.service.AgentRunService;
+import com.example.academic_risk_warning.service.StudentMemoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -16,6 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -38,6 +44,10 @@ public class AgentOrchestrator {
     private final StrategyAgent strategyAgent;
     private final FeedbackAgent feedbackAgent;
     private final ApplicationEventPublisher eventPublisher;
+    private final AgentRunService agentRunService;
+    private final AgentProperties agentProperties;
+    private final StudentMemoryService studentMemoryService;
+    private final DataQueryAgent dataQueryAgent;
 
     public AgentOrchestrator(MonitorAgent monitorAgent,
                              AnalysisAgent analysisAgent,
@@ -45,7 +55,11 @@ public class AgentOrchestrator {
                              RecommendAgent recommendAgent,
                              StrategyAgent strategyAgent,
                              FeedbackAgent feedbackAgent,
-                             ApplicationEventPublisher eventPublisher) {
+                             ApplicationEventPublisher eventPublisher,
+                             AgentRunService agentRunService,
+                             AgentProperties agentProperties,
+                             StudentMemoryService studentMemoryService,
+                             DataQueryAgent dataQueryAgent) {
         this.monitorAgent = monitorAgent;
         this.analysisAgent = analysisAgent;
         this.profileAgent = profileAgent;
@@ -53,6 +67,59 @@ public class AgentOrchestrator {
         this.strategyAgent = strategyAgent;
         this.feedbackAgent = feedbackAgent;
         this.eventPublisher = eventPublisher;
+        this.agentRunService = agentRunService;
+        this.agentProperties = agentProperties;
+        this.studentMemoryService = studentMemoryService;
+        this.dataQueryAgent = dataQueryAgent;
+    }
+
+    /**
+     * 统一执行一次流水线，并把各步明细落库到 {@code agent_run / agent_run_step}。
+     * 配置开关 {@code agent.enabled=false} 时直接返回"已关闭"，不调用任何智能体。
+     */
+    private Map<String, Object> withRun(Long studentId, Long courseId, String pipeline, String triggerType,
+                                        Supplier<Map<String, Object>> body) {
+        AgentRunContext.begin();
+        try {
+            Map<String, Object> result = body.get();
+            Long runId = trySaveRun(studentId, courseId, pipeline, triggerType, AgentRunContext.collectAndClear());
+            if (runId != null) result.put("runId", runId);
+            // W3：流水线跑完刷新长期记忆（供下一次注入 prompt），失败不影响结果
+            try {
+                studentMemoryService.refreshMemory(studentId, courseId, runId);
+            } catch (Exception e) {
+                log.warn("[Orchestrator] 记忆刷新失败（不影响流水线结果）: {}", e.getMessage());
+            }
+            return result;
+        } catch (RuntimeException e) {
+            // 异常也要留痕：把已经跑过的步骤存下来，便于排查
+            List<AgentRunContext.StepRecord> steps = AgentRunContext.collectAndClear();
+            if (!steps.isEmpty()) {
+                trySaveRun(studentId, courseId, pipeline, triggerType, steps);
+            }
+            throw e;
+        }
+    }
+
+    /** 记录运行明细；写记录失败绝不能影响业务结果，因此这里只记日志 */
+    private Long trySaveRun(Long studentId, Long courseId, String pipeline, String triggerType,
+                            List<AgentRunContext.StepRecord> steps) {
+        try {
+            return agentRunService.saveRun(studentId, courseId, pipeline, triggerType, steps);
+        } catch (Exception e) {
+            log.error("[Orchestrator] 运行记录写入失败（不影响流水线结果）: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** MAS 关闭时的统一返回（不触发任何 LLM 调用） */
+    private Map<String, Object> disabledResult(String pipeline) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", false);
+        result.put("disabled", true);
+        result.put("pipeline", pipeline);
+        result.put("message", "多智能体功能已关闭（agent.enabled=false），本次未执行任何智能体");
+        return result;
     }
 
     // ===== 流水线 1：完整评估流水线 =====
@@ -67,6 +134,12 @@ public class AgentOrchestrator {
 
     @Transactional
     public Map<String, Object> executeFullPipeline(Long studentId, Long courseId) {
+        if (!agentProperties.isEnabled()) return disabledResult("FULL");
+        return withRun(studentId, courseId, "FULL", "MANUAL", () -> doExecuteFullPipeline(studentId, courseId));
+    }
+
+    /** 完整流水线主体：监测 → 分析 → 画像 → 推荐 */
+    private Map<String, Object> doExecuteFullPipeline(Long studentId, Long courseId) {
         log.info("开始执行完整流水线，学生ID={}, 课程ID={}", studentId, courseId);
         AgentContext ctx = new AgentContext(studentId);
         ctx.setCourseId(courseId);
@@ -142,6 +215,13 @@ public class AgentOrchestrator {
 
     @Transactional
     public Map<String, Object> executeFeedbackPipeline(Long studentId, Long courseId, String feedback) {
+        if (!agentProperties.isEnabled()) return disabledResult("FEEDBACK");
+        return withRun(studentId, courseId, "FEEDBACK", "FEEDBACK",
+                () -> doExecuteFeedbackPipeline(studentId, courseId, feedback));
+    }
+
+    /** 反馈流水线主体：反馈分析 → 策略调整 → 重推荐 */
+    private Map<String, Object> doExecuteFeedbackPipeline(Long studentId, Long courseId, String feedback) {
         log.info("开始执行反馈流水线，学生ID={}", studentId);
         AgentContext ctx = new AgentContext(studentId);
         ctx.setCourseId(courseId);
@@ -310,6 +390,13 @@ public class AgentOrchestrator {
      */
     @Transactional
     public Map<String, Object> executeEffectBasedAdjustment(Long studentId, Long courseId) {
+        if (!agentProperties.isEnabled()) return disabledResult("EFFECT_BASED");
+        return withRun(studentId, courseId, "EFFECT_BASED", "EFFECT_CHECK",
+                () -> doExecuteEffectBasedAdjustment(studentId, courseId));
+    }
+
+    /** 效果驱动调整主体：策略分析 → （必要时）重推荐 */
+    private Map<String, Object> doExecuteEffectBasedAdjustment(Long studentId, Long courseId) {
         log.info("开始执行效果驱动的策略调整，学生ID={}", studentId);
         AgentContext ctx = new AgentContext(studentId);
         ctx.setCourseId(courseId);
@@ -366,9 +453,40 @@ public class AgentOrchestrator {
     }
 
     /**
-     * 单步反馈分析（不触发策略链）
+     * 答疑 + 引用依据（W3）
      */
-    public Map<String, Object> analyzeFeedback(Long studentId, String message) {
+    public com.example.academic_risk_warning.llm.BailianRAGClient.RagAnswer answerQuestionDetailed(String question, Long courseId) {
+        return feedbackAgent.answerQuestionDetailed(question, courseId);
+    }
+
+    /**
+     * 工具调用问答（W3）：教师用自然语言问学情，DataQueryAgent 自主调用查询工具后作答。
+     * 走统一的 withRun 留痕，教师端"运行历史"里能看到 TOOL_QA 这条流水线调了哪些工具。
+     */
+    public Map<String, Object> askWithTools(Long studentId, Long courseId, String question) {
+        if (!agentProperties.isEnabled()) return disabledResult("TOOL_QA");
+        return withRun(studentId, courseId, "TOOL_QA", "QA", () -> {
+            AgentContext ctx = new AgentContext(studentId);
+            ctx.setCourseId(courseId);
+            ctx.setAttribute("question", question);
+
+            AgentResult<Map<String, Object>> r = dataQueryAgent.execute(ctx);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", r.isSuccess());
+            result.put("pipeline", "TOOL_QA");
+            if (r.isSuccess()) {
+                result.putAll(r.getData());
+            } else {
+                result.put("message", r.getErrorMessage());
+            }
+            result.put("durationMs", r.getDurationMs());
+            return result;
+        });
+    }
+
+    /**
+     * 单步反馈分析（不触发策略链）
+     */    public Map<String, Object> analyzeFeedback(Long studentId, String message) {
         AgentContext ctx = new AgentContext(studentId);
         ctx.setFeedbackResult(Map.of("content", message));
         AgentResult<Map<String, Object>> r = feedbackAgent.execute(ctx);
@@ -453,13 +571,17 @@ public class AgentOrchestrator {
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("availableAgents", List.of(
                 "MonitorAgent", "AnalysisAgent", "ProfileAgent",
-                "RecommendAgent", "StrategyAgent", "FeedbackAgent"));
+                "RecommendAgent", "StrategyAgent", "FeedbackAgent", "DataQueryAgent"));
         stats.put("pipelines", Map.of(
                 "FULL", "监测→分析→画像→推荐",
                 "FEEDBACK", "反馈→策略调整→重推荐",
                 "CLOSE_LOOP", "完整链+反馈闭环",
                 "EFFECT_BASED", "效果驱动自动调整",
+                "TOOL_QA", "工具调用问答（自然语言查学情）",
                 "QA_ONLY", "RAG答疑"));
+        stats.put("enabled", agentProperties.isEnabled());
+        // 真实运行统计：成功率、各智能体失败率与平均耗时、P95 耗时、最近运行
+        stats.putAll(agentRunService.getStats(5));
         return stats;
     }
 }

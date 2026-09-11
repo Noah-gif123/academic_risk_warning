@@ -3,8 +3,15 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../../composables/useAuth.js'
 import { getJson } from '../../api/http.js'
 import {
-  getStudentTrend, getStudentRadar, getStudentWeakPoints
+  getStudentTrend, getStudentRadar, getStudentWeakPoints,
+  getStudentProfile, agentFullAssessment
 } from '../../api/http.js'
+import RiskRadarChart from '../RiskRadarChart.vue'
+import RiskTrendChart from '../RiskTrendChart.vue'
+import ThreeDimProfile from '../ThreeDimProfile.vue'
+import AgentRunHistory from './AgentRunHistory.vue'
+import AgentToolAsk from './AgentToolAsk.vue'
+import { riskLevelFromScore, riskLevelLabel } from '../../utils/riskLevel.js'
 
 const { teacherToken } = useAuth()
 const props = defineProps({ courseId: { type: Number, required: true } })
@@ -16,8 +23,9 @@ const searchKeyword = ref('')
 const filterLevel = ref('all')
 const showDetailModal = ref(false)
 const selectedStudent = ref(null)
-const studentDetail = ref({ weakPoints: [], radar: null, trend: null })
+const studentDetail = ref({ weakPoints: [], radar: null, trend: null, profile: null })
 const detailLoading = ref(false)
+const profileGenerating = ref(false)
 
 onMounted(() => loadStudents())
 
@@ -41,19 +49,15 @@ function getCourseScore(student) {
 }
 
 function getAlertLevel(student) {
-  const score = getCourseScore(student)
-  if (!score || score.calculatedScore == null) return 'GREEN'
-  const cs = score.calculatedScore
-  if (cs < 60) return 'RED'
-  if (cs < 70) return 'ORANGE'
-  if (cs < 80) return 'YELLOW'
-  return 'GREEN'
+  // 阈值口径统一在 utils/riskLevel.js，避免多份魔法数漂移
+  return riskLevelFromScore(getCourseScore(student)?.calculatedScore)
 }
 
 function getRiskScore(student) {
-  const score = getCourseScore(student)
-  if (!score || score.calculatedScore == null) return null
-  return Math.round(Math.max(0, 100 - score.calculatedScore) * 10) / 10
+  const raw = getCourseScore(student)?.calculatedScore
+  const cs = Number(raw)
+  if (raw == null || Number.isNaN(cs)) return null
+  return Math.round(Math.max(0, 100 - cs) * 10) / 10
 }
 
 const filteredStudents = computed(() => {
@@ -70,9 +74,7 @@ const filteredStudents = computed(() => {
 })
 
 function getStatusLabel(s) {
-  const lv = getAlertLevel(s)
-  const map = { RED: '红色预警', ORANGE: '橙色预警', YELLOW: '黄色预警', GREEN: '正常' }
-  return map[lv] || '正常'
+  return riskLevelLabel(getAlertLevel(s))
 }
 
 function getStatusClass(s) {
@@ -84,23 +86,64 @@ async function openStudentDetail(student) {
   selectedStudent.value = student
   showDetailModal.value = true
   detailLoading.value = true
-  studentDetail.value = { weakPoints: [], radar: null, trend: null }
+  studentDetail.value = { weakPoints: [], radar: null, trend: [], trendSource: '', trendSourceText: '', profile: null }
   try {
-    const [wpRes, trendRes, radarRes] = await Promise.all([
+    const [wpRes, trendRes, radarRes, profileRes] = await Promise.all([
       getStudentWeakPoints(teacherToken.value, student.basicInfo?.id, props.courseId),
       getStudentTrend(teacherToken.value, student.basicInfo?.id, props.courseId),
-      getStudentRadar(teacherToken.value, student.basicInfo?.id, props.courseId)
+      getStudentRadar(teacherToken.value, student.basicInfo?.id, props.courseId),
+      getStudentProfile(teacherToken.value, student.basicInfo?.id, props.courseId)
     ])
     studentDetail.value.weakPoints = (wpRes.data || wpRes || []).slice(0, 10)
-    studentDetail.value.trend = trendRes.data || trendRes || null
+    // 新接口返回 {points, source, sourceText}，同时兼容旧的数组返回
+    const trendData = trendRes.data || trendRes || {}
+    studentDetail.value.trend = Array.isArray(trendData) ? trendData : (trendData.points || [])
+    studentDetail.value.trendSource = Array.isArray(trendData) ? '' : (trendData.source || '')
+    studentDetail.value.trendSourceText = Array.isArray(trendData) ? '' : (trendData.sourceText || '')
     studentDetail.value.radar = radarRes.data || radarRes || null
+    studentDetail.value.profile = profileRes?.data || null
   } catch { /* ignore */ }
   finally { detailLoading.value = false }
+}
+
+/**
+ * 生成/刷新该生的三维画像：调用智能体完整评估流水线（监测→分析→画像→推荐），会调用大模型
+ */
+async function generateProfile() {
+  const studentId = selectedStudent.value?.basicInfo?.id
+  if (!studentId) return
+  if (!window.confirm('将调用大模型执行「监测 → 分析 → 画像 → 推荐」完整评估，可能耗时数十秒，是否继续？')) return
+  profileGenerating.value = true
+  try {
+    const res = await agentFullAssessment(teacherToken.value, studentId, props.courseId)
+    if (res?.success === false) {
+      emit('message', res?.message || '画像生成失败', 'error')
+      return
+    }
+    emit('message', '三维画像生成完成', 'success')
+    const refreshed = await getStudentProfile(teacherToken.value, studentId, props.courseId)
+    studentDetail.value.profile = refreshed?.data || studentDetail.value.profile
+  } catch (e) {
+    emit('message', '画像生成失败：' + (e?.message || e), 'error')
+  } finally {
+    profileGenerating.value = false
+  }
 }
 
 function closeDetail() {
   showDetailModal.value = false
   selectedStudent.value = null
+}
+
+// 点击头部"风险画像"徽章 -> 平滑滚动到画像图表卡片
+function scrollToProfile() {
+  const id = 'profile-card-' + (selectedStudent.value?.basicInfo?.id ?? '')
+  const el = document.getElementById(id)
+  if (el) {
+    const modal = el.closest('.detail-modal')
+    if (modal) modal.scrollTo({ top: el.offsetTop - modal.offsetTop - 12, behavior: 'smooth' })
+    else el.scrollIntoView({ behavior: 'smooth' })
+  }
 }
 
 function scoreColor(score) {
@@ -187,7 +230,8 @@ const currentCourseKnowledge = computed(() =>
           <div class="student-meta">
             <div class="student-name-row">
               <span class="student-name">{{ selectedStudent?.basicInfo?.studentName }}</span>
-              <span class="risk-badge" :class="getAlertLevel(selectedStudent).toLowerCase()">风险画像</span>
+              <button class="risk-badge profile-entry" :class="getAlertLevel(selectedStudent).toLowerCase()"
+                      @click="scrollToProfile" title="点击查看风险画像图表">📊 风险画像</button>
             </div>
             <div class="student-tags">
               <span class="info-tag">{{ selectedStudent?.basicInfo?.studentNo }}</span>
@@ -203,6 +247,55 @@ const currentCourseKnowledge = computed(() =>
         </div>
 
         <div v-else class="detail-body">
+          <!-- 风险画像（雷达图 + 趋势图） -->
+          <div class="detail-card" :id="'profile-card-' + (selectedStudent?.basicInfo?.id ?? '')">
+            <div class="card-title">风险画像</div>
+            <div class="profile-section">
+              <div class="profile-sub-title">风险维度雷达（该生 vs 班级均值）</div>
+              <RiskRadarChart
+                :student="studentDetail.radar?.student"
+                :class-avg="studentDetail.radar?.classAvg"
+                :has-data="studentDetail.radar?.student?.hasData !== false"
+                :scope="studentDetail.radar?.scope || ''"
+                :scope-text="studentDetail.radar?.scopeText || ''"
+                :missing-dimensions="studentDetail.radar?.missingDimensions || []"
+                empty-text="暂未生成该生的风险维度数据" />
+            </div>
+            <div class="profile-section">
+              <div class="profile-sub-title">综合风险分趋势</div>
+              <RiskTrendChart :points="studentDetail.trend || []"
+                              :source="studentDetail.trendSource || ''"
+                              :source-text="studentDetail.trendSourceText || ''"
+                              empty-text="暂无风险趋势快照数据" />
+            </div>
+          </div>
+
+          <!-- 三维学情画像（知识掌握 / 学习习惯 / 学习目标） -->
+          <div class="detail-card">
+            <div class="card-title">三维学情画像</div>
+            <ThreeDimProfile
+              :profile="studentDetail.profile"
+              :loading="detailLoading"
+              :generating="profileGenerating"
+              :can-generate="true"
+              empty-text="该生暂无三维学情画像"
+              @generate="generateProfile" />
+          </div>
+
+          <!-- 智能体工具问答（W3：自然语言查学情，带工具调用轨迹） -->
+          <div class="detail-card">
+            <div class="card-title">智能体工具问答</div>
+            <AgentToolAsk
+              :student-id="selectedStudent?.basicInfo?.id ?? null"
+              :course-id="props.courseId ?? null" />
+          </div>
+
+          <!-- 智能体运行历史（W1：可观测） -->
+          <div class="detail-card">
+            <div class="card-title">智能体运行历史</div>
+            <AgentRunHistory :student-id="selectedStudent?.basicInfo?.id ?? null" :limit="5" />
+          </div>
+
           <!-- 学业成绩 -->
           <div class="detail-card">
             <div class="card-title">学业成绩</div>
@@ -347,6 +440,8 @@ const currentCourseKnowledge = computed(() =>
 .risk-badge.yellow { background:var(--semantic-yellow-bg); color:var(--semantic-yellow-text); }
 .risk-badge.orange { background:var(--semantic-orange-bg); color:var(--semantic-orange-text); }
 .risk-badge.red { background:var(--semantic-red-bg); color:var(--semantic-red-text); }
+.profile-entry { cursor:pointer; border:none; transition:filter .15s, transform .15s; }
+.profile-entry:hover { filter:brightness(1.08); transform:translateY(-1px); }
 .student-tags { display:flex; gap:8px; flex-wrap:wrap; }
 .info-tag { display:inline-block; padding:4px 12px; border-radius:12px; background:var(--bg-hover); color:var(--text-secondary); font-size:13px; }
 
@@ -378,6 +473,10 @@ const currentCourseKnowledge = computed(() =>
 
 .history-content { padding:4px 0; }
 .history-summary { font-size:14px; color:var(--text-primary); line-height:1.6; }
+
+.profile-section { padding:12px 0 4px; }
+.profile-section + .profile-section { border-top:1px dashed var(--border-light); }
+.profile-sub-title { font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:6px; }
 
 .weak-points { display:flex; flex-wrap:wrap; gap:8px; }
 .weak-tag { display:inline-block; padding:4px 10px; border-radius:6px; background:var(--kp-tag-bg); color:var(--kp-tag-text); font-size:13px; }

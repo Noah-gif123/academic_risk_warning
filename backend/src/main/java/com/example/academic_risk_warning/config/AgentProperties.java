@@ -45,6 +45,21 @@ public class AgentProperties {
     /** RAG 相似度阈值 */
     private double ragThreshold = 0.20;
 
+    /** 是否启用"反思重写"（Self-Refine）：校验不通过时让模型带着批评再写一版 */
+    private boolean reflectionEnabled = true;
+
+    /** 反思重写最大轮次 */
+    private int reflectionMaxRounds = 1;
+
+    /** 工具调用最大轮次（W3：模型"查数据→再查→作答"的循环上限） */
+    private int toolMaxRounds = 3;
+
+    /**
+     * RAG 是否请求应用的思考过程（W3 引用溯源）：
+     * 开启后能拿到应用内部检索命中，用于展示"回答依据"；代价是 token 消耗更高。
+     */
+    private boolean ragThoughtsEnabled = false;
+
     // ==================== getters / setters ====================
 
     public boolean isEnabled() { return enabled; }
@@ -84,4 +99,16 @@ public class AgentProperties {
 
     public double getRagThreshold() { return ragThreshold; }
     public void setRagThreshold(double v) { this.ragThreshold = v; }
+
+    public boolean isReflectionEnabled() { return reflectionEnabled; }
+    public void setReflectionEnabled(boolean v) { this.reflectionEnabled = v; }
+
+    public int getReflectionMaxRounds() { return reflectionMaxRounds; }
+    public void setReflectionMaxRounds(int v) { this.reflectionMaxRounds = v; }
+
+    public int getToolMaxRounds() { return toolMaxRounds; }
+    public void setToolMaxRounds(int v) { this.toolMaxRounds = v; }
+
+    public boolean isRagThoughtsEnabled() { return ragThoughtsEnabled; }
+    public void setRagThoughtsEnabled(boolean v) { this.ragThoughtsEnabled = v; }
 }

@@ -301,10 +301,12 @@ public class TeacherAgentController {
         }
 
         try {
-            String reply = feedbackAgent.answerQuestion(question);
+            // W3：带引用依据返回，前端把 citations 显示成"参考来源"
+            com.example.academic_risk_warning.llm.BailianRAGClient.RagAnswer answer =
+                    feedbackAgent.answerQuestionDetailed(question, null);
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("success", true);
-            result.put("reply", reply);
+            result.putAll(com.example.academic_risk_warning.service.RiskCenterService.decorateRagAnswer(answer));
             return result;
         } catch (Exception e) {
             log.error("[TeacherAgent] RAG 问答失败", e);

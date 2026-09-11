@@ -1,5 +1,6 @@
 package com.example.academic_risk_warning.llm;
 
+import com.example.academic_risk_warning.config.AgentProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,9 +35,15 @@ public class BailianChatClient implements LLMClient {
     @Value("${agent.bailian-base-url:https://dashscope.aliyuncs.com}")
     private String baseUrl;
 
+    private final AgentProperties agentProperties;
+
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
+
+    public BailianChatClient(AgentProperties agentProperties) {
+        this.agentProperties = agentProperties;
+    }
 
     @Override
     public String chat(String systemPrompt, String userPrompt) {
@@ -48,6 +55,9 @@ public class BailianChatClient implements LLMClient {
     @Override
     @SuppressWarnings("unchecked")
     public String chat(String systemPrompt, List<Map<String, Object>> messages) {
+        if (!agentProperties.isEnabled()) {
+            throw new IllegalStateException("多智能体功能已关闭（agent.enabled=false）");
+        }
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("百炼 API Key 未配置");
         }
@@ -67,7 +77,7 @@ public class BailianChatClient implements LLMClient {
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + apiKey)
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .timeout(Duration.ofSeconds(120))
+                    .timeout(Duration.ofSeconds(effectiveTimeoutSeconds()))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -94,6 +104,18 @@ public class BailianChatClient implements LLMClient {
     public String ragQuery(String question, Long courseId) {
         // Chat 模型不支持课程级 RAG 路由，回退到通用对话
         return ragQuery(question);
+    }
+
+    /**
+     * 单次调用超时：以 {@code agent.llm-timeout} 为准，同时不超过 {@code agent.agent-timeout}。
+     * （单个智能体通常只发起一次 LLM 调用，因此这个上限也等价于该步的耗时上限；
+     * 多次调用的整体预算会随异步任务中心一起做。）
+     */
+    private long effectiveTimeoutSeconds() {
+        int llm = agentProperties.getLlmTimeout();
+        int agent = agentProperties.getAgentTimeout();
+        int seconds = agent > 0 ? Math.min(llm, agent) : llm;
+        return Math.max(1, seconds);
     }
 
     private String buildRequestBody(List<Map<String, Object>> messages) {

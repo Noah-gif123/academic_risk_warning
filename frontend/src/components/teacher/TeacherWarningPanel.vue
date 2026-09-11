@@ -4,7 +4,7 @@ import { useAuth } from '../../composables/useAuth.js'
 import {
   getTeacherAlerts, getTeacherStats, handleAlert, dismissAlert,
   batchHandle, batchDismiss, batchClose, getRecommendList,
-  generateWarnings, getExerciseList
+  generateWarnings, generateSnapshots, getExerciseList
 } from '../../api/http.js'
 
 const { teacherToken } = useAuth()
@@ -238,6 +238,16 @@ async function doGenerateWarnings() {
   } catch { emit('message', '预警生成失败', 'error') }
   finally { loading.value = false }
 }
+
+// 生成"当日全量快照"：班级所有学生（含未触发预警的）各写一条，用于填充风险趋势曲线
+async function doGenerateSnapshots() {
+  loading.value = true
+  try {
+    const res = await generateSnapshots(teacherToken.value)
+    emit('message', res.message || '当日快照已生成', 'success')
+  } catch { emit('message', '生成当日快照失败', 'error') }
+  finally { loading.value = false }
+}
 </script>
 
 <template>
@@ -271,6 +281,8 @@ async function doGenerateWarnings() {
       <button class="btn-ghost" :class="{ active: filterStatus === 'CLOSED' }" @click="changeFilter('CLOSED')">已闭环</button>
       <span style="flex:1;"></span>
       <button class="btn-primary" @click="doGenerateWarnings" :disabled="loading">⚡ 生成预警</button>
+      <button class="btn-ghost" @click="doGenerateSnapshots" :disabled="loading"
+              title="为班级所有学生写入当天快照（含未触发预警的学生），用于填充风险趋势曲线">📸 生成当日快照</button>
       <button v-if="selectedAlertIds.length" class="btn-ghost" @click="doBatchHandle">批量处理({{ selectedAlertIds.length }})</button>
       <button v-if="selectedAlertIds.length" class="btn-ghost" @click="doBatchDismiss">批量撤销</button>
       <button v-if="selectedAlertIds.length" class="btn-ghost" @click="doBatchClose">批量闭环</button>

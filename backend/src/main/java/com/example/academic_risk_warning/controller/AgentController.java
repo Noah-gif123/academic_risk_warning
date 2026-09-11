@@ -1,5 +1,7 @@
 package com.example.academic_risk_warning.controller;
 
+import com.example.academic_risk_warning.service.AgentEvalService;
+import com.example.academic_risk_warning.service.AgentRunService;
 import com.example.academic_risk_warning.service.RiskCenterService;
 import com.example.academic_risk_warning.service.TokenService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,11 +26,17 @@ public class AgentController {
 
     private final RiskCenterService riskCenterService;
     private final TokenService tokenService;
+    private final AgentRunService agentRunService;
+    private final AgentEvalService agentEvalService;
 
     public AgentController(RiskCenterService riskCenterService,
-                           TokenService tokenService) {
+                           TokenService tokenService,
+                           AgentRunService agentRunService,
+                           AgentEvalService agentEvalService) {
         this.riskCenterService = riskCenterService;
         this.tokenService = tokenService;
+        this.agentRunService = agentRunService;
+        this.agentEvalService = agentEvalService;
     }
 
     // ===== 流水线 1：完整评估 =====
@@ -192,6 +200,36 @@ public class AgentController {
         }
     }
 
+    // ===== 工具调用问答（W3） =====
+
+    /**
+     * POST /api/agent/ask
+     * Body: { "studentId": 2, "courseId": 1, "question": "这个学生最近哪门课最危险？" }
+     *
+     * 工具调用问答：DataQueryAgent 自主决定调用哪些数据查询工具（成绩/预警/画像/趋势/记忆…），
+     * 基于真实库中数据作答，并返回本次调用的工具轨迹（toolTrace）便于教师核对。
+     */
+    @PostMapping("/ask")
+    public Map<String, Object> ask(@RequestBody Map<String, Object> body, HttpServletRequest request) {
+        if (!authCheck(request)) return unauthorizeResult();
+
+        Long studentId = extractLong(body, "studentId");
+        Long courseId = extractLong(body, "courseId");
+        String question = extractString(body, "question");
+
+        if (studentId == null || question == null || question.isBlank()) {
+            return wrapError("参数缺失：studentId 和 question 为必填项");
+        }
+
+        try {
+            Map<String, Object> result = riskCenterService.askWithTools(studentId, courseId, question);
+            return wrapSuccess(result);
+        } catch (Exception e) {
+            log.error("[AgentAPI] 工具调用问答失败，studentId={}", studentId, e);
+            return wrapError("工具调用问答失败: " + e.getMessage());
+        }
+    }
+
     // ===== 流水线统计 =====
 
     /**
@@ -207,6 +245,68 @@ public class AgentController {
             return wrapSuccess(stats);
         } catch (Exception e) {
             return wrapError("统计查询失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/agent/runs?studentId=&limit=
+     *
+     * 智能体运行历史（教师端"运行历史"面板）：每次流水线一条记录，含各步智能体明细。
+     * 不传 studentId 时返回全体最近运行。
+     */
+    @GetMapping("/runs")
+    public Map<String, Object> runs(@RequestParam(required = false) Long studentId,
+                                    @RequestParam(defaultValue = "10") int limit,
+                                    HttpServletRequest request) {
+        if (!authCheck(request)) return unauthorizeResult();
+        try {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", true);
+            result.put("data", agentRunService.listRuns(studentId, limit));
+            return result;
+        } catch (Exception e) {
+            log.error("[AgentAPI] 查询运行历史失败", e);
+            return wrapError("查询运行历史失败: " + e.getMessage());
+        }
+    }
+
+    /** GET /api/agent/runs/{runId} — 单次运行明细 */
+    @GetMapping("/runs/{runId}")
+    public Map<String, Object> runDetail(@PathVariable Long runId, HttpServletRequest request) {
+        if (!authCheck(request)) return unauthorizeResult();
+        try {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", true);
+            result.put("data", agentRunService.getRunDetail(runId));
+            return result;
+        } catch (Exception e) {
+            log.error("[AgentAPI] 查询运行明细失败，runId={}", runId, e);
+            return wrapError("查询运行明细失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/agent/eval?live=false&amp;limit=20
+     *
+     * Golden set 评测（W2）：live=false 用已落库的运行结果评测（不消耗额度）；
+     * live=true 会按 golden 用例逐个真实跑完整评估并判定（消耗大模型额度，用于论文出表）。
+     */
+    @GetMapping("/eval")
+    public Map<String, Object> eval(@RequestParam(defaultValue = "false") boolean live,
+                                    @RequestParam(defaultValue = "golden") String mode,
+                                    @RequestParam(defaultValue = "20") int limit,
+                                    HttpServletRequest request) {
+        if (!authCheck(request)) return unauthorizeResult();
+        try {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", true);
+            result.put("data", "ablation".equalsIgnoreCase(mode)
+                    ? agentEvalService.ablation(limit, live)
+                    : agentEvalService.evaluate(limit, live));
+            return result;
+        } catch (Exception e) {
+            log.error("[AgentAPI] golden set 评测失败", e);
+            return wrapError("评测失败: " + e.getMessage());
         }
     }
 

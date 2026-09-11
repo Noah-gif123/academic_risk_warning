@@ -4,21 +4,29 @@ const BASE = '/api'
 let _activeToken = null
 let _refreshPromise = null    // 防止并发刷新
 let _onTokenExpired = null    // 刷新失败后的回调
+let _onTokenRefreshed = null  // 刷新成功后的回调（用于同步 useAuth 里的 ref）
 
-export function setActiveToken(token) { _activeToken = token }
+export function setActiveToken(token) { _activeToken = token || '' }
 export function getActiveToken() { return _activeToken }
 export function onTokenExpired(callback) { _onTokenExpired = callback }
+export function onTokenRefreshed(callback) { _onTokenRefreshed = callback }
 
-/** 根据当前登录身份判断刷新接口和 localStorage key */
+/**
+ * 判断当前 token 属于哪个身份：直接和 localStorage 里的三种 token 比对，
+ * 而不是"看哪个 key 存在/按顺序猜"——否则教师 token 过期时可能打到
+ * /student/refresh（学生与教师 token 共用同一存储，容易串）。
+ */
 function getRefreshConfig() {
-  if (localStorage.getItem('adminToken')) {
-    return { url: `${BASE}/admin/refresh`, key: 'adminToken', infoKey: 'adminInfo' }
-  } else if (localStorage.getItem('studentToken')) {
-    return { url: `${BASE}/student/refresh`, key: 'studentToken', infoKey: 'studentInfo' }
-  } else {
-    // 教师或默认
-    return { url: `${BASE}/teacher/refresh`, key: 'token', infoKey: 'teacher' }
+  const teacher = localStorage.getItem('token')
+  const student = localStorage.getItem('studentToken')
+  const admin = localStorage.getItem('adminToken')
+  if (_activeToken && admin && _activeToken === admin) {
+    return { url: `${BASE}/admin/refresh`, key: 'adminToken' }
   }
+  if (_activeToken && student && _activeToken === student) {
+    return { url: `${BASE}/student/refresh`, key: 'studentToken' }
+  }
+  return { url: `${BASE}/teacher/refresh`, key: 'token' }
 }
 
 async function tryRefreshToken() {
@@ -31,10 +39,15 @@ async function tryRefreshToken() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${_activeToken}` }
       })
+      if (!res.ok) return null
       const data = await res.json()
-      if (data.success && data.token) {
+      if (data && data.success && data.token) {
         _activeToken = data.token
         localStorage.setItem(config.key, data.token) // 持久化到正确的 key
+        // 通知 useAuth 同步自己的 ref，否则组件还会继续用旧 token 发请求
+        if (_onTokenRefreshed) {
+          try { _onTokenRefreshed({ token: data.token, key: config.key }) } catch { /* ignore */ }
+        }
         return data.token
       }
       return null
@@ -47,75 +60,103 @@ async function tryRefreshToken() {
 async function handle401() {
   const newToken = await tryRefreshToken()
   if (!newToken && _onTokenExpired) {
-    _onTokenExpired()
+    try { _onTokenExpired() } catch { /* ignore */ }
   }
   return newToken
 }
 
+// ==================== 统一请求封装 ====================
+
+/**
+ * 统一请求入口：401 自动续期（只重试一次）、错误信息提取、响应格式解析。
+ *
+ * @param {string} method  HTTP 方法
+ * @param {string} path    以 / 开头的接口路径（不含 /api 前缀）
+ * @param {object} options token / body(JSON) / formData(FormData) / raw('blob'|'text')
+ */
+async function request(method, path, { token, body, formData, raw } = {}) {
+  const finalToken = token || _activeToken
+  const headers = {}
+  if (finalToken) headers['Authorization'] = `Bearer ${finalToken}`
+
+  let payload
+  if (formData) {
+    payload = formData // Content-Type 交给浏览器自动带 boundary
+  } else if (body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+    payload = JSON.stringify(body)
+  }
+
+  const res = await fetch(`${BASE}${path}`, { method, headers, body: payload })
+
+  if (res.status === 401) {
+    const newToken = await handle401()
+    if (!newToken) {
+      const err = new Error('登录已过期，请重新登录')
+      err.status = 401
+      throw err
+    }
+    const retryHeaders = { ...headers, 'Authorization': `Bearer ${newToken}` }
+    const retry = await fetch(`${BASE}${path}`, { method, headers: retryHeaders, body: payload })
+    if (!retry.ok) throw await buildError(retry)
+    return parseResponse(retry, raw)
+  }
+  if (!res.ok) throw await buildError(res)
+  return parseResponse(res, raw)
+}
+
+/** 把后端返回的错误整理成可读文案（优先取 body.message，不再是整段 HTML） */
+async function buildError(res) {
+  let message = ''
+  try {
+    const text = await res.text()
+    try {
+      const data = JSON.parse(text)
+      message = (data && (data.message || data.error)) || text
+    } catch {
+      message = text
+    }
+  } catch {
+    message = '网络错误'
+  }
+  const err = new Error(`请求失败 (${res.status})：${message || '未知错误'}`)
+  err.status = res.status
+  return err
+}
+
+/** 解析响应：默认 JSON，空响应体返回 null，避免 JSON.parse 抛错 */
+function parseResponse(res, raw) {
+  if (raw === 'blob') return res.blob()
+  if (raw === 'text') return res.text()
+  return res.text().then((text) => (text ? JSON.parse(text) : null))
+}
+
 // ==================== 基础 HTTP 函数 ====================
 
-export async function postJson(path, body, token) {
-  const headers = { 'Content-Type': 'application/json' }
-  if (token) { headers['Authorization'] = `Bearer ${token}` }
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST', headers, body: JSON.stringify(body)
-  })
-  if (res.status === 401) {
-    const newToken = await handle401()
-    if (newToken) return postJson(path, body, newToken)  // 重试
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '网络错误')
-    throw new Error(`请求失败 (${res.status}): ${text}`)
-  }
-  return res.json()
+export function postJson(path, body, token) {
+  return request('POST', path, { token, body: body ?? {} })
 }
 
-export async function getJson(path, token) {
-  const headers = {}
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(`${BASE}${path}`, { headers })
-  if (res.status === 401) {
-    const newToken = await handle401()
-    if (newToken) return getJson(path, newToken)  // 重试
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '网络错误')
-    throw new Error(`请求失败 (${res.status}): ${text}`)
-  }
-  return res.json()
+export function getJson(path, token) {
+  return request('GET', path, { token })
 }
 
-export async function putJson(path, body, token) {
-  const headers = { 'Content-Type': 'application/json' }
-  if (token) { headers['Authorization'] = `Bearer ${token}` }
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'PUT', headers, body: JSON.stringify(body)
-  })
-  if (res.status === 401) {
-    const newToken = await handle401()
-    if (newToken) return putJson(path, body, newToken)  // 重试
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '网络错误')
-    throw new Error(`请求失败 (${res.status}): ${text}`)
-  }
-  return res.json()
+export function putJson(path, body, token) {
+  return request('PUT', path, { token, body: body ?? {} })
 }
 
-export async function delJson(path, token) {
-  const headers = {}
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(`${BASE}${path}`, { method: 'DELETE', headers })
-  if (res.status === 401) {
-    const newToken = await handle401()
-    if (newToken) return delJson(path, newToken)
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '网络错误')
-    throw new Error(`请求失败 (${res.status}): ${text}`)
-  }
-  return res.json()
+export function delJson(path, token) {
+  return request('DELETE', path, { token })
+}
+
+/** FormData 上传（文件/多字段），与 JSON 请求共用 401 续期与错误处理 */
+export function postForm(path, formData, token) {
+  return request('POST', path, { token, formData })
+}
+
+/** 下载文件：返回 Blob，同样支持 401 续期 */
+export function getBlob(path, token) {
+  return request('GET', path, { token, raw: 'blob' })
 }
 
 // ========== 预警相关API ==========
@@ -422,12 +463,7 @@ export async function addExercise(token, courseId, kpIds, title, description, di
   fd.append('difficulty', difficulty)
   if (questionType) fd.append('questionType', questionType)
   if (answer) fd.append('answer', answer)
-  const res = await fetch('/api/exercise/add', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token },
-    body: fd
-  })
-  return res.json()
+  return postForm('/exercise/add', fd, token)
 }
 
 /**
@@ -443,22 +479,14 @@ export async function addExerciseWithFile(token, courseId, kpIds, title, descrip
   if (questionType) fd.append('questionType', questionType)
   if (answer) fd.append('answer', answer)
   fd.append('file', file)
-  const res = await fetch('/api/exercise/add', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token },
-    body: fd
-  })
-  return res.json()
+  return postForm('/exercise/add', fd, token)
 }
 
 /**
  * 删除练习题
  */
 export async function deleteExercise(token, id) {
-  return fetch('/api/exercise/' + id, {
-    method: 'DELETE',
-    headers: { Authorization: 'Bearer ' + token }
-  }).then(r => r.json())
+  return delJson('/exercise/' + id, token)
 }
 
 /**
@@ -570,11 +598,7 @@ export async function getDraft(token, recommendId) {
  * 删除作答草稿
  */
 export async function deleteDraft(token, recommendId) {
-  const res = await fetch('/api/exercise/draft/' + recommendId, {
-    method: 'DELETE',
-    headers: { Authorization: 'Bearer ' + token }
-  })
-  return res.json()
+  return delJson('/exercise/draft/' + recommendId, token)
 }
 
 // ========== 预警规则配置API (管理员端) ==========
@@ -597,10 +621,7 @@ export async function updateAlertConfig(token, id, config) {
 
 /** 删除规则配置 */
 export async function deleteAlertConfig(token, id) {
-  return (await fetch('/api/admin/config/' + id, {
-    method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` }
-  })).json()
+  return delJson('/admin/config/' + id, token)
 }
 
 // ========== 题库审核API (管理员端) ==========
@@ -612,10 +633,7 @@ export async function getPendingExercises(token, page = 1, size = 20) {
 
 /** 审核通过 */
 export async function approveExercise(token, id) {
-  return (await fetch('/api/admin/exercises/' + id + '/approve', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` }
-  })).json()
+  return postJson('/admin/exercises/' + id + '/approve', {}, token)
 }
 
 /** 审核驳回 */
@@ -658,6 +676,13 @@ export async function agentEffectCheck(token, studentId, courseId) {
  */
 export async function agentQA(token, question) {
   return postJson('/agent/qa', { question }, token)
+}
+
+/**
+ * 工具调用问答（W3）：智能体自主调用学情查询工具后作答，返回 answer + toolTrace
+ */
+export async function agentAsk(token, studentId, courseId, question) {
+  return postJson('/agent/ask', { studentId, courseId, question }, token)
 }
 
 /**
@@ -772,23 +797,14 @@ export async function studentAgentSuggestions(token, courseId) {
 export async function importExcelData(token, file) {
   const fd = new FormData()
   fd.append('file', file)
-  const res = await fetch('/api/import/upload', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token },
-    body: fd
-  })
-  return res.json()
+  return postForm('/import/upload', fd, token)
 }
 
 /**
  * 下载导入模板
  */
 export async function downloadImportTemplate(token) {
-  const res = await fetch('/api/import/template', {
-    headers: { Authorization: 'Bearer ' + token }
-  })
-  if (!res.ok) throw new Error('下载失败')
-  const blob = await res.blob()
+  const blob = await getBlob('/import/template', token)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -816,4 +832,61 @@ export async function getStudentGoal(token, courseId) {
 /** 设置学习目标 */
 export async function saveStudentGoal(token, data) {
   return postJson('/student/goal', data, token)
+}
+
+// ==================== 三维学情画像 API ====================
+
+/**
+ * 学生查看自己的三维学情画像（知识掌握 / 学习习惯 / 学习目标）
+ */
+export async function getMyProfile(token, courseId) {
+  const q = courseId ? `?courseId=${courseId}` : ''
+  return getJson('/profile/my' + q, token)
+}
+
+/**
+ * 教师查看指定学生的三维学情画像（学生账号只能查本人）
+ */
+export async function getStudentProfile(token, studentId, courseId) {
+  const q = courseId ? `?courseId=${courseId}` : ''
+  return getJson(`/profile/student/${studentId}${q}`, token)
+}
+
+// ==================== 每日全量快照 API（方案A） ====================
+
+/**
+ * 为当前教师的学生生成"当日全量快照"（含未触发预警的学生）
+ */
+export async function generateSnapshots(token) {
+  return postJson('/alert/teacher/generate-snapshots', {}, token)
+}
+
+/**
+ * 为全体学生生成"当日全量快照"（演示/管理用）
+ */
+export async function generateAllSnapshots(token) {
+  return postJson('/alert/teacher/generate-snapshots-all', {}, token)
+}
+
+// ==================== 智能体运行记录 API（W1：可观测） ====================
+
+/** 某学生（不传则全体）的智能体运行历史，含各步明细 */
+export async function getAgentRuns(token, studentId, limit = 5) {
+  const q = studentId ? `?studentId=${studentId}&limit=${limit}` : `?limit=${limit}`
+  return getJson('/agent/runs' + q, token)
+}
+
+/** 单次运行明细 */
+export async function getAgentRunDetail(token, runId) {
+  return getJson('/agent/runs/' + runId, token)
+}
+
+/** 智能体真实运行统计（成功率、各智能体失败率与平均耗时、P95、最近运行） */
+export async function getAgentStats(token) {
+  return getJson('/agent/stats', token)
+}
+
+/** Golden set 评测（live=false 用已落库运行结果评测） */
+export async function getAgentEval(token, live = false, limit = 20) {
+  return getJson(`/agent/eval?live=${live}&limit=${limit}`, token)
 }

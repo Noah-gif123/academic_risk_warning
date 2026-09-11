@@ -94,9 +94,57 @@ academic_risk_warning/
 ```bash
 # 在 MySQL 中执行（数据库名：study_warning_system）
 mysql -u root -p < backend/sql/study_warning_system.sql
+mysql -u root -p < backend/sql/exercise_draft.sql
+# 学情画像与智能体产物相关表（student_profile、student_goal、monitor_report 等 7 张）
+mysql -u root -p < backend/sql/missing_tables.sql
+# （可选）历史重复预警快照去重：从"按预警条数写快照"升级为"一人一课一天一条"后执行一次
+mysql -u root -p < backend/sql/dedupe_alert_snapshots.sql
 ```
 
 > 数据库名、账号密码可在 `backend/src/main/resources/application.properties` 中修改。
+>
+> 若库中已有旧版 `student_profile`（学生级、无 `course_id`），请再执行一次
+> `backend/sql/migrate_student_profile_course.sql`，把画像升级为 `(学生, 课程)` 粒度。
+
+> **预警快照口径（方案A）**：快照是"每日全量档案"——每个选了课的学生、每门课每天一条，
+> **未触发预警的 GREEN 学生同样记录**（用 `is_generated_alert` 区分当天是否真的触发了预警），
+> 因此风险趋势曲线对每个学生都是连续的。由每天 02:30 的定时任务生成，教师端也可手动触发
+> （`POST /api/alert/teacher/generate-snapshots`，含"全体"版本）；一人一课一天只保留一条，
+> 重复执行会先清理当天旧记录。
+>
+> **风险画像取数优先级**：风险雷达（`/api/alert/student/{id}/radar`）与风险诊断
+> （`/api/agent/student/risk-profile`）都优先使用**仍有效的预警**（已撤销/已闭环不算），
+> 没有预警时**自动回退到最新每日快照**，并用 `source` / `riskSource`（`ALERT` / `SNAPSHOT` / `NONE`）
+> 标明来源；两者都没有时返回"无数据"而不是 0 分画像。班级均值与学生本人**同源**
+> （个人走快照则班级也用快照），另用 `classAvgSource` 标明。
+>
+> **运行约定**：未登录 / Token 失效的请求返回**真实 HTTP 401**（响应体仍为 `{code:401,...}`），
+> 前端据此自动续期并重试一次；其余业务错误保持 HTTP 200 + `body.code` 的既有约定。
+> 定时任务的超时催办/预警升级按"预警 ID + 通知类型 + 标题"幂等，同一条预警的同一步只发一次通知。
+>
+> **智能体运行记录（W1）**：每次流水线运行会落库到 `agent_run` / `agent_run_step`
+> （流水线、触发方式、状态、每步智能体、耗时、输出摘要、失败原因），
+> `GET /api/agent/runs?studentId=` 查运行历史、`GET /api/agent/runs/{runId}` 查明细、
+> `GET /api/agent/stats` 返回**真实统计**（成功率、各智能体失败率与平均耗时、P95）；
+> 教师端「学生详情 → 智能体运行历史」卡片可直接查看。初始化数据库时执行
+> `backend/sql/agent_run_tables.sql`。
+>
+> **智能体开关与超时**：`agent.enabled=false` 会关闭全部智能体调用（含答疑），API 返回明确提示；
+> `agent.llm-timeout`（单次 LLM 调用）与 `agent.agent-timeout`（单智能体预算）同时生效，
+> 实际取两者较小值作为单次调用上限。
+>
+> **知识库检索**：学生端 AI 助手与教师端答疑均走百炼应用 API，按 `courseId` 路由到对应课程知识库
+> （`agent.bailian-app-ids.*`），学生助手的提问会带上个人学情上下文。
+>
+> **输出校验与反思（W2）**：每个智能体的结构化输出都会过三层校验——
+> 结构（必需字段）、取值（等级/可行性枚举、百分比 0~100）、**真值一致性**
+> （输出里的 `riskScore`/`predictedScore` 必须与库中真值一致，防幻觉数值）；
+> 校验不通过时按 `agent.reflection-enabled` 触发 **Self-Refine 反思重写**
+> （默认 1 轮：带着批评重写一版，只有"改后更合规"才采用），全过程写入
+> `agent_run_step`（`validation_status` / `validation_detail` / `reflection` / `attempts` / `output_fields`）。
+> `GET /api/agent/eval?live=false` 跑 **golden set 评测**（用例见
+> `backend/src/main/resources/golden/agent_golden_cases.json`；`live=true` 会真实跑评估，用于论文出表），
+> 教师端运行历史卡片里也有「🧪 golden set 评测」按钮。
 
 ### 2. 启动后端
 

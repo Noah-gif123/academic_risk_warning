@@ -214,10 +214,11 @@ public class RiskCenterService {
     public Map<String, Object> answerQuestion(String question, Long courseId) {
         long start = System.currentTimeMillis();
         try {
-            String reply = orchestrator.answerQuestion(question, courseId);
+            com.example.academic_risk_warning.llm.BailianRAGClient.RagAnswer answer =
+                    orchestrator.answerQuestionDetailed(question, courseId);
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("success", true);
-            result.put("reply", reply);
+            result.putAll(decorateRagAnswer(answer));
             result.put("courseId", courseId);
             result.put("durationMs", System.currentTimeMillis() - start);
             return result;
@@ -230,7 +231,71 @@ public class RiskCenterService {
         }
     }
 
+    /**
+     * 把 RAG 回答整理成前端可直接展示的结构（W3 引用溯源）：
+     * 平台结构化引用 → 助手声明的「依据：」 → 两者都没有时给出"无依据"提示。
+     */
+    public static Map<String, Object> decorateRagAnswer(
+            com.example.academic_risk_warning.llm.BailianRAGClient.RagAnswer answer) {
+        com.example.academic_risk_warning.llm.BailianRAGClient.DeclaredEvidence declared =
+                com.example.academic_risk_warning.llm.BailianRAGClient.splitDeclaredEvidence(answer.text());
+
+        java.util.List<Map<String, Object>> citations = new java.util.ArrayList<>(answer.citations());
+        boolean platformGrounded = answer.grounded();
+        // 已经明确拒答时不再采信"助手声明的依据"，避免出现"拒答却列了依据"的矛盾
+        if (citations.isEmpty() && !answer.refusal() && !declared.sources().isEmpty()) {
+            int index = 1;
+            for (String source : declared.sources()) {
+                Map<String, Object> citation = new LinkedHashMap<>();
+                citation.put("index", index++);
+                citation.put("source", "MODEL_DECLARED");
+                citation.put("title", source);
+                citations.add(citation);
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reply", declared.text());
+        result.put("citations", citations);
+        result.put("citationCount", citations.size());
+        result.put("grounded", platformGrounded || !citations.isEmpty());
+        result.put("citationsFromPlatform", platformGrounded);
+        result.put("refusal", answer.refusal());
+        result.put("retrievalEmpty", answer.retrievalEmpty());
+        if (platformGrounded) {
+            result.put("retrievalNote", "已引用课程知识库（" + citations.size() + " 条依据）");
+        } else if (!citations.isEmpty()) {
+            result.put("retrievalNote", "依据由助手声明（平台未返回结构化引用），建议对照教材核对");
+        } else {
+            result.put("retrievalNote", retrievalNote(answer));
+        }
+        return result;
+    }
+
+    /**
+     * 无引用依据时的提示语（W3）：明确告诉用户"这条回答没有引用支撑"，避免把无依据内容当权威
+     */
+    public static String retrievalNote(com.example.academic_risk_warning.llm.BailianRAGClient.RagAnswer answer) {
+        if (answer.grounded()) {
+            return "已引用课程知识库（" + answer.citations().size() + " 条依据）";
+        }
+        if (answer.retrievalEmpty()) {
+            return "知识库检索未命中任何内容，助手已明确拒答，未编造答案";
+        }
+        return answer.refusal()
+                ? "知识库未检索到依据，助手已明确拒答，未编造内容"
+                : "本次未返回知识库引用依据，请以教材与老师讲解为准";
+    }
+
+
     // ===== 6. 流水线统计 =====
+
+    /**
+     * 工具调用问答（W3）：教师用自然语言提问，智能体自行调用数据查询工具后作答
+     */
+    public Map<String, Object> askWithTools(Long studentId, Long courseId, String question) {
+        return orchestrator.askWithTools(studentId, courseId, question);
+    }
 
     public Map<String, Object> getPipelineStats() {
         return orchestrator.getPipelineStats();

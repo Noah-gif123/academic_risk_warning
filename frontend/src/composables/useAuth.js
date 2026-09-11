@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { setActiveToken, onTokenExpired } from '../api/http.js'
+import { setActiveToken, getActiveToken, onTokenExpired, onTokenRefreshed } from '../api/http.js'
 
 // ==================== 全局认证状态 ====================
 const isLoggedIn = ref(false)
@@ -55,6 +55,19 @@ export function initAuth() {
   onTokenExpired(() => {
     clearAllAuth()
   })
+
+  // 自动续期成功后同步 ref：否则组件仍拿着旧 token 发请求，会反复 401
+  onTokenRefreshed(({ token, key }) => {
+    if (key === 'adminToken') adminToken.value = token
+    else if (key === 'studentToken') studentToken.value = token
+    else teacherToken.value = token
+    setActiveToken(token)
+  })
+}
+
+/** 登出时若清掉的正是当前活跃 token，则一并清空，避免退出后仍带着旧 token 请求 */
+function clearActiveIfMatches(token) {
+  if (token && getActiveToken() === token) setActiveToken('')
 }
 
 // ==================== 教师登录 ====================
@@ -89,6 +102,7 @@ export function setAdminLogin(token, data) {
 
 // ==================== 登出 ====================
 export function teacherLogout() {
+  clearActiveIfMatches(teacherToken.value)
   teacherToken.value = ''
   teacher.value = null
   localStorage.removeItem('token')
@@ -96,6 +110,7 @@ export function teacherLogout() {
 }
 
 export function studentLogout() {
+  clearActiveIfMatches(studentToken.value)
   studentToken.value = ''
   studentInfo.value = null
   localStorage.removeItem('studentToken')
@@ -103,6 +118,7 @@ export function studentLogout() {
 }
 
 export function adminLogout() {
+  clearActiveIfMatches(adminToken.value)
   adminToken.value = ''
   adminInfo.value = null
   localStorage.removeItem('adminToken')

@@ -20,6 +20,9 @@ public class StudentProfile {
     /** 学生ID */
     private Long studentId;
 
+    /** 课程ID（null 表示跨课程的综合画像） */
+    private Long courseId;
+
     /** 知识点掌握度画像（JSON） */
     private String knowledgeProfile;
 

@@ -227,6 +227,9 @@
               <span class="ai-source-label">参考来源：</span>
               <span v-for="(s, si) in msg.sources" :key="si" class="ai-source-tag">{{ s }}</span>
             </div>
+            <div v-else-if="msg.role === 'assistant' && msg.grounded === false" class="ai-msg-nocite">
+              ⚠️ {{ msg.retrievalNote || '本条回答未返回知识库引用依据' }}
+            </div>
           </div>
         </div>
 
@@ -450,10 +453,14 @@ async function send() {
     const json = await teacherAgentQA(props.token, text)
     if (json.success) {
       const reply = json.reply || json.message || '(未获取到回答)'
+      const cites = json.citations || []
       messages.value.push({
         role: 'assistant',
         content: reply,
-        sources: json.sources || []
+        // W3 引用溯源：把 citations 映射为参考来源标签
+        sources: cites.map(c => (c.index ? `[${c.index}] ` : '') + (c.title || '依据')),
+        grounded: json.grounded,
+        retrievalNote: json.retrievalNote
       })
     } else {
       messages.value.push({ role: 'assistant', content: '抱歉：' + (json.message || '未知错误') })
@@ -829,6 +836,7 @@ defineExpose({ open, close, isOpen })
 .ai-msg-sources { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .ai-source-label { font-size: 0.68rem; color: #b0a590; }
 .ai-source-tag { font-size: 0.66rem; padding: 2px 8px; border-radius: 4px; background: #fdf9f4; border: 1px solid #f0ebe0; color: #8b7a65; }
+.ai-msg-nocite { margin-top: 6px; font-size: 0.68rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 3px 8px; }
 
 .ai-thinking { display: flex; gap: 4px; align-items: center; padding: 12px 16px; }
 .ai-thinking .ai-dot, .ai-suggest-loading .ai-dot {
