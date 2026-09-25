@@ -1,0 +1,13 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /springbootdemo
+spring:
+  profiles:
+    active: dev
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: src/main/java
+  mvc:
+    dispatch-options-request: true

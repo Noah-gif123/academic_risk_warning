@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+	1.namespace必须与@Mapper注解的Mapper接口的全类名一致
+	2.xml文件名必须与@Mapper注解的接口名一致
+	3.标签中的id必须与@Mapper注解的的接口中的方法名一致，且参数一致
+ -->
+<mapper namespace="cn.edu.neu.springbootdemo.mapper.AttendanceMapper">
+
+</mapper>
