@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.neu.springbootdemo.mapper.CourseMapper">
+
+	<!-- 统计同名课程数量：0 表示课程名可用 -->
+	<select id="countCourse" parameterType="Course" resultType="int">
+		select count(*)
+		from demo_course
+		where coursename = #{coursename}
+	</select>
+
+	<!-- 新增课程：值为空的字段不插入 -->
+	<insert id="addCourse" parameterType="Course">
+		insert into demo_course
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="coursename != null and coursename != ''">coursename,</if>
+			<if test="credit != null">credit,</if>
+			<if test="teacher != null and teacher != ''">teacher,</if>
+			<if test="coursetime != null and coursetime != ''">coursetime,</if>
+			<if test="classroom != null and classroom != ''">classroom,</if>
+			<if test="description != null">description,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="coursename != null and coursename != ''">#{coursename},</if>
+			<if test="credit != null">#{credit},</if>
+			<if test="teacher != null and teacher != ''">#{teacher},</if>
+			<if test="coursetime != null and coursetime != ''">#{coursetime},</if>
+			<if test="classroom != null and classroom != ''">#{classroom},</if>
+			<if test="description != null">#{description},</if>
+		</trim>
+	</insert>
+
+	<!-- 组合查询条件，列表查询与总数统计共用 -->
+	<sql id="courseWhere">
+		<where>
+			<if test="coursename != null and coursename != ''">
+				and coursename like concat('%', #{coursename}, '%')
+			</if>
+			<if test="teacher != null and teacher != ''">
+				and teacher like concat('%', #{teacher}, '%')
+			</if>
+			<if test="credit != null">
+				and credit = #{credit}
+			</if>
+		</where>
+	</sql>
+
+	<!-- 查询课程列表：pageSize 大于 0 时按分页返回 -->
+	<select id="getCourseList" parameterType="Course" resultType="Course">
+		select courseid, coursename, credit, teacher, coursetime, classroom, description
+		from demo_course
+		<include refid="courseWhere" />
+		order by courseid
+		<if test="pageSize > 0">
+			limit #{pageStart}, #{pageSize}
+		</if>
+	</select>
+
+	<!-- 统计满足条件的记录总数，分页时用于计算总页数 -->
+	<select id="getCourseListCount" parameterType="Course" resultType="int">
+		select count(*)
+		from demo_course
+		<include refid="courseWhere" />
+	</select>
+
+	<!-- 按课程id查询单个课程 -->
+	<select id="getCourse" parameterType="string" resultType="Course">
+		select courseid, coursename, credit, teacher, coursetime, classroom, description
+		from demo_course
+		where courseid = #{courseid}
+	</select>
+
+	<!-- 修改课程：值为空的字段不更新 -->
+	<update id="updateCourse" parameterType="Course">
+		update demo_course
+		<set>
+			<if test="coursename != null and coursename != ''">coursename = #{coursename},</if>
+			<if test="credit != null">credit = #{credit},</if>
+			<if test="teacher != null">teacher = #{teacher},</if>
+			<if test="coursetime != null">coursetime = #{coursetime},</if>
+			<if test="classroom != null">classroom = #{classroom},</if>
+			<if test="description != null">description = #{description},</if>
+		</set>
+		where courseid = #{courseid}
+	</update>
+
+	<!-- 删除课程：courseids 非空按批量删除，否则按 courseid 单条删除 -->
+	<delete id="deleteCourse" parameterType="Course">
+		delete from demo_course
+		where
+		<choose>
+			<when test="courseids != null and courseids != ''">
+				courseid in
+				<foreach collection="courseids.split(',')" item="id" open="(" separator="," close=")">
+					#{id}
+				</foreach>
+			</when>
+			<otherwise>
+				courseid = #{courseid}
+			</otherwise>
+		</choose>
+	</delete>
+
+</mapper>
