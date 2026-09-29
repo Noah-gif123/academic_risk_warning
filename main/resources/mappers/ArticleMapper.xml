@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="dhui.hellomybatis.mapper.ArticleMapper">
+
+    <select id="selectArticle" resultType="article">
+        SELECT *  FROM article where aid=#{aid}
+    </select>
+
+    <!-- 新增文章：明确指定字段，排除自动填充的 created_time/updated_time -->
+    <insert id="addArticle" parameterType="dhui.hellomybatis.entity.Article" useGeneratedKeys="true" keyProperty="aid">
+        INSERT INTO Article (title, content, titlepic, video)
+        VALUES (#{title}, #{content}, #{titlepic}, #{video})
+    </insert>
+
+    <insert id="addPK" parameterType="article" useGeneratedKeys="true" keyProperty="aid">
+            INSERT INTO article VALUES (null,#{title}, #{content},#{titlepic},#{video})
+    </insert>
+
+    <insert id="insertPKBack" parameterType="article">
+        <selectKey keyProperty="aid" resultType="int" order="AFTER">
+            select LAST_INSERT_ID()
+        </selectKey>
+        insert into article values(null,#{title},#{content},#{titlepic},#{video})
+    </insert>
+
+    <sql id="articleColumns">
+        aid,title,content,titlepic,video
+    </sql>
+
+    <select id="getSql" resultType="article">
+            SELECT <include refid="articleColumns"/> FROM article
+    </select>
+
+    <select id="getArticleWithComment" resultMap="articleWithComment">
+            SELECT a.*, c.cid,c.content as c_content ,c.author
+                FROM article a , comment c WHERE a.aid=c.aid and a.aid = #{aid}
+    </select>
+
+    <resultMap id="articleWithComment" type="article">
+        <id column="aid" property="aid"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content"/>
+        <collection property="commentList" ofType="comment">
+                <id column="cid" property="cid"/>
+                <result column="c_content" property="content"/>
+                <result column="author" property="author"/>
+        </collection>
+    </resultMap>
+
+    <select id="getArticles1" resultType="article" parameterType="article">
+        SELECT * FROM article WHERE 1=1
+        <if test="title != null and title.trim() != ''">
+            AND title like concat('%',#{title},'%')
+        </if>
+        <if test="content != null and content.trim() != ''">
+            AND content like concat('%',#{content},'%')
+        </if>
+        and titlepic is not null
+    </select>
+
+    <select id="getArticles2" resultType="article" parameterType="article">
+        SELECT * FROM article WHERE 1=1
+        <choose>
+            <when test="title != null and title.trim() != ''">
+                AND title like concat('%',#{title},'%')
+            </when>
+            <when test="content != null and content.trim() != ''">
+                AND content like concat('%',#{content},'%')
+            </when>
+        <otherwise>and titlepic is not null</otherwise>
+        </choose>
+    </select>
+
+    <select id="getArticles3" resultType="article">
+        SELECT * FROM article
+        <where>
+            <if test="title != null and title.trim() != ''">
+                AND title like concat('%',#{title},'%')
+            </if>
+            <if test="content != null and content.trim() != ''">
+                AND content like concat('%',#{content},'%')
+            </if>
+            and titlepic is not null
+        </where>
+    </select>
+
+    <select id="getArticleList" resultType="article">
+            SELECT * FROM article
+    </select>
+
+</mapper>
