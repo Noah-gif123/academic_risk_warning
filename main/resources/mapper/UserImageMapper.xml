@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.neu.springbootdemo.mapper.UserImageMapper">
+
+	<!-- 查询某个用户的照片，头像排最前，其余按新增顺序倒序 -->
+	<select id="getUserImages" resultType="UserImage">
+		select imageid, userid, image_url as imageUrl, is_portrait as isPortrait
+		from user_image
+		where userid = #{userid}
+		order by is_portrait desc, imageid desc
+	</select>
+
+	<!-- 照片墙总览：全部用户的照片（可按用户筛选），头像排最前，其余按新增倒序 -->
+	<select id="getAllImages" resultType="UserImage">
+		select i.imageid, i.userid, i.image_url as imageUrl, i.is_portrait as isPortrait,
+		u.username, u.realname
+		from user_image i
+		left join demo_users u on u.userid = i.userid
+		<where>
+			<if test="userid != null and userid > 0">i.userid = #{userid}</if>
+		</where>
+		order by i.is_portrait desc, i.imageid desc
+	</select>
+
+	<!-- 按照片id查询单张照片 -->
+	<select id="getUserImage" resultType="UserImage">
+		select imageid, userid, image_url as imageUrl, is_portrait as isPortrait
+		from user_image
+		where imageid = #{imageid}
+	</select>
+
+	<!-- 新增照片记录 -->
+	<insert id="addUserImage" parameterType="UserImage" useGeneratedKeys="true" keyProperty="imageid">
+		insert into user_image (userid, image_url, is_portrait)
+		values (#{userid}, #{imageUrl}, 0)
+	</insert>
+
+	<!-- 删除照片记录 -->
+	<delete id="deleteUserImage">
+		delete from user_image
+		where imageid = #{imageid}
+	</delete>
+
+	<!-- 取消该用户原有头像 -->
+	<update id="clearPortrait">
+		update user_image
+		set is_portrait = 0
+		where userid = #{userid}
+	</update>
+
+	<!-- 设置头像：限定 userid，避免越权修改别人的照片 -->
+	<update id="setPortrait">
+		update user_image
+		set is_portrait = 1
+		where imageid = #{imageid} and userid = #{userid}
+	</update>
+
+</mapper>
