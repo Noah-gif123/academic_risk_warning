@@ -1,0 +1,68 @@
+<mxfile host="app.diagrams.net"><diagram name="图2.17 核心领域类图（实体类与主要职责）"><mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="n2" value="领域实体（与数据库表一一对应）" style="rounded=1;dashed=1;verticalAlign=top;html=1;fillColor=none;strokeColor=#4a5568;" vertex="1" parent="1"><mxGeometry x="16" y="46" width="1028" height="660" as="geometry"/></mxCell><mxCell id="n3" value="Term 学期
+- termCode / termName
+- startDate / endDate
+- totalWeeks / isCurrent
++ currentTerm()
++ weekOf(date)" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="46" y="92" width="320" height="104" as="geometry"/></mxCell><mxCell id="n4" value="CourseOffering 开课实例
+- courseId / termId / groupId
+- plannedSessions / actualSessions
+- effectiveSessions / passScore
++ effectiveSessions()
++ passLine()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="386" y="92" width="330" height="104" as="geometry"/></mxCell><mxCell id="n5" value="TeachingClass 教学班
+- offeringId / teacherId
+- classCode / isRetakeClass
++ enrollments()
++ failRate()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="736" y="92" width="290" height="88" as="geometry"/></mxCell><mxCell id="n6" value="Course 课程
+- courseCode / courseName
+- courseType / credit
+- difficultyFactorCode
++ isExamCourse()
++ difficultyFactor()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="46" y="262" width="320" height="104" as="geometry"/></mxCell><mxCell id="n7" value="Enrollment 选课
+- studentId / teachingClassId
+- offeringId / termId
+- status / retakeTimes
++ attendanceOf(session)
++ absenceCount()
++ deductionPoints()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="386" y="262" width="330" height="120" as="geometry"/></mxCell><mxCell id="n8" value="CourseSession 课次
+- offeringId / weekNo / sessionNo
+- sessionDate / status
+- rollCallStatus
++ isDone()
++ countedInDenominator()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="736" y="262" width="290" height="104" as="geometry"/></mxCell><mxCell id="n9" value="AttendanceRecord 考勤记录
+- enrollmentId / sessionId
+- status / leaveType
+- phase / source / archiveId
++ isAbsent()
++ isArchived()
++ changeLog()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="46" y="432" width="320" height="120" as="geometry"/></mxCell><mxCell id="n10" value="ScoreItem 分项得分
+- enrollmentId / schemeItemId
+- timesNo / rawValue
+- score / fullScore / isAbsent
++ weightedScore()
++ isAnchorItem()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="386" y="432" width="330" height="104" as="geometry"/></mxCell><mxCell id="n11" value="RiskState 风险状态
+- enrollmentId / absentCount
+- allowedAbsent / remainingAbsent
+- hardFail / finalExamNeeded
+- riskScore / riskLevel
+- activeChannel / confidence
++ margin()
++ level()
++ isHardFail()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="736" y="432" width="290" height="152" as="geometry"/></mxCell><mxCell id="n12" value="AlertRecord 预警记录
+- studentId / enrollmentId
+- alertLevel / triggerChannel
+- triggerRule / riskScore
+- status / isCurrent / escalated
++ escalate()
++ close(reason)
++ timeline()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="46" y="632" width="320" height="136" as="geometry"/></mxCell><mxCell id="n13" value="InterventionRecord 干预记录
+- studentId / alertId
+- stage / operatorId
+- actionType / result / effective
+- referStatus
++ markEffective()
++ referToAdmin()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="386" y="632" width="330" height="120" as="geometry"/></mxCell><mxCell id="n14" value="Notification 通知
+- bizType / bizId
+- aggregateKey / priority
+- expireTime
++ aggregate()
++ receipts()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="736" y="632" width="290" height="104" as="geometry"/></mxCell><mxCell id="e15" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n6" target="n4"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e16" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n4" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e17" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n5" target="n7"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e18" value="生成课次" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n4" target="n8"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e19" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n7" target="n9"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e20" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n8" target="n9"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e21" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n7" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e22" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n7" target="n11"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e23" value="达到阈值" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n11" target="n12"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e24" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n12" target="n13"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e25" value="" style="endArrow=open;dashed=1;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n12" target="n14"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e26" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n3" target="n4"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>

@@ -1,0 +1,63 @@
+{
+  "title": "图2.17 核心领域类图（实体类与主要职责）",
+  "w": 1060,
+  "h": 800,
+  "nodes": [
+    { "id": "bd", "t": "boundary", "x": 16, "y": 46, "w": 1028, "h": 660, "label": "领域实体（与数据库表一一对应）" },
+
+    { "id": "term", "t": "cls", "x": 46, "y": 92, "w": 320, "label": "Term 学期",
+      "attrs": ["- termCode / termName", "- startDate / endDate", "- totalWeeks / isCurrent"],
+      "methods": ["+ currentTerm()", "+ weekOf(date)"] },
+    { "id": "offering", "t": "cls", "x": 386, "y": 92, "w": 330, "label": "CourseOffering 开课实例",
+      "attrs": ["- courseId / termId / groupId", "- plannedSessions / actualSessions", "- effectiveSessions / passScore"],
+      "methods": ["+ effectiveSessions()", "+ passLine()"] },
+    { "id": "tclass", "t": "cls", "x": 736, "y": 92, "w": 290, "label": "TeachingClass 教学班",
+      "attrs": ["- offeringId / teacherId", "- classCode / isRetakeClass"],
+      "methods": ["+ enrollments()", "+ failRate()"] },
+
+    { "id": "course", "t": "cls", "x": 46, "y": 262, "w": 320, "label": "Course 课程",
+      "attrs": ["- courseCode / courseName", "- courseType / credit", "- difficultyFactorCode"],
+      "methods": ["+ isExamCourse()", "+ difficultyFactor()"] },
+    { "id": "enroll", "t": "cls", "x": 386, "y": 262, "w": 330, "label": "Enrollment 选课",
+      "attrs": ["- studentId / teachingClassId", "- offeringId / termId", "- status / retakeTimes"],
+      "methods": ["+ attendanceOf(session)", "+ absenceCount()", "+ deductionPoints()"] },
+    { "id": "session", "t": "cls", "x": 736, "y": 262, "w": 290, "label": "CourseSession 课次",
+      "attrs": ["- offeringId / weekNo / sessionNo", "- sessionDate / status", "- rollCallStatus"],
+      "methods": ["+ isDone()", "+ countedInDenominator()"] },
+
+    { "id": "att", "t": "cls", "x": 46, "y": 432, "w": 320, "label": "AttendanceRecord 考勤记录",
+      "attrs": ["- enrollmentId / sessionId", "- status / leaveType", "- phase / source / archiveId"],
+      "methods": ["+ isAbsent()", "+ isArchived()", "+ changeLog()"] },
+    { "id": "score", "t": "cls", "x": 386, "y": 432, "w": 330, "label": "ScoreItem 分项得分",
+      "attrs": ["- enrollmentId / schemeItemId", "- timesNo / rawValue", "- score / fullScore / isAbsent"],
+      "methods": ["+ weightedScore()", "+ isAnchorItem()"] },
+    { "id": "risk", "t": "cls", "x": 736, "y": 432, "w": 290, "label": "RiskState 风险状态",
+      "attrs": ["- enrollmentId / absentCount", "- allowedAbsent / remainingAbsent", "- hardFail / finalExamNeeded", "- riskScore / riskLevel", "- activeChannel / confidence"],
+      "methods": ["+ margin()", "+ level()", "+ isHardFail()"] },
+
+    { "id": "alert", "t": "cls", "x": 46, "y": 632, "w": 320, "label": "AlertRecord 预警记录",
+      "attrs": ["- studentId / enrollmentId", "- alertLevel / triggerChannel", "- triggerRule / riskScore", "- status / isCurrent / escalated"],
+      "methods": ["+ escalate()", "+ close(reason)", "+ timeline()"] },
+    { "id": "inter", "t": "cls", "x": 386, "y": 632, "w": 330, "label": "InterventionRecord 干预记录",
+      "attrs": ["- studentId / alertId", "- stage / operatorId", "- actionType / result / effective", "- referStatus"],
+      "methods": ["+ markEffective()", "+ referToAdmin()"] },
+    { "id": "notify", "t": "cls", "x": 736, "y": 632, "w": 290, "label": "Notification 通知",
+      "attrs": ["- bizType / bizId", "- aggregateKey / priority", "- expireTime"],
+      "methods": ["+ aggregate()", "+ receipts()"] }
+  ],
+  "edges": [
+    { "f": "course", "to": "offering", "k": "assoc", "lf": "1", "lt": "N" },
+    { "f": "offering", "to": "tclass", "k": "assoc", "lf": "1", "lt": "N" },
+    { "f": "tclass", "to": "enroll", "k": "assoc", "lf": "1", "lt": "N" },
+    { "f": "offering", "to": "session", "k": "assoc", "lf": "1", "lt": "N", "l": "生成课次", "lw": 120 },
+    { "f": "enroll", "to": "att", "k": "assoc", "lf": "1", "lt": "N" },
+    { "f": "session", "to": "att", "k": "assoc", "lf": "1", "lt": "N" },
+    { "f": "enroll", "to": "score", "k": "assoc", "lf": "1", "lt": "N" },
+    { "f": "enroll", "to": "risk", "k": "assoc", "lf": "1", "lt": "1" },
+    { "f": "risk", "to": "alert", "k": "assoc", "lf": "1", "lt": "N", "l": "达到阈值", "lw": 110 },
+    { "f": "alert", "to": "inter", "k": "assoc", "lf": "1", "lt": "N" },
+    { "f": "alert", "to": "notify", "k": "dash", "lf": "1", "lt": "N" },
+    { "f": "term", "to": "offering", "k": "assoc", "lf": "1", "lt": "N" }
+  ],
+  "caption": "注：类图属性只列关键字段，命名与数据库列对应（camelCase）；方法为领域职责的示意。"
+}

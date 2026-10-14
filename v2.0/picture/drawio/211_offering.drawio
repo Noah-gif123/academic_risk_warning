@@ -1,0 +1,46 @@
+<mxfile host="app.diagrams.net"><diagram name="图2.11 开课与成绩构成域实体关系"><mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="n2" value="开课与成绩构成域实体关系" style="rounded=1;dashed=1;verticalAlign=top;html=1;fillColor=none;strokeColor=#4a5568;" vertex="1" parent="1"><mxGeometry x="16" y="42" width="956" height="515" as="geometry"/></mxCell><mxCell id="n3" value="课程 course
+id*
+course_code / course_name
+course_type / credit
+difficulty_factor_code
+prerequisite_course_id" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="46" y="92" width="272" height="111" as="geometry"/></mxCell><mxCell id="n4" value="知识点 course_knowledge_point
+id*
+course_id / parent_id
+kp_code / kp_name
+chapter / kp_level" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="358" y="92" width="272" height="94" as="geometry"/></mxCell><mxCell id="n5" value="课程组 course_group
+id*
+course_id / term_id
+level
+level_request_status
+status" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="670" y="92" width="272" height="111" as="geometry"/></mxCell><mxCell id="n6" value="开课实例 course_offering
+id*
+course_id / term_id / group_id
+planned_sessions
+actual_sessions
+effective_sessions
+pass_score / status" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="46" y="237" width="272" height="128" as="geometry"/></mxCell><mxCell id="n7" value="教学班 teaching_class
+id*
+offering_id / teacher_id
+class_code / class_name
+capacity
+is_retake_class / status" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="358" y="237" width="272" height="111" as="geometry"/></mxCell><mxCell id="n8" value="教学班-行政班 teaching_class_admin_class
+id*
+teaching_class_id
+admin_class_id" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="670" y="237" width="272" height="77" as="geometry"/></mxCell><mxCell id="n9" value="成绩构成模板 score_template
+id*
+template_code / template_name
+course_type / level
+items_json
+is_default" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="46" y="399" width="272" height="111" as="geometry"/></mxCell><mxCell id="n10" value="成绩构成 score_scheme
+id*
+group_id / term_id
+version / level
+source_template_id
+confirm_status
+locked / locked_at" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="358" y="399" width="272" height="128" as="geometry"/></mxCell><mxCell id="n11" value="评分项 score_scheme_item
+id*
+scheme_id / parent_id
+item_code / item_name
+category / weight / full_score
+is_anchor / is_subjective
+data_source / score_type" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="670" y="399" width="272" height="128" as="geometry"/></mxCell><mxCell id="e12" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n3" target="n4"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e13" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n3" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e14" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n5" target="n6"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e15" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n6" target="n7"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e16" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n7" target="n8"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e17" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n9" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e18" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n5" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e19" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n10" target="n11"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e20" value="" style="endArrow=open;dashed=1;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n11" target="n4"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>

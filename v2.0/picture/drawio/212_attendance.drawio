@@ -1,0 +1,32 @@
+<mxfile host="app.diagrams.net"><diagram name="图2.12 选课、课次与考勤域实体关系"><mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="n2" value="选课、课次与考勤域实体关系" style="rounded=1;dashed=1;verticalAlign=top;html=1;fillColor=none;strokeColor=#4a5568;" vertex="1" parent="1"><mxGeometry x="16" y="42" width="950" height="404" as="geometry"/></mxCell><mxCell id="n3" value="选课 enrollment
+id*
+student_id
+teaching_class_id
+offering_id / term_id
+status / retake_times" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="46" y="92" width="270" height="111" as="geometry"/></mxCell><mxCell id="n4" value="课次 course_session
+id*
+offering_id / teaching_class_id
+week_no / session_no
+session_date
+status / is_void
+roll_call_status" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="356" y="92" width="270" height="128" as="geometry"/></mxCell><mxCell id="n5" value="考勤记录 attendance_record
+id*
+enrollment_id / student_id
+session_id
+status / leave_type
+phase / source
+archive_id
+recorded_by / is_void" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="666" y="92" width="270" height="145" as="geometry"/></mxCell><mxCell id="n6" value="归档批次 attendance_archive
+id*
+offering_id / teaching_class_id
+teacher_id / term_id
+phase
+session_from / session_to
+coverage_rate
+status / review_by" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="46" y="271" width="270" height="145" as="geometry"/></mxCell><mxCell id="n7" value="考勤留痕 attendance_record_log
+id*
+record_id
+old_status / new_status
+old_phase / new_phase
+change_type / reason
+changed_by / changed_at" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="356" y="271" width="270" height="128" as="geometry"/></mxCell><mxCell id="e8" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n3" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e9" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n4" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e10" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n6" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e11" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n5" target="n7"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>

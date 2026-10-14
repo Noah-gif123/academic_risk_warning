@@ -1,0 +1,187 @@
+{
+ "title": "图2.14 引擎产物域实体关系",
+ "w": 988,
+ "h": 708,
+ "nodes": [
+  {
+   "id": "bd",
+   "t": "boundary",
+   "x": 16,
+   "y": 42,
+   "w": 956,
+   "h": 600,
+   "label": "引擎产物域实体关系"
+  },
+  {
+   "id": "e0",
+   "t": "entity",
+   "x": 46,
+   "y": 92,
+   "w": 272,
+   "h": 145,
+   "label": "引擎配置 risk_engine_config",
+   "rows": [
+    "id*",
+    "engine_version / effective_time",
+    "is_active",
+    "threshold_red / orange / yellow",
+    "coverage_threshold",
+    "deduct_absent / late / leave",
+    "delta_shrink_k / delta_fuse_threshold"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e1",
+   "t": "entity",
+   "x": 358,
+   "y": 92,
+   "w": 272,
+   "h": 196,
+   "label": "风险状态 risk_state",
+   "rows": [
+    "id*",
+    "enrollment_id / student_id",
+    "offering_id / term_id",
+    "absent_count / late_count / leave_count",
+    "allowed_absent / remaining_absent",
+    "hard_fail / near_fail",
+    "final_exam_needed / final_unreachable",
+    "risk_score / risk_level",
+    "active_channel / confidence",
+    "output_mode / engine_version"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e2",
+   "t": "entity",
+   "x": 670,
+   "y": 92,
+   "w": 272,
+   "h": 145,
+   "label": "教师尺度 teacher_style",
+   "rows": [
+    "id*",
+    "teacher_id / offering_id",
+    "course_id / term_id",
+    "scheme_item_id / item_code",
+    "raw_delta / delta",
+    "shrink_lambda / sample_size",
+    "fused / status / engine_version"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e3",
+   "t": "entity",
+   "x": 46,
+   "y": 322,
+   "w": 272,
+   "h": 128,
+   "label": "学生历史 student_fail_history",
+   "rows": [
+    "id*",
+    "student_id / term_id",
+    "course_id / offering_id",
+    "final_score / pass_score",
+    "is_fail / hard_fail",
+    "is_retake / engine_version"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e4",
+   "t": "entity",
+   "x": 358,
+   "y": 322,
+   "w": 272,
+   "h": 128,
+   "label": "教学班挂科率 teaching_class_fail_rate",
+   "rows": [
+    "id*",
+    "teaching_class_id / teacher_id",
+    "term_id",
+    "examinee_count / fail_count",
+    "fail_rate / hard_fail_count",
+    "engine_version / calc_time"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e5",
+   "t": "entity",
+   "x": 670,
+   "y": 322,
+   "w": 272,
+   "h": 128,
+   "label": "行政班挂科率 admin_class_fail_rate",
+   "rows": [
+    "id*",
+    "admin_class_id",
+    "offering_id / term_id",
+    "examinee_count / fail_count",
+    "fail_rate / hard_fail_count",
+    "engine_version"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e6",
+   "t": "entity",
+   "x": 46,
+   "y": 484,
+   "w": 272,
+   "h": 128,
+   "label": "课程挂科率 course_fail_rate_history",
+   "rows": [
+    "id*",
+    "course_id / term_id",
+    "examinee_count / fail_count",
+    "fail_rate / hard_fail_count",
+    "course_factor",
+    "is_initialized / engine_version"
+   ],
+   "fs": 12.5
+  }
+ ],
+ "edges": [
+  {
+   "f": "e0",
+   "to": "e1",
+   "k": "assoc",
+   "l": "engine_version",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e2",
+   "to": "e1",
+   "k": "dash",
+   "l": "Δ 校正",
+   "lf": "N",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e6",
+   "to": "e1",
+   "k": "dash",
+   "l": "课程因子 c",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e3",
+   "to": "e1",
+   "k": "dash",
+   "l": "历史先验（非新生）",
+   "lf": "N",
+   "lt": "1",
+   "lw": 170
+  }
+ ],
+ "caption": "注：risk_state 一人一课一行，承载“当前风险”；变化过程不再按天写快照，而由预警生命周期时间线追溯。"
+}

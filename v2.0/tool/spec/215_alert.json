@@ -1,0 +1,191 @@
+{
+ "title": "图2.15 预警与干预闭环域实体关系",
+ "w": 988,
+ "h": 691,
+ "nodes": [
+  {
+   "id": "bd",
+   "t": "boundary",
+   "x": 16,
+   "y": 42,
+   "w": 956,
+   "h": 583,
+   "label": "预警与干预闭环域实体关系"
+  },
+  {
+   "id": "e0",
+   "t": "entity",
+   "x": 46,
+   "y": 92,
+   "w": 272,
+   "h": 111,
+   "label": "风险状态 risk_state",
+   "rows": [
+    "id*",
+    "enrollment_id / student_id",
+    "risk_score / risk_level",
+    "active_channel / confidence",
+    "engine_version"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e1",
+   "t": "entity",
+   "x": 358,
+   "y": 92,
+   "w": 272,
+   "h": 162,
+   "label": "预警记录 alert_record",
+   "rows": [
+    "id*",
+    "student_id / enrollment_id",
+    "offering_id / course_id / term_id",
+    "alert_level / trigger_channel",
+    "trigger_rule / risk_score",
+    "confidence / output_mode",
+    "status / is_current / escalated",
+    "expire_time / engine_version"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e2",
+   "t": "entity",
+   "x": 670,
+   "y": 92,
+   "w": 272,
+   "h": 128,
+   "label": "预警时间线 alert_flow_log",
+   "rows": [
+    "id*",
+    "alert_id / student_id",
+    "event_type",
+    "from_level / to_level",
+    "from_status / to_status",
+    "operator_id / event_time"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e3",
+   "t": "entity",
+   "x": 46,
+   "y": 288,
+   "w": 272,
+   "h": 145,
+   "label": "干预记录 intervention_record",
+   "rows": [
+    "id*",
+    "student_id / term_id",
+    "alert_id / related_alert_ids",
+    "stage / operator_id / operator_role",
+    "action_type / content / result",
+    "effective / effect_check_time",
+    "refer_status / admin_feedback"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e4",
+   "t": "entity",
+   "x": 358,
+   "y": 288,
+   "w": 272,
+   "h": 111,
+   "label": "通知 notification",
+   "rows": [
+    "id*",
+    "biz_type / biz_id",
+    "title / content",
+    "aggregate_key / aggregate_count",
+    "priority / expire_time"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e5",
+   "t": "entity",
+   "x": 670,
+   "y": 288,
+   "w": 272,
+   "h": 128,
+   "label": "通知回执 notification_receipt",
+   "rows": [
+    "id*",
+    "notification_id",
+    "recipient_id / recipient_role",
+    "channel / send_status",
+    "is_read / ack_status",
+    "action_taken"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e6",
+   "t": "entity",
+   "x": 46,
+   "y": 467,
+   "w": 272,
+   "h": 128,
+   "label": "班集体提醒 class_alert_notification",
+   "rows": [
+    "id*",
+    "admin_class_id / term_id",
+    "counselor_id",
+    "rule_level / week_no",
+    "alert_rate / alert_student_count",
+    "is_sent / cc_admin"
+   ],
+   "fs": 12.5
+  }
+ ],
+ "edges": [
+  {
+   "f": "e0",
+   "to": "e1",
+   "k": "assoc",
+   "l": "达到阈值时生成",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e1",
+   "to": "e2",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e1",
+   "to": "e3",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e1",
+   "to": "e4",
+   "k": "dash",
+   "l": "biz_id 关联",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e4",
+   "to": "e5",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  }
+ ],
+ "caption": "注：通知按 aggregate_key 聚合去重，辅导员一次只收到一条汇总提醒；干预记录以 stage 区分教师、辅导员、教务三级。"
+}

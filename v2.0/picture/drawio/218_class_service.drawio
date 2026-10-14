@@ -1,0 +1,61 @@
+<mxfile host="app.diagrams.net"><diagram name="图2.18 引擎与智能体分层类图"><mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="n2" value="TeacherController
++ offerings / students
++ scoreConfig / lock
++ attendance / import / archive
++ coverage() / failRate()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="44" y="74" width="300" height="88" as="geometry"/></mxCell><mxCell id="n3" value="AdminController / CounselorController
++ terms / offerings / ruleVersions
++ archiveWorkbench / reports
++ counselor dashboard / refer
+" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="380" y="74" width="300" height="72" as="geometry"/></mxCell><mxCell id="n4" value="StudentController / AgentController
++ courses / attendance / deduction
++ alerts / response
++ agent run / eval / ask
+" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="716" y="74" width="300" height="72" as="geometry"/></mxCell><mxCell id="n5" value="RiskEngine 引擎骨架
+- engineVersion
+- config: RiskEngineConfig
++ evaluate(enrollment)
++ writeRiskState()
++ raiseAlert()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="44" y="214" width="300" height="104" as="geometry"/></mxCell><mxCell id="n6" value="ChannelA
+挂科硬判据
++ judge()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="368" y="214" width="128" height="56" as="geometry"/></mxCell><mxCell id="n7" value="ChannelB
+班内相对序
++ rank()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="368" y="300" width="128" height="56" as="geometry"/></mxCell><mxCell id="n8" value="ChannelC
+教师尺度Δ
++ estimate()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="368" y="386" width="128" height="56" as="geometry"/></mxCell><mxCell id="n9" value="ConfidenceEvaluator 置信度
+- anchorStrength
+- dataCompleteness
+- sampleAdequacy
++ score()
++ outputMode()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="44" y="366" width="300" height="104" as="geometry"/></mxCell><mxCell id="n10" value="AgentOrchestrator 编排器
+- pipelines: FULL/FEEDBACK/...
+- agentEnabled / timeout
++ run(pipeline, student)
++ recordRun()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="572" y="214" width="300" height="88" as="geometry"/></mxCell><mxCell id="n11" value="六个智能体
+Monitor
+Analysis
+Profile
+Recommend
+Strategy
+Feedback
+" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="896" y="214" width="120" height="120" as="geometry"/></mxCell><mxCell id="n12" value="AgentOutputValidator / ReflectionLoop
+- requiredFields / enums
+- groundTruth: riskScore ...
++ validate()
++ reflect()" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="572" y="400" width="300" height="88" as="geometry"/></mxCell><mxCell id="n13" value="工具与记忆
+ToolRegistry
+DataQueryAgent
+StudentMemory
+" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="896" y="400" width="120" height="72" as="geometry"/></mxCell><mxCell id="n14" value="业务服务层
+AttendanceService
+ScoreService
+CoverageService
+AlertService
+InterventionService
+" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="44" y="532" width="300" height="104" as="geometry"/></mxCell><mxCell id="n15" value="数据访问层 MyBatis-Plus
+实体 + Mapper（48 张表）
+逻辑作废 is_void 过滤
+" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="380" y="532" width="300" height="56" as="geometry"/></mxCell><mxCell id="n16" value="审计与任务
+AuditLogService
+TokenService（四端）
+定时任务：体检/升级/催办
+" style="swimlane;startSize=24;html=1;fillColor=#553c9a;fontColor=#ffffff;strokeColor=#553c9a;" vertex="1" parent="1"><mxGeometry x="716" y="532" width="300" height="72" as="geometry"/></mxCell><mxCell id="n17" value="MySQL 8  study_warning_system_v2" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=10;html=1;fillColor=#eef4ff;strokeColor=#2b6cb0;strokeWidth=1.6;" vertex="1" parent="1"><mxGeometry x="60" y="700" width="240" height="96" as="geometry"/></mxCell><mxCell id="n18" value="阿里云百炼 DashScope：对话模型 + 课程知识库（RAG）" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#eef4ff;strokeColor=#2b6cb0;strokeWidth=1.6;" vertex="1" parent="1"><mxGeometry x="420" y="690" width="280" height="90" as="geometry"/></mxCell><mxCell id="n19" value="四端浏览器（Vue 3）" style="whiteSpace=wrap;html=1;fillColor=#eef4ff;strokeColor=#2b6cb0;strokeWidth=1.6;" vertex="1" parent="1"><mxGeometry x="800" y="700" width="210" height="60" as="geometry"/></mxCell><mxCell id="e20" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n2" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e21" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n3" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e22" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n4" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e23" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n9" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e24" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n6" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e25" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n7" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e26" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n8" target="n5"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e27" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n12" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e28" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n11" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e29" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n13" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e30" value="只读真值" style="endArrow=open;dashed=1;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n10" target="n14"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e31" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n5" target="n14"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e32" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n14" target="n15"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e33" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n15" target="n17"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e34" value="LLM 调用" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n10" target="n18"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e35" value="HTTP / JSON" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n19" target="n4"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e36" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n16" target="n15"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>

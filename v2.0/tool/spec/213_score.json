@@ -1,0 +1,143 @@
+{
+ "title": "图2.13 成绩域实体关系",
+ "w": 988,
+ "h": 495,
+ "nodes": [
+  {
+   "id": "bd",
+   "t": "boundary",
+   "x": 16,
+   "y": 42,
+   "w": 956,
+   "h": 387,
+   "label": "成绩域实体关系"
+  },
+  {
+   "id": "e0",
+   "t": "entity",
+   "x": 46,
+   "y": 92,
+   "w": 272,
+   "h": 94,
+   "label": "选课 enrollment",
+   "rows": [
+    "id*",
+    "student_id",
+    "teaching_class_id",
+    "term_id"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e1",
+   "t": "entity",
+   "x": 358,
+   "y": 92,
+   "w": 272,
+   "h": 111,
+   "label": "评分项 score_scheme_item",
+   "rows": [
+    "id*",
+    "scheme_id",
+    "item_code / item_name",
+    "category / weight",
+    "is_anchor / is_subjective"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e2",
+   "t": "entity",
+   "x": 670,
+   "y": 92,
+   "w": 272,
+   "h": 128,
+   "label": "分项得分 score_item",
+   "rows": [
+    "id*",
+    "enrollment_id / student_id",
+    "scheme_item_id",
+    "times_no",
+    "raw_value / score / full_score",
+    "is_absent / scorer_id"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e3",
+   "t": "entity",
+   "x": 46,
+   "y": 254,
+   "w": 272,
+   "h": 128,
+   "label": "作业提交 homework_item",
+   "rows": [
+    "id*",
+    "enrollment_id / student_id",
+    "offering_id / scheme_item_id",
+    "homework_no",
+    "due_date / submit_time",
+    "submit_status / is_late"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e4",
+   "t": "entity",
+   "x": 358,
+   "y": 254,
+   "w": 272,
+   "h": 145,
+   "label": "成绩单 score_result",
+   "rows": [
+    "id*",
+    "enrollment_id / student_id",
+    "offering_id / term_id",
+    "weighted_score",
+    "deduction_points / total_score",
+    "absent_count / allowed_absent",
+    "hard_fail / is_fail / fail_reason"
+   ],
+   "fs": 12.5
+  }
+ ],
+ "edges": [
+  {
+   "f": "e0",
+   "to": "e2",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e1",
+   "to": "e2",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e0",
+   "to": "e3",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e0",
+   "to": "e4",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "1",
+   "lw": 170
+  }
+ ],
+ "caption": "注：教师录入的是原始分；折算后的分数只存在于引擎内部，不回写 score_item，成绩单中也不保存折算分。"
+}

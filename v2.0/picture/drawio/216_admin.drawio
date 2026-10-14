@@ -1,0 +1,51 @@
+<mxfile host="app.diagrams.net"><diagram name="图2.16 教务流程、问卷与审计域实体关系"><mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="n2" value="教务流程、问卷与审计域实体关系" style="rounded=1;dashed=1;verticalAlign=top;html=1;fillColor=none;strokeColor=#4a5568;" vertex="1" parent="1"><mxGeometry x="16" y="42" width="956" height="549" as="geometry"/></mxCell><mxCell id="n3" value="覆盖率体检 coverage_check_log
+id*
+teaching_class_id / offering_id
+teacher_id / term_id
+check_type / week_no
+due_sessions / recorded_sessions
+coverage_rate / below_threshold
+notified / resolved" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="46" y="92" width="272" height="145" as="geometry"/></mxCell><mxCell id="n4" value="考核人数核对 exam_headcount
+id*
+offering_id / term_id
+phase
+roster_count / expected_count
+confirmed_count / deferred_count
+confirm_status / check_result" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="358" y="92" width="272" height="128" as="geometry"/></mxCell><mxCell id="n5" value="导入批次 import_batch
+id*
+batch_no / import_type
+term_id / file_name
+total_rows / success_rows / failed_rows
+status / operator_id
+rollback_by / rollback_time" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="670" y="92" width="272" height="128" as="geometry"/></mxCell><mxCell id="n6" value="审计日志 audit_log
+id*
+biz_type / biz_id
+action
+operator_id / operator_role
+before_json / after_json
+ip / create_time" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="46" y="271" width="272" height="128" as="geometry"/></mxCell><mxCell id="n7" value="运营配置 system_config
+id*
+config_key / config_value
+config_type / config_group
+is_editable" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="358" y="271" width="272" height="94" as="geometry"/></mxCell><mxCell id="n8" value="问卷 questionnaire
+id*
+offering_id / course_id / term_id
+questionnaire_type / title
+question_json / is_anonymous
+collector_type / collector_id
+open_time / close_time / status" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="670" y="271" width="272" height="128" as="geometry"/></mxCell><mxCell id="n9" value="问卷作答 questionnaire_answer
+id*
+questionnaire_id
+respondent_token / student_id
+target_teacher_id
+item_code / answer_type
+score_value / text_value / kp_id" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="46" y="433" width="272" height="128" as="geometry"/></mxCell><mxCell id="n10" value="问卷流转 questionnaire_flow
+id*
+questionnaire_id / term_id
+stage / stage_order
+holder_id / holder_role
+deadline / status / done_at" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="358" y="433" width="272" height="111" as="geometry"/></mxCell><mxCell id="n11" value="通知 notification
+id*
+biz_type / biz_id
+aggregate_key
+priority / expire_time" style="swimlane;startSize=26;html=1;fillColor=#2b6cb0;fontColor=#ffffff;strokeColor=#2b6cb0;" vertex="1" parent="1"><mxGeometry x="670" y="433" width="272" height="94" as="geometry"/></mxCell><mxCell id="e12" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n8" target="n9"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e13" value="" style="endArrow=block;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n8" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e14" value="导入来源" style="endArrow=open;dashed=1;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n5" target="n4"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e15" value="催办通知" style="endArrow=open;dashed=1;html=1;edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4a5568;" edge="1" parent="1" source="n3" target="n11"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>

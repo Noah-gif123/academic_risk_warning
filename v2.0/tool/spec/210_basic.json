@@ -1,0 +1,228 @@
+{
+ "title": "图2.10 基础层与组织域实体关系",
+ "w": 976,
+ "h": 572,
+ "nodes": [
+  {
+   "id": "bd",
+   "t": "boundary",
+   "x": 16,
+   "y": 42,
+   "w": 944,
+   "h": 464,
+   "label": "基础层与组织域实体关系"
+  },
+  {
+   "id": "e0",
+   "t": "entity",
+   "x": 46,
+   "y": 92,
+   "w": 268,
+   "h": 94,
+   "label": "学期 term",
+   "rows": [
+    "id*",
+    "term_code / term_name",
+    "start_date / end_date",
+    "total_weeks / is_current"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e1",
+   "t": "entity",
+   "x": 354,
+   "y": 92,
+   "w": 268,
+   "h": 111,
+   "label": "教学周历 term_calendar",
+   "rows": [
+    "id*",
+    "term_id",
+    "week_no / week_type",
+    "start_date / end_date",
+    "holiday_days"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e2",
+   "t": "entity",
+   "x": 662,
+   "y": 92,
+   "w": 268,
+   "h": 111,
+   "label": "统一账号 sys_account",
+   "rows": [
+    "id*",
+    "login_no / password_hash",
+    "role",
+    "real_name",
+    "status / last_login_time"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e3",
+   "t": "entity",
+   "x": 46,
+   "y": 237,
+   "w": 268,
+   "h": 77,
+   "label": "专业 major",
+   "rows": [
+    "id*",
+    "major_code / major_name",
+    "college_code / college_name"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e4",
+   "t": "entity",
+   "x": 354,
+   "y": 237,
+   "w": 268,
+   "h": 94,
+   "label": "行政班 administrative_class",
+   "rows": [
+    "id*",
+    "class_code / class_name",
+    "major_id",
+    "grade_year / status"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e5",
+   "t": "entity",
+   "x": 662,
+   "y": 237,
+   "w": 268,
+   "h": 111,
+   "label": "学生 student",
+   "rows": [
+    "id*",
+    "account_id",
+    "student_no / student_name",
+    "enroll_year",
+    "major_id / admin_class_id"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e6",
+   "t": "entity",
+   "x": 46,
+   "y": 382,
+   "w": 268,
+   "h": 94,
+   "label": "教师 teacher",
+   "rows": [
+    "id*",
+    "account_id",
+    "teacher_no / teacher_name",
+    "title / college_name"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e7",
+   "t": "entity",
+   "x": 354,
+   "y": 382,
+   "w": 268,
+   "h": 94,
+   "label": "辅导员 counselor",
+   "rows": [
+    "id*",
+    "account_id",
+    "counselor_no / counselor_name",
+    "college_name / phone"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e8",
+   "t": "entity",
+   "x": 662,
+   "y": 382,
+   "w": 268,
+   "h": 94,
+   "label": "导员-班级 counselor_class",
+   "rows": [
+    "id*",
+    "counselor_id",
+    "admin_class_id",
+    "term_id / is_primary"
+   ],
+   "fs": 12.5
+  }
+ ],
+ "edges": [
+  {
+   "f": "e0",
+   "to": "e1",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e2",
+   "to": "e5",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "1",
+   "lw": 170
+  },
+  {
+   "f": "e3",
+   "to": "e4",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e4",
+   "to": "e5",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e7",
+   "to": "e8",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e4",
+   "to": "e8",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  },
+  {
+   "f": "e0",
+   "to": "e8",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 170
+  }
+ ],
+ "caption": "注：教师、辅导员的 account_id 同样指向统一账号（与 student 一致，图中从简）；账号表是四端登录的唯一入口。"
+}
