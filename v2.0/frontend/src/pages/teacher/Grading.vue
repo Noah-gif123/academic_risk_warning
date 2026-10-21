@@ -79,6 +79,7 @@
           <span class="tag bg-slate-100 text-slate-500">{{ typeLabel(a.qType) }}</span>
           <span class="text-sm flex-1 min-w-48">{{ a.stem }}</span>
           <span class="text-xs text-slate-400">满分 {{ a.fullScore }}</span>
+          <span v-if="a.qType === 'BLANK'" class="text-xs text-slate-400">共 {{ blankCount(a.stdAnswerJson) }} 空</span>
           <span v-if="a.markedByType" class="tag"
                 :class="a.markedByType === 'SYSTEM' ? 'bg-slate-100 text-slate-500' : 'bg-brand-50 text-brand-600'">
             {{ a.markedByType === 'SYSTEM' ? '系统判' : '教师判' }}{{ a.markedByName ? '·' + a.markedByName : '' }}
@@ -185,6 +186,13 @@ function toast(msg, isOk = true) {
 function typeLabel(t) { return (questionTypes.find((x) => x.value === t) || {}).label || t }
 function statusLabel(s) { return { SUBMITTED: '已交', MARKED: '已批阅', ABSENT: '缺考' }[s] || s }
 function markedLabel(s) { return { NOT_MARKED: '未判', SYSTEM_MARKED: '客观已判', ALL_MARKED: '批完' }[s] || s }
+/** 填空题空数（按标准答案条数） */
+function blankCount(json) {
+  try {
+    const v = JSON.parse(json || '{}')
+    return (v.answers || []).length
+  } catch (e) { return 0 }
+}
 function fmt(dt) { return dt ? String(dt).replace('T', ' ').slice(0, 16) : '—' }
 
 /** 把 answerJson 转成人能读的文本 */

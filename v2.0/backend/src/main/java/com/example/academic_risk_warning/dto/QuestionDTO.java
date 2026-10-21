@@ -18,4 +18,9 @@ public class QuestionDTO {
     private BigDecimal fullScore;
     private String groupName;
     private Integer sortNo;
+    /**
+     * 填空题的空数（学生端据此生成输入框）。
+     * <p>取值顺序：老师给的标准答案条数 → 题干里连续下划线的组数 → 1；不含答案内容，可安全下发学生端。</p>
+     */
+    private Integer blankCount;
 }

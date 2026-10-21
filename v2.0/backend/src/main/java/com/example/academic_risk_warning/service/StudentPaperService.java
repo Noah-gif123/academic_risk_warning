@@ -25,6 +25,7 @@ import com.example.academic_risk_warning.mapper.SubmissionMapper;
 import com.example.academic_risk_warning.mapper.TeacherMapper;
 import com.example.academic_risk_warning.mapper.TeachingClassMapper;
 import com.example.academic_risk_warning.util.GradeEngine;
+import com.example.academic_risk_warning.util.MiniJson;
 import com.example.academic_risk_warning.vo.StudentPaperVO;
 import com.example.academic_risk_warning.vo.SubmissionAnswerVO;
 import com.example.academic_risk_warning.vo.SubmissionVO;
@@ -40,6 +41,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -52,6 +55,9 @@ import java.util.stream.Collectors;
 public class StudentPaperService {
 
     private static final BigDecimal ZERO = BigDecimal.ZERO;
+
+    /** 填空题的“一个空”：连续两个及以上的半角/全角下划线（＿＿＿＿ 算一个空，不是四个） */
+    private static final Pattern BLANK_GROUP = Pattern.compile("[_＿]{2,}");
 
     private final PaperMapper paperMapper;
     private final QuestionMapper questionMapper;
@@ -403,6 +409,26 @@ public class StudentPaperService {
                 .orderByAsc(Question::getSortNo).orderByAsc(Question::getQNo));
     }
 
+    /**
+     * 填空题空数：以老师给的标准答案为唯一口径（一条答案 = 一个空），
+     * 没有答案时退回“题干里连续下划线的组数”，再兜底 1 个空。
+     * 注意要把连续的“＿/__”当成一个空，否则一个 4 连下划线会被数成 4 个空。
+     */
+    private int blankCountOf(Question q) {
+        List<String> std = MiniJson.arrayStrings(q.getAnswerJson(), "answers");
+        if (std != null && !std.isEmpty()) {
+            return Math.min(std.size(), 20);
+        }
+        int n = 0;
+        if (q.getStem() != null) {
+            Matcher m = BLANK_GROUP.matcher(q.getStem());
+            while (m.find()) {
+                n++;
+            }
+        }
+        return Math.min(Math.max(n, 1), 20);
+    }
+
     private StudentPaperVO baseVO(Paper p, TeachingClass tc, List<Question> qs) {
         StudentPaperVO v = new StudentPaperVO();
         v.setId(p.getId());
@@ -433,6 +459,9 @@ public class StudentPaperService {
                 d.setFullScore(q.getFullScore());
                 d.setGroupName(q.getGroupName());
                 d.setSortNo(q.getSortNo());
+                if ("BLANK".equalsIgnoreCase(q.getQType())) {
+                    d.setBlankCount(blankCountOf(q));
+                }
                 list.add(d);
             }
             v.setQuestions(list);

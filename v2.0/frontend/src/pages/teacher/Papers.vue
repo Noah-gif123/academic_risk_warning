@@ -180,8 +180,14 @@
               </select>
             </template>
             <template v-else-if="q.qType === 'BLANK'">
-              <span class="text-xs text-slate-500 mr-2">各空答案（每行一个，按顺序）</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-500">各空答案（每行一个，按顺序）</span>
+                <span class="tag bg-brand-50 text-brand-600">共 {{ blankCountOf(q) }} 空</span>
+              </div>
               <textarea v-model="q.answerText" rows="2" class="input mt-1" placeholder="中央处理器&#10;丢失"></textarea>
+              <p class="text-xs text-slate-400">
+                学生端按这里的行数生成输入框：要几空就写几行（增加空=多写一行，减少空=删掉一行）；一行都没写时按题干下划线组数兜底。
+              </p>
             </template>
             <template v-else>
               <span class="text-xs text-slate-500 mr-2">参考答案（供批阅参考）</span>
@@ -343,6 +349,14 @@ function addQuestion() {
     options: [{ key: 'A', text: '' }, { key: 'B', text: '' }, { key: 'C', text: '' }, { key: 'D', text: '' }],
     answerKeys: ['A'], answerBool: true, answerText: ''
   })
+}
+
+/** 填空题空数（与后端同一口径）：标准答案行数；没有答案时按题干下划线组数兜底 */
+function blankCountOf(q) {
+  const lines = String(q.answerText || '').split('\n').map((s) => s.trim()).filter(Boolean)
+  if (lines.length) return Math.min(lines.length, 20)
+  const groups = String(q.stem || '').match(/[_＿]{2,}/g) || []
+  return Math.min(Math.max(groups.length, 1), 20)
 }
 
 function toDto(q, i) {

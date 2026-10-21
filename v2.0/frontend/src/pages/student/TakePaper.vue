@@ -62,7 +62,7 @@
                 <span class="text-xs text-slate-400 w-14">第 {{ bi + 1 }} 空</span>
                 <input v-model="answers[q.id].answers[bi]" class="input" />
               </div>
-              <p class="text-xs text-slate-400">空数以题干为准，不能自行增删。</p>
+              <p class="text-xs text-slate-400">本题共 {{ answers[q.id].answers.length }} 空，由老师出题时确定，不能自行增删。</p>
             </div>
 
             <div class="mt-2" v-else>
@@ -178,20 +178,21 @@ function answerText(json, type) {
   return v.text || '（未答）'
 }
 
+/** 填空题的空数：优先用后端给的口径（老师标准答案条数），没有再按题干的下划线组数兜底 */
+function blankCount(q) {
+  if (q.blankCount) return Math.max(1, Number(q.blankCount))
+  const groups = String(q.stem || '').match(/[_＿]{2,}/g) || []
+  return Math.max(1, groups.length)
+}
+
 /** 初始化每题的空答案结构 */
 function initAnswers(list) {
   list.forEach((q) => {
     if (answers[q.id]) return
     if (q.qType === 'SINGLE' || q.qType === 'MULTI') answers[q.id] = { keys: [] }
     else if (q.qType === 'JUDGE') answers[q.id] = { value: null }
-    else if (q.qType === 'BLANK') {
-      let blankCount = 1
-      try {
-        const n = (q.stem.match(/＿|____|_{4,}/g) || []).length
-        blankCount = Math.max(1, n)
-      } catch (e) { blankCount = 1 }
-      answers[q.id] = { answers: new Array(blankCount).fill('') }
-    } else answers[q.id] = { text: '' }
+    else if (q.qType === 'BLANK') answers[q.id] = { answers: new Array(blankCount(q)).fill('') }
+    else answers[q.id] = { text: '' }
   })
 }
 function pickSingle(q, key) {
