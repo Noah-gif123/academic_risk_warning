@@ -63,3 +63,11 @@ tasks.named('test') {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
+
+// 运行/调试也用 17 的 toolchain 启动：IDE 若把 Gradle JVM 配成了低版本 JDK，
+// 委托 Gradle 运行时会报 UnsupportedClassVersionError（class file version 61.0）
+tasks.withType(JavaExec).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
