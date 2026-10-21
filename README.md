@@ -9,15 +9,13 @@
 ## 目录结构
 
 ```
-v1.0/            第一版归档，不再维护
-v2.0/            现版本
+v2.0/            现版本（本仓库只保留 v2.0 交付内容）
   backend/       Spring Boot 4.0.6 后端（Gradle 构建）
   frontend/      Vue 3 + Vite + Tailwind 前端（四端门户）
   sql/           建库与增量脚本 01~18
   word/          项目文档（第 1~5 章）、开发进度（三阶段）
   picture/       图表导出（PNG 与 SVG、drawio）
   tool/          图表与文档生成脚本（JSON → SVG/PNG、JSON → docx）
-entity/          历史遗留目录（与 v2.0 无关）
 ```
 
 ## 技术栈

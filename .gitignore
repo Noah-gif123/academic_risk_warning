@@ -82,3 +82,8 @@ v2.0/tool/columns.tsv.bak
 target/
 **/target/
 
+
+### 仅本地保留：v1.0 归档与历史遗留目录，不提交 ###
+v1.0/
+entity/
+
