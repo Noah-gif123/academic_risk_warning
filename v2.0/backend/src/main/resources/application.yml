@@ -1,0 +1,56 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: academic-risk-warning
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/study_warning_system_v2?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 120MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+app:
+  auth:
+    # 令牌有效期（小时）
+    token-expire-hours: 12
+    # 登录图形验证码（联调可关）
+    captcha-enabled: true
+    # 验证码调试接口（默认关闭，仅本机联调时临时打开）
+    captcha-debug: false
+  bootstrap:
+    # 首次启动时为档案建统一账号（幂等，可关掉）
+    enabled: true
+    default-password: "000000"
+  file:
+    # 课程资料文件的落盘目录（相对启动目录），库里只存元信息
+    store-dir: ./file-store
+
+logging:
+  level:
+    root: info
+    com.example.academic_risk_warning: debug

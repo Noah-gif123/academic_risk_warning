@@ -1,0 +1,997 @@
+admin	1	id	bigint	bigint	NO	PRI	auto_increment	管理员ID	教务/管理员表
+admin	2	account_id	bigint	bigint	YES	MUL		账号ID	教务/管理员表
+admin	3	admin_no	varchar	varchar(20)	NO	UNI		管理员号（登录号）	教务/管理员表
+admin	4	admin_name	varchar	varchar(30)	NO			姓名	教务/管理员表
+admin	5	admin_type	varchar	varchar(20)	NO			类型：ACADEMIC教务/SYS系统管理员	教务/管理员表
+admin	6	dept_name	varchar	varchar(50)	YES			所属部门（教务处等）	教务/管理员表
+admin	7	phone	varchar	varchar(20)	YES				教务/管理员表
+admin	8	email	varchar	varchar(100)	YES				教务/管理员表
+admin	9	status	varchar	varchar(20)	NO				教务/管理员表
+admin	10	create_time	datetime	datetime	NO		DEFAULT_GENERATED		教务/管理员表
+admin	11	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		教务/管理员表
+admin_class_fail_rate	1	id	bigint	bigint	NO	PRI	auto_increment	主键	行政班挂科率表（→导员）
+admin_class_fail_rate	2	admin_class_id	bigint	bigint	NO	MUL		行政班ID	行政班挂科率表（→导员）
+admin_class_fail_rate	3	offering_id	bigint	bigint	NO	MUL		开课ID	行政班挂科率表（→导员）
+admin_class_fail_rate	4	course_id	bigint	bigint	NO			课程ID	行政班挂科率表（→导员）
+admin_class_fail_rate	5	term_id	bigint	bigint	NO			学期ID	行政班挂科率表（→导员）
+admin_class_fail_rate	6	examinee_count	int	int	NO			分母：实际考核人数	行政班挂科率表（→导员）
+admin_class_fail_rate	7	fail_count	int	int	NO			分子：挂科人数	行政班挂科率表（→导员）
+admin_class_fail_rate	8	fail_rate	decimal	decimal(5,2)	NO			挂科率(%)	行政班挂科率表（→导员）
+admin_class_fail_rate	9	hard_fail_count	int	int	NO			其中硬门槛挂科人数	行政班挂科率表（→导员）
+admin_class_fail_rate	10	engine_version	varchar	varchar(20)	YES				行政班挂科率表（→导员）
+admin_class_fail_rate	11	calc_time	datetime	datetime	YES				行政班挂科率表（→导员）
+admin_class_fail_rate	12	create_time	datetime	datetime	NO		DEFAULT_GENERATED		行政班挂科率表（→导员）
+admin_class_fail_rate	13	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		行政班挂科率表（→导员）
+administrative_class	1	id	bigint	bigint	NO	PRI	auto_increment	行政班ID	行政班表
+administrative_class	2	class_code	varchar	varchar(30)	NO	UNI		班级编码，如 SOFT-2024-1	行政班表
+administrative_class	3	class_name	varchar	varchar(50)	NO			班级名称，如 软件1班	行政班表
+administrative_class	4	major_id	bigint	bigint	NO	MUL		所属专业ID	行政班表
+administrative_class	5	grade_year	int	int	NO			年级（入学年份），如 2024	行政班表
+administrative_class	6	status	varchar	varchar(20)	NO			状态：ACTIVE/GRADUATED/DISMISSED	行政班表
+administrative_class	7	create_time	datetime	datetime	NO		DEFAULT_GENERATED		行政班表
+administrative_class	8	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		行政班表
+alert_flow_log	1	id	bigint	bigint	NO	PRI	auto_increment	主键	预警生命周期时间线（替代快照曲线）
+alert_flow_log	2	alert_id	bigint	bigint	NO	MUL		预警ID	预警生命周期时间线（替代快照曲线）
+alert_flow_log	3	student_id	bigint	bigint	NO	MUL		学生ID	预警生命周期时间线（替代快照曲线）
+alert_flow_log	4	term_id	bigint	bigint	NO			学期ID	预警生命周期时间线（替代快照曲线）
+alert_flow_log	5	event_type	varchar	varchar(30)	NO	MUL		事件：CREATED生成/LEVEL_UP升级/LEVEL_DOWN降级/NOTIFIED已通知/ACKNOWLEDGED已知悉/HANDLED已处理/CLOSED关闭/DISMISSED忽略/EXPIRED超时/ESCALATED已升级上报/REFERRED上报教务/ADMIN_HANDLED教务处理/TERMINATED终止干预/REOPENED重新打开/VOIDED作废	预警生命周期时间线（替代快照曲线）
+alert_flow_log	6	from_level	varchar	varchar(10)	YES			变更前等级	预警生命周期时间线（替代快照曲线）
+alert_flow_log	7	to_level	varchar	varchar(10)	YES			变更后等级	预警生命周期时间线（替代快照曲线）
+alert_flow_log	8	from_status	varchar	varchar(20)	YES			变更前状态	预警生命周期时间线（替代快照曲线）
+alert_flow_log	9	to_status	varchar	varchar(20)	YES			变更后状态	预警生命周期时间线（替代快照曲线）
+alert_flow_log	10	detail	varchar	varchar(500)	YES			事件说明（如"缺课达 11 次，触发 1/3 硬门槛"）	预警生命周期时间线（替代快照曲线）
+alert_flow_log	11	operator_id	bigint	bigint	YES			操作人ID（系统触发为空）	预警生命周期时间线（替代快照曲线）
+alert_flow_log	12	operator_role	varchar	varchar(20)	YES			操作人角色：TEACHER/COUNSELOR/ADMIN/SYSTEM	预警生命周期时间线（替代快照曲线）
+alert_flow_log	13	event_time	datetime	datetime	NO	MUL	DEFAULT_GENERATED	事件时间	预警生命周期时间线（替代快照曲线）
+alert_flow_log	14	create_time	datetime	datetime	NO		DEFAULT_GENERATED		预警生命周期时间线（替代快照曲线）
+alert_record	1	id	bigint	bigint	NO	PRI	auto_increment	预警ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	2	student_id	bigint	bigint	NO	MUL		学生ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	3	enrollment_id	bigint	bigint	NO	MUL		选课ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	4	offering_id	bigint	bigint	NO	MUL		开课ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	5	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	6	course_id	bigint	bigint	NO			课程ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	7	term_id	bigint	bigint	NO	MUL		学期ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	8	alert_level	varchar	varchar(10)	NO			预警等级：RED/ORANGE/YELLOW	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	9	trigger_channel	varchar	varchar(10)	NO			触发通道：A确定性/B班内相对/C跨班可比	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	10	trigger_rule	varchar	varchar(50)	YES			触发规则：A_HARD_LINE已超1/3/A_NEAR_LINE剩一次/A_UNREACHABLE期末不可达/B_RANK班内靠前/C_THRESHOLD跨班超标	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	11	risk_score	decimal	decimal(5,1)	YES			触发时风险分	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	12	confidence	decimal	decimal(4,3)	YES			触发时置信度	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	13	output_mode	varchar	varchar(20)	YES			触发时输出形态：FULL_SCORE/SCORE_WITH_NOTE/BEHAVIOR_ONLY/INSUFFICIENT	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	14	alert_reason	text	text	YES			人话版预警原因（面向老师/学生）	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	15	evidence_json	json	json	YES			触发依据快照：{"absent":9,"allowed":10,"remaining":1,"needFinal":93.8,"coverage":0.72}	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	16	channel_snapshot_json	json	json	YES			触发时三通道值快照：{"a":"DANGER","b":68.2,"c":null}	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	17	status	varchar	varchar(20)	NO	MUL		状态：ACTIVE处理中/ACKNOWLEDGED已知悉/HANDLING处理中/CLOSED已关闭/DISMISSED已忽略/EXPIRED超时关闭	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	18	is_current	tinyint	tinyint(1)	YES			是否当前生效预警：1当前 / NULL历史（配合唯一键保证每生每课仅一条当前预警）	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	19	escalated	tinyint	tinyint(1)	NO			是否已升级过等级	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	20	escalated_at	datetime	datetime	YES			升级时间	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	21	previous_level	varchar	varchar(10)	YES			升级前等级	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	22	notified	tinyint	tinyint(1)	NO			是否已发出通知	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	23	first_notify_time	datetime	datetime	YES			首次通知时间	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	24	expire_time	datetime	datetime	YES			超时时间（超时未处理 → 自动升级/关闭）	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	25	handle_by	bigint	bigint	YES			处理人ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	26	handle_role	varchar	varchar(20)	YES			处理人角色：TEACHER/COUNSELOR/ADMIN	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	27	handle_time	datetime	datetime	YES			处理时间	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	28	handle_note	text	text	YES			处理说明	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	29	close_by	bigint	bigint	YES			关闭人ID	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	30	close_time	datetime	datetime	YES			关闭时间	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	31	close_note	varchar	varchar(500)	YES			关闭说明/结论	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	32	dismiss_reason	varchar	varchar(200)	YES			忽略原因	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	33	student_response	text	text	YES			学生回应（学生端可回执）	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	34	student_response_time	datetime	datetime	YES			学生回应时间	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	35	engine_version	varchar	varchar(20)	YES			产生该预警的引擎版本	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	36	is_void	tinyint	tinyint(1)	NO			是否作废（退课/重算）：1作废，不进任何统计与列表	预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	37	void_reason	varchar	varchar(200)	YES				预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	38	create_time	datetime	datetime	NO	MUL	DEFAULT_GENERATED		预警记录表（重建：带通道/置信度/引擎版本）
+alert_record	39	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		预警记录表（重建：带通道/置信度/引擎版本）
+attendance_archive	1	id	bigint	bigint	NO	PRI	auto_increment	归档批次ID	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	2	offering_id	bigint	bigint	NO	MUL		开课ID	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	3	teaching_class_id	bigint	bigint	YES	MUL		教学班ID（老师按教学班提交；教务按课程汇总查看）	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	4	teacher_id	bigint	bigint	YES	MUL		提交老师ID	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	5	term_id	bigint	bigint	NO	MUL		学期ID	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	6	phase	varchar	varchar(20)	NO			归档阶段：MID期中/FINAL期末	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	7	window_open_time	datetime	datetime	YES			归档窗口开启时间	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	8	deadline	datetime	datetime	YES			提交截止时间	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	9	submit_time	datetime	datetime	YES			老师提交时间	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	10	submit_by	bigint	bigint	YES			提交人（教师ID）	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	11	submit_note	varchar	varchar(200)	YES			提交说明	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	12	session_from	int	int	YES			本次归档覆盖的起始课次序号	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	13	session_to	int	int	YES			本次归档覆盖的结束课次序号	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	14	session_count	int	int	NO			本次归档覆盖课次数	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	15	record_count	int	int	NO			本次归档涉及考勤记录条数	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	16	coverage_rate	decimal	decimal(5,2)	YES			提交时的点名覆盖率(%)：已点名课次/应完成课次	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	17	status	varchar	varchar(20)	NO	MUL		状态：PENDING待提交/SUBMITTED已提交待审核/REVIEWED已确认/RETURNED已退回	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	18	review_by	bigint	bigint	YES			审核人（教务ID）	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	19	review_time	datetime	datetime	YES			审核时间	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	20	review_note	varchar	varchar(200)	YES			审核意见	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	21	return_by	bigint	bigint	YES			退回操作人（教务ID）	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	22	return_time	datetime	datetime	YES			退回时间	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	23	return_reason	varchar	varchar(200)	YES			退回原因	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	24	remind_count	int	int	NO			催办次数（未提交时红点+站内信催办）	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	25	last_remind_time	datetime	datetime	YES			最近催办时间	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	26	is_void	tinyint	tinyint(1)	NO			是否作废（重开批次等）	考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	27	create_time	datetime	datetime	NO		DEFAULT_GENERATED		考勤归档批次表（期中/期末，双轨制的落点）
+attendance_archive	28	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		考勤归档批次表（期中/期末，双轨制的落点）
+attendance_record	1	id	bigint	bigint	NO	PRI	auto_increment	考勤记录ID	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	2	enrollment_id	bigint	bigint	NO	MUL		选课ID（学生×教学班×学期）	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	3	student_id	bigint	bigint	NO	MUL		学生ID（由 enrollment 决定、写入时校验一致；学生端按此查询）	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	4	session_id	bigint	bigint	NO	MUL		课次ID	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	5	term_id	bigint	bigint	NO			学期ID	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	6	status	varchar	varchar(20)	NO	MUL		考勤状态：PRESENT出勤/LATE迟到/ABSENT缺课/LEAVE请假（四类必须分开）	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	7	leave_type	varchar	varchar(20)	YES			请假类型：PERSONAL事假/SICK病假/OFFICIAL公假（仅记录，不影响扣分口径）	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	8	phase	varchar	varchar(20)	NO			当前口径：NORMAL平时（轨道①）/ARCHIVE归档（轨道②，判定依据）	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	9	source	varchar	varchar(20)	NO			录入来源：TEACHER老师直录/ADMIN教务统一录入	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	10	archive_id	bigint	bigint	YES	MUL		所属归档批次ID（phase=ARCHIVE 时非空）	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	11	recorded_by	bigint	bigint	YES			录入人ID	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	12	recorded_role	varchar	varchar(20)	YES			录入人角色：TEACHER/ADMIN	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	13	recorded_at	datetime	datetime	YES			录入时间	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	14	updated_by	bigint	bigint	YES			最后修改人	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	15	updated_role	varchar	varchar(20)	YES			最后修改人角色	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	16	update_note	varchar	varchar(200)	YES			修改说明（归档后修改必须填写）	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	17	batch_key	varchar	varchar(40)	YES	MUL		录入批次号（一次点名单提交=一个批次，便于整批撤回）	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	18	is_void	tinyint	tinyint(1)	NO			是否作废：1作废（整节课误录/退课等），不计入任何统计	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	19	void_reason	varchar	varchar(200)	YES			作废原因	考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	20	create_time	datetime	datetime	NO		DEFAULT_GENERATED		考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record	21	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		考勤明细表（学生×课次，双轨：平时/归档）
+attendance_record_log	1	id	bigint	bigint	NO	PRI	auto_increment	日志ID	考勤改动留痕表（行级 before/after）
+attendance_record_log	2	record_id	bigint	bigint	NO	MUL		考勤记录ID	考勤改动留痕表（行级 before/after）
+attendance_record_log	3	enrollment_id	bigint	bigint	NO			选课ID	考勤改动留痕表（行级 before/after）
+attendance_record_log	4	student_id	bigint	bigint	NO	MUL		学生ID	考勤改动留痕表（行级 before/after）
+attendance_record_log	5	session_id	bigint	bigint	NO	MUL		课次ID	考勤改动留痕表（行级 before/after）
+attendance_record_log	6	old_status	varchar	varchar(20)	YES			变更前状态	考勤改动留痕表（行级 before/after）
+attendance_record_log	7	new_status	varchar	varchar(20)	YES			变更后状态	考勤改动留痕表（行级 before/after）
+attendance_record_log	8	old_phase	varchar	varchar(20)	YES			变更前口径（NORMAL/ARCHIVE）	考勤改动留痕表（行级 before/after）
+attendance_record_log	9	new_phase	varchar	varchar(20)	YES			变更后口径	考勤改动留痕表（行级 before/after）
+attendance_record_log	10	change_type	varchar	varchar(30)	NO	MUL		变更类型：TEACHER_INPUT老师首次录入/TEACHER_EDIT老师平时修改/ARCHIVE_CONFIRM归档确认/ADMIN_CORRECT归档后教务更正/VOID作废/RESTORE恢复	考勤改动留痕表（行级 before/after）
+attendance_record_log	11	reason	varchar	varchar(200)	YES			变更原因	考勤改动留痕表（行级 before/after）
+attendance_record_log	12	changed_by	bigint	bigint	YES			操作人ID	考勤改动留痕表（行级 before/after）
+attendance_record_log	13	changed_role	varchar	varchar(20)	YES			操作人角色：TEACHER/ADMIN	考勤改动留痕表（行级 before/after）
+attendance_record_log	14	changed_at	datetime	datetime	NO	MUL	DEFAULT_GENERATED	变更时间	考勤改动留痕表（行级 before/after）
+attendance_record_log	15	batch_key	varchar	varchar(40)	YES			关联批次号	考勤改动留痕表（行级 before/after）
+audit_log	1	id	bigint	bigint	NO	PRI	auto_increment	主键	统一审计日志表
+audit_log	2	biz_type	varchar	varchar(30)	NO	MUL		业务类型：SCORE成绩/ATTENDANCE考勤/ARCHIVE归档/REFER上报/INTERVENTION干预/COURSE_GROUP课程组/SCORE_SCHEME成绩构成/OFFERING开课/ACTUAL_SESSIONS实际课次/EXAM_HEADCOUNT考核人数/ACCOUNT账号/NOTIFICATION通知/IMPORT导入/QUESTIONNAIRE问卷/SYSTEM系统	统一审计日志表
+audit_log	3	biz_id	bigint	bigint	YES			业务对象ID	统一审计日志表
+audit_log	4	action	varchar	varchar(30)	NO	MUL		动作：CREATE/UPDATE/DELETE/VOID/RESTORE/LOCK/UNLOCK/CONFIRM/APPROVE/REJECT/SUBMIT/RETURN/REFER/TERMINATE/IMPORT/ROLLBACK/LOGIN/PASSWORD_RESET	统一审计日志表
+audit_log	5	operator_id	bigint	bigint	YES	MUL		操作人ID	统一审计日志表
+audit_log	6	operator_role	varchar	varchar(20)	YES			操作人角色：STUDENT/TEACHER/COUNSELOR/ADMIN/SYSTEM	统一审计日志表
+audit_log	7	before_json	json	json	YES			变更前快照（敏感字段脱敏，如密码只记是否变更）	统一审计日志表
+audit_log	8	after_json	json	json	YES			变更后快照	统一审计日志表
+audit_log	9	detail	varchar	varchar(500)	YES			说明（人可读）	统一审计日志表
+audit_log	10	ip	varchar	varchar(45)	YES			来源IP	统一审计日志表
+audit_log	11	user_agent	varchar	varchar(200)	YES			客户端信息（可选）	统一审计日志表
+audit_log	12	create_time	datetime	datetime	NO	MUL	DEFAULT_GENERATED	发生时间	统一审计日志表
+class_alert_notification	1	id	bigint	bigint	NO	PRI	auto_increment	主键	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	2	admin_class_id	bigint	bigint	NO	MUL		行政班ID	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	3	term_id	bigint	bigint	NO			学期ID	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	4	counselor_id	bigint	bigint	NO	MUL		主责导员ID	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	5	rule_level	varchar	varchar(20)	NO			档位：L1_MEETING建议开班会/L2_FOCUS重点关注班级	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	6	week_no	int	int	NO			触发时的教学周次（≥5 才可能触发）	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	7	class_student_count	int	int	NO			该班学生数（分母）	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	8	alert_student_count	int	int	NO			预警学生数（分子，风险分 ≥ 阈值）	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	9	alert_rate	decimal	decimal(5,2)	NO			预警占比(%)	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	10	risk_floor_used	decimal	decimal(5,1)	YES			本次统计使用的风险分下限（默认 40）	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	11	threshold_json	json	json	YES			触发阈值快照：{"rate":0.30,"minCount":5,"weekStart":5}	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	12	student_ids_json	json	json	YES			纳入本次提醒的学生ID列表（可回溯"这条提醒包含谁"）	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	13	notification_id	bigint	bigint	YES	MUL		生成的汇总通知ID	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	14	cc_admin	tinyint	tinyint(1)	NO			是否抄送教务（档位2 为 1）	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	15	is_sent	tinyint	tinyint(1)	NO			是否已发送	班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	16	sent_time	datetime	datetime	YES				班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	17	create_time	datetime	datetime	NO		DEFAULT_GENERATED		班集体提醒去重表（导员端，防天天提醒）
+class_alert_notification	18	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		班集体提醒去重表（导员端，防天天提醒）
+counselor	1	id	bigint	bigint	NO	PRI	auto_increment	导员ID	导员表
+counselor	2	account_id	bigint	bigint	YES	MUL		账号ID	导员表
+counselor	3	counselor_no	varchar	varchar(20)	NO	UNI		工号	导员表
+counselor	4	counselor_name	varchar	varchar(30)	NO			姓名	导员表
+counselor	5	gender	tinyint	tinyint(1)	YES			性别：1男 2女 0未知	导员表
+counselor	6	college_name	varchar	varchar(50)	YES			所属学院	导员表
+counselor	7	phone	varchar	varchar(20)	YES				导员表
+counselor	8	email	varchar	varchar(100)	YES				导员表
+counselor	9	status	varchar	varchar(20)	NO			状态：ACTIVE/LEFT离职	导员表
+counselor	10	create_time	datetime	datetime	NO		DEFAULT_GENERATED		导员表
+counselor	11	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		导员表
+counselor_class	1	id	bigint	bigint	NO	PRI	auto_increment	主键	导员-行政班关联表
+counselor_class	2	counselor_id	bigint	bigint	NO	MUL		导员ID	导员-行政班关联表
+counselor_class	3	admin_class_id	bigint	bigint	NO	MUL		行政班ID	导员-行政班关联表
+counselor_class	4	term_id	bigint	bigint	NO			学期ID（同班换导员时按学期留痕）	导员-行政班关联表
+counselor_class	5	is_primary	tinyint	tinyint(1)	NO			是否主责导员：1主 0副（副导员可多人）	导员-行政班关联表
+counselor_class	6	create_time	datetime	datetime	NO		DEFAULT_GENERATED		导员-行政班关联表
+counselor_class	7	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		导员-行政班关联表
+course	1	id	bigint	bigint	NO	PRI	auto_increment	课程ID（科目）	课程（科目）表
+course	2	course_name	varchar	varchar(50)	NO			课程名称	课程（科目）表
+course	3	course_type	varchar	varchar(20)	NO	MUL		课程类型：只分两类 —— EXAM考试课 / ASSESS考查课（上机/卷面、个人/团队项目等差异不单独分类，改由 difficulty_factor_code 指向课型难度因子档位）	课程（科目）表
+course	4	credit	decimal	decimal(3,1)	YES			学分	课程（科目）表
+course	5	total_hours	int	int	YES			计划学时（展示用；课次口径以开课为准）	课程（科目）表
+course	6	prerequisite_course_id	bigint	bigint	YES	MUL		先修课程ID（同科目序列，如 高数1→高数2→高数3）	课程（科目）表
+course	7	college_name	varchar	varchar(50)	YES			开课学院	课程（科目）表
+course	8	difficulty_factor_code	varchar	varchar(30)	YES	MUL		课型难度因子档位编码（教务按课指定，如 PAPER卷面/MACHINE上机/PERSONAL个人项目/TEAM团队项目/OTHER；留空则用所属 course_type 的默认档）。档位与数值定义在 risk_engine_config.course_type_factor_json，可随时增档而不用改建表	课程（科目）表
+course	9	status	varchar	varchar(20)	NO			状态：ACTIVE/CLOSED停开	课程（科目）表
+course	10	create_time	datetime	datetime	NO		DEFAULT_GENERATED		课程（科目）表
+course	11	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		课程（科目）表
+course_fail_rate_history	1	id	bigint	bigint	NO	PRI	auto_increment	主键	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	2	course_id	bigint	bigint	NO	MUL		课程ID	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	3	term_id	bigint	bigint	NO			学期ID	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	4	examinee_count	int	int	NO			分母：该课程本学期合计实际考核人数（按人数加权）	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	5	fail_count	int	int	NO			分子：合计挂科人数	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	6	fail_rate	decimal	decimal(5,2)	NO			课程挂科率(%)（入历史，供下学期课程因子 c 标定）	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	7	hard_fail_count	int	int	NO				课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	8	teaching_class_count	int	int	NO			本学期该课程教学班数	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	9	is_initialized	tinyint	tinyint(1)	NO			是否手工初始化值（历史首值先手填，后续自动更新）	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	10	course_factor	decimal	decimal(5,3)	YES			由本挂科率映射出的课程因子 c（映射函数由引擎定义）	课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	11	engine_version	varchar	varchar(20)	YES				课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	12	calc_time	datetime	datetime	YES				课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	13	create_time	datetime	datetime	NO		DEFAULT_GENERATED		课程挂科率历史表（→课程因子 c）
+course_fail_rate_history	14	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		课程挂科率历史表（→课程因子 c）
+course_group	1	id	bigint	bigint	NO	PRI	auto_increment	课程组ID	课程组表（课程×学期，无组长）
+course_group	2	course_id	bigint	bigint	NO	MUL		课程ID（科目）	课程组表（课程×学期，无组长）
+course_group	3	term_id	bigint	bigint	NO	MUL		学期ID	课程组表（课程×学期，无组长）
+course_group	4	level	varchar	varchar(10)	NO			构成层级：L1只填三项总分/L2平时拆项(默认)/L3自定义项(实验、三四级项目等)	课程组表（课程×学期，无组长）
+course_group	5	level_request	varchar	varchar(10)	YES			申请的层级（老师发起升级时填写）	课程组表（课程×学期，无组长）
+course_group	6	level_request_status	varchar	varchar(20)	NO	MUL		升级申请状态：NONE无/PENDING待教务审批/APPROVED已批准/REJECTED已驳回	课程组表（课程×学期，无组长）
+course_group	7	level_request_by	bigint	bigint	YES			申请人（教师ID）	课程组表（课程×学期，无组长）
+course_group	8	level_request_time	datetime	datetime	YES			申请时间	课程组表（课程×学期，无组长）
+course_group	9	level_request_reason	varchar	varchar(200)	YES			申请理由（如：本课含 5 次实验 + 三级项目）	课程组表（课程×学期，无组长）
+course_group	10	level_approve_by	bigint	bigint	YES			审批人（教务ID）	课程组表（课程×学期，无组长）
+course_group	11	level_approve_time	datetime	datetime	YES			审批时间	课程组表（课程×学期，无组长）
+course_group	12	level_approve_note	varchar	varchar(200)	YES			审批意见	课程组表（课程×学期，无组长）
+course_group	13	status	varchar	varchar(20)	NO			状态：ACTIVE/CLOSED	课程组表（课程×学期，无组长）
+course_group	14	create_time	datetime	datetime	NO		DEFAULT_GENERATED		课程组表（课程×学期，无组长）
+course_group	15	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		课程组表（课程×学期，无组长）
+course_guide	1	id	bigint	bigint	NO	PRI	auto_increment	主键	课程导学（每位教师一份）
+course_guide	2	teaching_class_id	bigint	bigint	NO	UNI		教学班ID（一位老师一份）	课程导学（每位教师一份）
+course_guide	3	offering_id	bigint	bigint	NO	MUL		开课ID（冗余，便于按开课查询）	课程导学（每位教师一份）
+course_guide	4	term_id	bigint	bigint	NO			学期ID	课程导学（每位教师一份）
+course_guide	5	content	longtext	longtext	YES			导学正文（HTML 富文本，内容随意）	课程导学（每位教师一份）
+course_guide	6	content_format	varchar	varchar(10)	NO			正文格式：HTML/TEXT	课程导学（每位教师一份）
+course_guide	7	version	int	int	NO			版本号（每次保存 +1）	课程导学（每位教师一份）
+course_guide	8	is_published	tinyint	tinyint(1)	NO			是否已发布给学生：1是	课程导学（每位教师一份）
+course_guide	9	publish_time	datetime	datetime	YES			发布时间	课程导学（每位教师一份）
+course_guide	10	create_by	bigint	bigint	YES				课程导学（每位教师一份）
+course_guide	11	create_time	datetime	datetime	NO		DEFAULT_GENERATED		课程导学（每位教师一份）
+course_guide	12	update_by	bigint	bigint	YES				课程导学（每位教师一份）
+course_guide	13	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		课程导学（每位教师一份）
+course_join_request	1	id	bigint	bigint	NO	PRI	auto_increment	主键	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	2	teaching_class_id	bigint	bigint	NO	MUL		教学班ID（申请加入的班）	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	3	offering_id	bigint	bigint	NO			开课ID（冗余）	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	4	term_id	bigint	bigint	NO			学期ID	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	5	student_id	bigint	bigint	NO	MUL		学生ID	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	6	invite_code	varchar	varchar(6)	YES			学生输入的邀请码（留档，便于纠纷追溯）	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	7	apply_source	varchar	varchar(20)	NO			申请来源：INVITE_CODE邀请码/ADMIN教务导入	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	8	apply_time	datetime	datetime	NO		DEFAULT_GENERATED	申请时间	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	9	status	varchar	varchar(20)	NO	MUL		状态：APPLIED待审/APPROVED已同意/REJECTED已拒绝/AUTO免审入班	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	10	review_by	bigint	bigint	YES			审核人（教师ID；AUTO 时为空）	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	11	review_time	datetime	datetime	YES			审核时间	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	12	review_note	varchar	varchar(200)	YES			审核意见 / 拒绝原因	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	13	notify_admin	tinyint	tinyint(1)	NO			是否已向教务发出知会：1是	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	14	notify_time	datetime	datetime	YES			知会时间	入课申请表（学生申请/教师审核/教务知会）
+course_join_request	15	create_time	datetime	datetime	NO		DEFAULT_GENERATED		入课申请表（学生申请/教师审核/教务知会）
+course_join_request	16	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		入课申请表（学生申请/教师审核/教务知会）
+course_lesson	1	id	bigint	bigint	NO	PRI	auto_increment	主键	目录课时表（一行=一次课）
+course_lesson	2	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	目录课时表（一行=一次课）
+course_lesson	3	offering_id	bigint	bigint	NO			开课ID	目录课时表（一行=一次课）
+course_lesson	4	term_id	bigint	bigint	NO			学期ID	目录课时表（一行=一次课）
+course_lesson	5	session_id	bigint	bigint	NO			课次ID（course_session，一次课一行）	目录课时表（一行=一次课）
+course_lesson	6	week_no	smallint	smallint	NO			第几周（冗余，便于展示与排序）	目录课时表（一行=一次课）
+course_lesson	7	session_no	smallint	smallint	NO			第几次课（冗余）	目录课时表（一行=一次课）
+course_lesson	8	title	varchar	varchar(500)	YES			本次课要讲的内容标题（可含多条，用分号连接）	目录课时表（一行=一次课）
+course_lesson	9	sort_no	int	int	NO			目录顺序	目录课时表（一行=一次课）
+course_lesson	10	status	varchar	varchar(20)	NO			状态：ACTIVE/DISABLED	目录课时表（一行=一次课）
+course_lesson	11	create_by	bigint	bigint	YES				目录课时表（一行=一次课）
+course_lesson	12	create_time	datetime	datetime	NO		DEFAULT_GENERATED		目录课时表（一行=一次课）
+course_lesson	13	update_by	bigint	bigint	YES				目录课时表（一行=一次课）
+course_lesson	14	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		目录课时表（一行=一次课）
+course_offering	1	id	bigint	bigint	NO	PRI	auto_increment	开课ID	开课实例表（计划/实际课次、及格线）
+course_offering	2	course_id	bigint	bigint	NO	MUL		课程ID	开课实例表（计划/实际课次、及格线）
+course_offering	3	term_id	bigint	bigint	NO	MUL		学期ID	开课实例表（计划/实际课次、及格线）
+course_offering	4	group_id	bigint	bigint	NO	MUL		课程组ID	开课实例表（计划/实际课次、及格线）
+course_offering	5	planned_weeks	int	int	NO			计划教学周数（教务开学前导入）	开课实例表（计划/实际课次、及格线）
+course_offering	6	planned_times_per_week	int	int	NO			计划每周课次（教务开学前导入）	开课实例表（计划/实际课次、及格线）
+course_offering	7	planned_sessions	int	int	NO			计划总课次 = 计划周数 × 每周课次（教务锁定后不变）	开课实例表（计划/实际课次、及格线）
+course_offering	8	actual_weeks	int	int	YES			实际教学周数（老师期末申报：因节假日调休等的真实值）	开课实例表（计划/实际课次、及格线）
+course_offering	9	actual_sessions	int	int	YES			实际总课次（老师期末申报）	开课实例表（计划/实际课次、及格线）
+course_offering	10	actual_submit_status	varchar	varchar(20)	NO	MUL		实际课次申报状态：NONE未申报/PENDING待教务确认/CONFIRMED已确认/RETURNED已退回	开课实例表（计划/实际课次、及格线）
+course_offering	11	actual_submit_by	bigint	bigint	YES			申报人（教师ID）	开课实例表（计划/实际课次、及格线）
+course_offering	12	actual_submit_time	datetime	datetime	YES			申报时间	开课实例表（计划/实际课次、及格线）
+course_offering	13	actual_submit_note	varchar	varchar(200)	YES			申报说明（如：国庆放假一周、校运会停课一次）	开课实例表（计划/实际课次、及格线）
+course_offering	14	actual_confirm_by	bigint	bigint	YES			确认人（教务ID）	开课实例表（计划/实际课次、及格线）
+course_offering	15	actual_confirm_time	datetime	datetime	YES			确认时间	开课实例表（计划/实际课次、及格线）
+course_offering	16	effective_sessions	int	int	NO			判定用分母课次：未确认前=计划课次，确认后=实际课次（1/3 门槛与覆盖率共用）	开课实例表（计划/实际课次、及格线）
+course_offering	17	effective_source	varchar	varchar(20)	NO			分母来源：PLANNED计划/ACTUAL教务确认后的实际课次	开课实例表（计划/实际课次、及格线）
+course_offering	18	pass_score	int	int	NO			及格线（本学期该课适用）	开课实例表（计划/实际课次、及格线）
+course_offering	19	status	varchar	varchar(20)	NO			状态：PLANNING筹备/ONGOING进行中/FINISHED已结束/ARCHIVED已归档	开课实例表（计划/实际课次、及格线）
+course_offering	20	remark	varchar	varchar(200)	YES				开课实例表（计划/实际课次、及格线）
+course_offering	21	create_by	bigint	bigint	YES			创建人（教务ID）	开课实例表（计划/实际课次、及格线）
+course_offering	22	create_time	datetime	datetime	NO		DEFAULT_GENERATED		开课实例表（计划/实际课次、及格线）
+course_offering	23	update_by	bigint	bigint	YES				开课实例表（计划/实际课次、及格线）
+course_offering	24	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		开课实例表（计划/实际课次、及格线）
+course_session	1	id	bigint	bigint	NO	PRI	auto_increment	课次ID	课次表（一次课一行；点名与覆盖率的基础）
+course_session	2	offering_id	bigint	bigint	NO	MUL		开课ID（由 teaching_class 派生，冗余用于按开课汇总）	课次表（一次课一行；点名与覆盖率的基础）
+course_session	3	teaching_class_id	bigint	bigint	NO	MUL		教学班ID（课次与点名按教学班进行）	课次表（一次课一行；点名与覆盖率的基础）
+course_session	4	term_id	bigint	bigint	NO			学期ID	课次表（一次课一行；点名与覆盖率的基础）
+course_session	5	week_no	int	int	NO			教学周次（对应 term_calendar.week_no）	课次表（一次课一行；点名与覆盖率的基础）
+course_session	6	session_no	int	int	NO			本教学班第几次课（1..planned_sessions，课表驱动定位用）	课次表（一次课一行；点名与覆盖率的基础）
+course_session	7	session_date	date	date	NO	MUL		上课日期	课次表（一次课一行；点名与覆盖率的基础）
+course_session	8	start_time	varchar	varchar(10)	YES			开始时间，如 08:00	课次表（一次课一行；点名与覆盖率的基础）
+course_session	9	end_time	varchar	varchar(10)	YES			结束时间，如 09:40	课次表（一次课一行；点名与覆盖率的基础）
+course_session	10	location	varchar	varchar(50)	YES			上课地点	课次表（一次课一行；点名与覆盖率的基础）
+course_session	11	session_type	varchar	varchar(20)	NO			课型：NORMAL普通/LAB实验/EXAM考试/OTHER	课次表（一次课一行；点名与覆盖率的基础）
+course_session	12	status	varchar	varchar(20)	NO	MUL		课次状态：NORMAL正常/CANCELLED停课/ADJUSTED已调课/MERGED合并	课次表（一次课一行；点名与覆盖率的基础）
+course_session	13	adjust_note	varchar	varchar(200)	YES			停课/调课说明（如 国庆放假、校运动会）	课次表（一次课一行；点名与覆盖率的基础）
+course_session	14	roll_call_status	varchar	varchar(20)	NO			点名状态：NOT_CALLED未点名/CALLED已点名/PARTIAL部分点名	课次表（一次课一行；点名与覆盖率的基础）
+course_session	15	roll_call_time	datetime	datetime	YES			最近一次点名提交时间	课次表（一次课一行；点名与覆盖率的基础）
+course_session	16	roll_call_by	bigint	bigint	YES			点名操作人（教师ID）	课次表（一次课一行；点名与覆盖率的基础）
+course_session	17	roll_call_count	int	int	NO			该课次产生的考勤记录条数（=0 表示未点名）	课次表（一次课一行；点名与覆盖率的基础）
+course_session	18	is_void	tinyint	tinyint(1)	NO			是否作废（重排课/误录）：1作废，不计入任何分母	课次表（一次课一行；点名与覆盖率的基础）
+course_session	19	create_by	bigint	bigint	YES				课次表（一次课一行；点名与覆盖率的基础）
+course_session	20	create_time	datetime	datetime	NO		DEFAULT_GENERATED		课次表（一次课一行；点名与覆盖率的基础）
+course_session	21	update_by	bigint	bigint	YES				课次表（一次课一行；点名与覆盖率的基础）
+course_session	22	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		课次表（一次课一行；点名与覆盖率的基础）
+coverage_check_log	1	id	bigint	bigint	NO	PRI	auto_increment	主键	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	2	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	3	offering_id	bigint	bigint	NO			开课ID	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	4	teacher_id	bigint	bigint	NO	MUL		任课教师ID	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	5	term_id	bigint	bigint	NO	MUL		学期ID	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	6	check_type	varchar	varchar(20)	NO			体检类型：SOFT期内软提醒/MID期中正式/FINAL期末正式	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	7	check_date	date	date	NO			体检日期	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	8	week_no	int	int	YES			体检时教学周次	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	9	due_sessions	int	int	NO			应完成课次（分母：已过日期且未取消）	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	10	recorded_sessions	int	int	NO			已点名课次（分子）	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	11	coverage_rate	decimal	decimal(5,2)	YES			点名覆盖率(%)	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	12	below_threshold	tinyint	tinyint(1)	NO	MUL		是否低于阈值：1是（进督办列表）	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	13	notified	tinyint	tinyint(1)	NO			是否已提醒（老师+教务）	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	14	notification_id	bigint	bigint	YES			关联提醒通知ID	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	15	resolved	tinyint	tinyint(1)	NO			是否已补录解决	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	16	resolved_at	datetime	datetime	YES			解决时间	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	17	resolve_note	varchar	varchar(200)	YES			督办说明	覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	18	create_time	datetime	datetime	NO		DEFAULT_GENERATED		覆盖率体检记录表（去重与督办跟踪）
+coverage_check_log	19	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		覆盖率体检记录表（去重与督办跟踪）
+enrollment	1	id	bigint	bigint	NO	PRI	auto_increment	选课ID	选课表（学生×教学班×学期）
+enrollment	2	student_id	bigint	bigint	NO	MUL		学生ID	选课表（学生×教学班×学期）
+enrollment	3	teaching_class_id	bigint	bigint	NO	MUL		教学班ID（决定任课老师与所属行政班范围）	选课表（学生×教学班×学期）
+enrollment	4	offering_id	bigint	bigint	NO	MUL		开课ID（由 teaching_class 决定、写入时校验一致；用于覆盖率/成绩按开课汇总）	选课表（学生×教学班×学期）
+enrollment	5	term_id	bigint	bigint	NO			学期ID	选课表（学生×教学班×学期）
+enrollment	6	status	varchar	varchar(20)	NO	MUL		状态：ENROLLED在册/REPEAT重修/WITHDRAWN已退课/EXEMPT免修	选课表（学生×教学班×学期）
+enrollment	7	retake_times	int	int	NO			重修次数（0=首次修读，1=第一次重修…）	选课表（学生×教学班×学期）
+enrollment	8	enroll_time	datetime	datetime	YES			选课/录入时间	选课表（学生×教学班×学期）
+enrollment	9	withdraw_time	datetime	datetime	YES			退课时间	选课表（学生×教学班×学期）
+enrollment	10	withdraw_reason	varchar	varchar(200)	YES			退课原因	选课表（学生×教学班×学期）
+enrollment	11	withdraw_approve_by	bigint	bigint	YES			退课批准人（教务ID）	选课表（学生×教学班×学期）
+enrollment	12	remark	varchar	varchar(200)	YES				选课表（学生×教学班×学期）
+enrollment	13	create_by	bigint	bigint	YES				选课表（学生×教学班×学期）
+enrollment	14	create_time	datetime	datetime	NO		DEFAULT_GENERATED		选课表（学生×教学班×学期）
+enrollment	15	update_by	bigint	bigint	YES				选课表（学生×教学班×学期）
+enrollment	16	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		选课表（学生×教学班×学期）
+exam_headcount	1	id	bigint	bigint	NO	PRI	auto_increment	主键	实际考核人数确认与成绩录入核对表
+exam_headcount	2	offering_id	bigint	bigint	NO	MUL		开课ID	实际考核人数确认与成绩录入核对表
+exam_headcount	3	term_id	bigint	bigint	NO	MUL		学期ID	实际考核人数确认与成绩录入核对表
+exam_headcount	4	phase	varchar	varchar(20)	NO			阶段：MID期中/FINAL期末	实际考核人数确认与成绩录入核对表
+exam_headcount	5	roster_count	int	int	YES			名单人数（选课 ACTIVE 人数）	实际考核人数确认与成绩录入核对表
+exam_headcount	6	expected_count	int	int	YES			预计考核人数（扣除已审批退课/免修）	实际考核人数确认与成绩录入核对表
+exam_headcount	7	confirmed_count	int	int	YES			教务确认的实际考核人数（挂科率分母）	实际考核人数确认与成绩录入核对表
+exam_headcount	8	deferred_count	int	int	NO			其中缓考人数（不计入分母）	实际考核人数确认与成绩录入核对表
+exam_headcount	9	no_score_count	int	int	NO			其中无成绩待定人数（不计入分母）	实际考核人数确认与成绩录入核对表
+exam_headcount	10	diff_reason	varchar	varchar(200)	YES			与名单人数不一致的原因说明	实际考核人数确认与成绩录入核对表
+exam_headcount	11	confirm_status	varchar	varchar(20)	NO	MUL		确认状态：PENDING待确认/CONFIRMED已确认	实际考核人数确认与成绩录入核对表
+exam_headcount	12	confirm_by	bigint	bigint	YES			确认人（教务ID）	实际考核人数确认与成绩录入核对表
+exam_headcount	13	confirm_time	datetime	datetime	YES			确认时间	实际考核人数确认与成绩录入核对表
+exam_headcount	14	entered_count	int	int	YES			实际录入成绩人数	实际考核人数确认与成绩录入核对表
+exam_headcount	15	check_result	varchar	varchar(20)	YES	MUL		录入核对结果：MATCH一致/MISMATCH不一致/NOT_CHECKED未核对	实际考核人数确认与成绩录入核对表
+exam_headcount	16	check_time	datetime	datetime	YES			核对时间	实际考核人数确认与成绩录入核对表
+exam_headcount	17	check_note	varchar	varchar(200)	YES			核对说明	实际考核人数确认与成绩录入核对表
+exam_headcount	18	create_time	datetime	datetime	NO		DEFAULT_GENERATED		实际考核人数确认与成绩录入核对表
+exam_headcount	19	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		实际考核人数确认与成绩录入核对表
+import_batch	1	id	bigint	bigint	NO	PRI	auto_increment	主键	导入批次表（可查可回滚）
+import_batch	2	batch_no	varchar	varchar(40)	NO	UNI		批次号（业务表按此回滚）	导入批次表（可查可回滚）
+import_batch	3	import_type	varchar	varchar(30)	NO	MUL		类型：TIMETABLE周数课次/SCORE成绩/ATTENDANCE考勤/ROSTER名单/PAPER试卷题目/OTHER（已移除 KP）	导入批次表（可查可回滚）
+import_batch	4	term_id	bigint	bigint	YES			学期ID（部分导入与学期无关，可空）	导入批次表（可查可回滚）
+import_batch	5	file_name	varchar	varchar(200)	YES			原始文件名	导入批次表（可查可回滚）
+import_batch	6	total_rows	int	int	NO			总行数	导入批次表（可查可回滚）
+import_batch	7	success_rows	int	int	NO			成功行数	导入批次表（可查可回滚）
+import_batch	8	failed_rows	int	int	NO			失败行数	导入批次表（可查可回滚）
+import_batch	9	error_json	json	json	YES			失败明细（行号 + 原因）	导入批次表（可查可回滚）
+import_batch	10	status	varchar	varchar(20)	NO	MUL		状态：RUNNING进行中/SUCCESS全部成功/PARTIAL部分成功/FAILED失败/ROLLED_BACK已回滚	导入批次表（可查可回滚）
+import_batch	11	operator_id	bigint	bigint	YES	MUL		操作人ID	导入批次表（可查可回滚）
+import_batch	12	operator_role	varchar	varchar(20)	YES			操作人角色	导入批次表（可查可回滚）
+import_batch	13	start_time	datetime	datetime	YES			开始时间	导入批次表（可查可回滚）
+import_batch	14	end_time	datetime	datetime	YES			结束时间	导入批次表（可查可回滚）
+import_batch	15	rollback_by	bigint	bigint	YES			回滚人	导入批次表（可查可回滚）
+import_batch	16	rollback_time	datetime	datetime	YES			回滚时间	导入批次表（可查可回滚）
+import_batch	17	rollback_reason	varchar	varchar(200)	YES			回滚原因	导入批次表（可查可回滚）
+import_batch	18	remark	varchar	varchar(200)	YES				导入批次表（可查可回滚）
+import_batch	19	create_time	datetime	datetime	NO		DEFAULT_GENERATED		导入批次表（可查可回滚）
+intervention_record	1	id	bigint	bigint	NO	PRI	auto_increment	干预记录ID	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	2	student_id	bigint	bigint	NO	MUL		学生ID	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	3	term_id	bigint	bigint	YES			学期ID（旧数据迁移时可为空）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	4	alert_id	bigint	bigint	YES	MUL		关联预警ID（可空：可由教师主动发起，不只针对单条预警）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	5	related_alert_ids	json	json	YES			关联预警ID数组（一次处理可覆盖多条预警）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	6	stage	varchar	varchar(30)	NO	MUL		阶段：TEACHER教师处理/COUNSELOR_1导员第1次/COUNSELOR_2导员第2次/REFERRED已上报教务/ADMIN_TALK教务面谈/ADMIN_HELP教务具体帮助/TERMINATED终止干预	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	7	operator_id	bigint	bigint	NO	MUL		处理人ID	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	8	operator_role	varchar	varchar(20)	NO			处理人角色：TEACHER/COUNSELOR/ADMIN	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	9	action_type	varchar	varchar(30)	NO			动作：TALK谈话/CLASS_MEETING班会/PARENT联系家长/SUPPLEMENT补课补习/PLAN学习计划/INTERVIEW面谈/HELP具体帮助/OTHER其他	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	10	content	text	text	YES			处理内容	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	11	result	text	text	YES			结果描述	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	12	effective	varchar	varchar(20)	NO	MUL		是否有成效：EFFECTIVE有效/INEFFECTIVE无效/PENDING待观察	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	13	effect_check_time	datetime	datetime	YES			成效检查时间（= 下次 risk_state 刷新 或 干预后 14 天，先到为准）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	14	risk_score_before	decimal	decimal(5,1)	YES			干预时风险分（快照）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	15	risk_score_after	decimal	decimal(5,1)	YES			成效检查时的风险分	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	16	risk_score_change	decimal	decimal(5,1)	YES			风险分变化（负数=改善）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	17	refer_status	varchar	varchar(20)	YES	MUL		上报状态：NONE未上报/REFERRED已上报/ADMIN_HANDLING教务处理中/ADMIN_DONE教务已完结	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	18	refer_by	bigint	bigint	YES			上报人（导员ID）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	19	refer_time	datetime	datetime	YES			上报时间	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	20	refer_note	varchar	varchar(500)	YES			上报说明（导员判定"收集齐全"的说明）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	21	admin_feedback	text	text	YES			教务处理反馈（导员可追踪"交上去之后怎么样了"）	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	22	is_void	tinyint	tinyint(1)	NO			是否作废	干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	23	remark	varchar	varchar(200)	YES				干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	24	create_by	bigint	bigint	YES				干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	25	create_time	datetime	datetime	NO		DEFAULT_GENERATED		干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	26	update_by	bigint	bigint	YES				干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+intervention_record	27	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		干预记录表（重构：支持教师/导员/教务三级与上报闭环）
+lesson_resource	1	id	bigint	bigint	NO	PRI	auto_increment	主键	课时资源与任务表（课前/课中/课后）
+lesson_resource	2	lesson_id	bigint	bigint	NO	MUL		课时ID（course_lesson）	课时资源与任务表（课前/课中/课后）
+lesson_resource	3	teaching_class_id	bigint	bigint	NO	MUL		教学班ID（冗余）	课时资源与任务表（课前/课中/课后）
+lesson_resource	4	term_id	bigint	bigint	NO			学期ID	课时资源与任务表（课前/课中/课后）
+lesson_resource	5	phase	varchar	varchar(10)	NO			阶段：BEFORE课前/DURING课中/AFTER课后	课时资源与任务表（课前/课中/课后）
+lesson_resource	6	res_type	varchar	varchar(20)	NO	MUL		资源类型：FILE文件/LINK外链/TEXT富文本/PAPER测验或作业/PROJECT项目	课时资源与任务表（课前/课中/课后）
+lesson_resource	7	ref_id	bigint	bigint	YES			关联对象ID（FILE→resource_file / PAPER→paper / PROJECT→project_task）	课时资源与任务表（课前/课中/课后）
+lesson_resource	8	ext_url	varchar	varchar(500)	YES			外链地址（LINK 时使用；视频/网页）	课时资源与任务表（课前/课中/课后）
+lesson_resource	9	title	varchar	varchar(200)	NO			展示标题	课时资源与任务表（课前/课中/课后）
+lesson_resource	10	sort_no	int	int	NO			同组内顺序	课时资源与任务表（课前/课中/课后）
+lesson_resource	11	publish_status	varchar	varchar(20)	NO			发布状态：DRAFT草稿/PUBLISHED已发布	课时资源与任务表（课前/课中/课后）
+lesson_resource	12	publish_time	datetime	datetime	YES			发布时间	课时资源与任务表（课前/课中/课后）
+lesson_resource	13	create_by	bigint	bigint	YES				课时资源与任务表（课前/课中/课后）
+lesson_resource	14	create_time	datetime	datetime	NO		DEFAULT_GENERATED		课时资源与任务表（课前/课中/课后）
+lesson_resource	15	update_by	bigint	bigint	YES				课时资源与任务表（课前/课中/课后）
+lesson_resource	16	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		课时资源与任务表（课前/课中/课后）
+major	1	id	bigint	bigint	NO	PRI	auto_increment	专业ID	专业/学院表
+major	2	major_code	varchar	varchar(20)	NO	UNI		专业代码	专业/学院表
+major	3	major_name	varchar	varchar(50)	NO			专业名称	专业/学院表
+major	4	college_code	varchar	varchar(20)	YES	MUL		学院代码	专业/学院表
+major	5	college_name	varchar	varchar(50)	YES			学院名称	专业/学院表
+major	6	status	varchar	varchar(20)	NO				专业/学院表
+major	7	create_time	datetime	datetime	NO		DEFAULT_GENERATED		专业/学院表
+major	8	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		专业/学院表
+notification	1	id	bigint	bigint	NO	PRI	auto_increment	通知ID	通知主体表（聚合与业务关联）
+notification	2	biz_type	varchar	varchar(30)	NO	MUL		业务类型：ALERT_NEW/ALERT_UPGRADE/CLASS_ALERT班集体提醒/ARCHIVE_TASK归档待办/ARCHIVE_RESULT归档结果/COVERAGE_REMIND覆盖率提醒/SCORE_TASK打分待办/MULTI_COURSE多科目预警/REFER_RESULT上报结果/QUESTIONNAIRE问卷/SYSTEM系统	通知主体表（聚合与业务关联）
+notification	3	biz_id	bigint	bigint	YES			关联业务ID（预警/归档批次/开课/问卷等）	通知主体表（聚合与业务关联）
+notification	4	title	varchar	varchar(200)	NO			标题	通知主体表（聚合与业务关联）
+notification	5	content	text	text	YES			正文	通知主体表（聚合与业务关联）
+notification	6	payload_json	json	json	YES			结构化载荷（跳转参数、明细列表等）	通知主体表（聚合与业务关联）
+notification	7	aggregate_key	varchar	varchar(60)	YES	UNI		聚合键：如 CLASS_ALERT:{counselorId}:{termId}:{weekNo}，同键只发一条汇总	通知主体表（聚合与业务关联）
+notification	8	aggregate_count	int	int	NO			本通知聚合了多少条明细（防骚扰：一次一条汇总）	通知主体表（聚合与业务关联）
+notification	9	audience_desc	varchar	varchar(100)	YES			接收范围描述，如"软件1–4班导员 + 教务处"	通知主体表（聚合与业务关联）
+notification	10	priority	varchar	varchar(10)	NO			优先级：HIGH/NORMAL/LOW	通知主体表（聚合与业务关联）
+notification	11	expire_time	datetime	datetime	YES			过期时间	通知主体表（聚合与业务关联）
+notification	12	create_by	bigint	bigint	YES				通知主体表（聚合与业务关联）
+notification	13	create_time	datetime	datetime	NO	MUL	DEFAULT_GENERATED		通知主体表（聚合与业务关联）
+notification	14	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		通知主体表（聚合与业务关联）
+notification_receipt	1	id	bigint	bigint	NO	PRI	auto_increment	主键	通知投递与回执表（每个接收人一行）
+notification_receipt	2	notification_id	bigint	bigint	NO	MUL		通知ID	通知投递与回执表（每个接收人一行）
+notification_receipt	3	recipient_id	bigint	bigint	NO	MUL		接收人ID（sys_account.id）	通知投递与回执表（每个接收人一行）
+notification_receipt	4	recipient_role	varchar	varchar(20)	NO			接收人角色：STUDENT/TEACHER/COUNSELOR/ADMIN	通知投递与回执表（每个接收人一行）
+notification_receipt	5	channel	varchar	varchar(20)	NO			渠道：IN_APP站内信/EMAIL邮件/SMS短信	通知投递与回执表（每个接收人一行）
+notification_receipt	6	send_status	varchar	varchar(20)	NO	MUL		发送状态：PENDING待发/SENT已发/FAILED失败	通知投递与回执表（每个接收人一行）
+notification_receipt	7	send_time	datetime	datetime	YES			发送时间	通知投递与回执表（每个接收人一行）
+notification_receipt	8	is_read	tinyint	tinyint(1)	NO			是否已读	通知投递与回执表（每个接收人一行）
+notification_receipt	9	read_time	datetime	datetime	YES			已读时间	通知投递与回执表（每个接收人一行）
+notification_receipt	10	ack_required	tinyint	tinyint(1)	NO	MUL		是否需要回执确认	通知投递与回执表（每个接收人一行）
+notification_receipt	11	ack_status	varchar	varchar(20)	NO			回执状态：NONE无需/PENDING待确认/ACKED已确认/IGNORED已忽略	通知投递与回执表（每个接收人一行）
+notification_receipt	12	ack_time	datetime	datetime	YES			确认时间	通知投递与回执表（每个接收人一行）
+notification_receipt	13	ack_note	varchar	varchar(500)	YES			确认说明	通知投递与回执表（每个接收人一行）
+notification_receipt	14	action_taken	varchar	varchar(200)	YES			已采取的行动（如"已开班会"、"已约谈学生"）	通知投递与回执表（每个接收人一行）
+notification_receipt	15	create_time	datetime	datetime	NO		DEFAULT_GENERATED		通知投递与回执表（每个接收人一行）
+notification_receipt	16	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		通知投递与回执表（每个接收人一行）
+paper	1	id	bigint	bigint	NO	PRI	auto_increment	主键	试卷表（测验/作业/考试共用）
+paper	2	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	试卷表（测验/作业/考试共用）
+paper	3	offering_id	bigint	bigint	NO			开课ID（冗余）	试卷表（测验/作业/考试共用）
+paper	4	term_id	bigint	bigint	NO			学期ID	试卷表（测验/作业/考试共用）
+paper	5	paper_type	varchar	varchar(20)	NO			类型：QUIZ随堂测验/HOMEWORK课后作业/EXAM线上考试	试卷表（测验/作业/考试共用）
+paper	6	paper_name	varchar	varchar(200)	NO			试卷名称（学生端卡片标题的一部分）	试卷表（测验/作业/考试共用）
+paper	7	lesson_id	bigint	bigint	YES	MUL		所属课时ID（测验/作业挂课用；考试为空）	试卷表（测验/作业/考试共用）
+paper	8	start_time	datetime	datetime	YES	MUL		开始时间	试卷表（测验/作业/考试共用）
+paper	9	end_time	datetime	datetime	YES			结束时间（到点自动交卷、逾期不允许补交）	试卷表（测验/作业/考试共用）
+paper	10	duration_minutes	int	int	YES			限时（分钟；为空表示不限时）	试卷表（测验/作业/考试共用）
+paper	11	full_score	decimal	decimal(6,2)	NO			试卷满分（本次分值，非平时成绩）	试卷表（测验/作业/考试共用）
+paper	12	scheme_item_id	bigint	bigint	YES			计入的评分项ID（score_scheme_item）；为空表示仅记录不计分	试卷表（测验/作业/考试共用）
+paper	13	publisher_role	varchar	varchar(20)	NO			发起人角色：TEACHER教师/ADMIN教务	试卷表（测验/作业/考试共用）
+paper	14	publisher_id	bigint	bigint	NO			发起人ID	试卷表（测验/作业/考试共用）
+paper	15	allow_view_paper	tinyint	tinyint(1)	NO			考试/测验完成后是否允许学生查看试卷：1是	试卷表（测验/作业/考试共用）
+paper	16	show_score	tinyint	tinyint(1)	NO			是否向学生显示成绩：1是	试卷表（测验/作业/考试共用）
+paper	17	show_answer	varchar	varchar(20)	NO			答案与解析可见性：NEVER永远不可见/AFTER_MARK批阅后可见	试卷表（测验/作业/考试共用）
+paper	18	status	varchar	varchar(20)	NO			状态：DRAFT草稿/PUBLISHED已发布/CLOSED已截止	试卷表（测验/作业/考试共用）
+paper	19	remark	varchar	varchar(200)	YES				试卷表（测验/作业/考试共用）
+paper	20	create_by	bigint	bigint	YES				试卷表（测验/作业/考试共用）
+paper	21	create_time	datetime	datetime	NO		DEFAULT_GENERATED		试卷表（测验/作业/考试共用）
+paper	22	update_by	bigint	bigint	YES				试卷表（测验/作业/考试共用）
+paper	23	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		试卷表（测验/作业/考试共用）
+project_contribution	1	id	bigint	bigint	NO	PRI	auto_increment	主键	团队贡献表（组长提交，不可修改）
+project_contribution	2	project_id	bigint	bigint	NO	MUL		项目任务ID	团队贡献表（组长提交，不可修改）
+project_contribution	3	team_id	bigint	bigint	NO			组ID	团队贡献表（组长提交，不可修改）
+project_contribution	4	leader_student_id	bigint	bigint	NO			组长学生ID（提交人）	团队贡献表（组长提交，不可修改）
+project_contribution	5	contribution_json	json	json	NO			成员贡献占比列表	团队贡献表（组长提交，不可修改）
+project_contribution	6	total_ratio	decimal	decimal(6,4)	NO			占比合计（必须=1.0000）	团队贡献表（组长提交，不可修改）
+project_contribution	7	submit_time	datetime	datetime	NO		DEFAULT_GENERATED	提交时间（提交后不可改）	团队贡献表（组长提交，不可修改）
+project_contribution	8	is_locked	tinyint	tinyint(1)	NO			是否锁定：1提交即锁定（不允许任何角色修改）	团队贡献表（组长提交，不可修改）
+project_contribution	9	remark	varchar	varchar(200)	YES			组长备注	团队贡献表（组长提交，不可修改）
+project_contribution	10	create_time	datetime	datetime	NO		DEFAULT_GENERATED		团队贡献表（组长提交，不可修改）
+project_submission	1	id	bigint	bigint	NO	PRI	auto_increment	主键	项目提交与批阅表
+project_submission	2	project_id	bigint	bigint	NO	MUL		项目任务ID	项目提交与批阅表
+project_submission	3	team_id	bigint	bigint	YES			组ID（个人项目为空）	项目提交与批阅表
+project_submission	4	student_id	bigint	bigint	NO			提交人（团队项目=组长）	项目提交与批阅表
+project_submission	5	submit_time	datetime	datetime	YES			提交时间	项目提交与批阅表
+project_submission	6	files_json	json	json	YES			提交文件列表	项目提交与批阅表
+project_submission	7	repo_url	varchar	varchar(500)	YES			代码仓库链接（可选）	项目提交与批阅表
+project_submission	8	remark	varchar	varchar(500)	YES			提交说明	项目提交与批阅表
+project_submission	9	submit_status	varchar	varchar(20)	NO	MUL		状态：NOT_SUBMITTED未提交/SUBMITTED已提交/MARKED已批阅	项目提交与批阅表
+project_submission	10	project_score	decimal	decimal(6,2)	YES			教师给的项目总分（团队项目为整组分）	项目提交与批阅表
+project_submission	11	comment	varchar	varchar(500)	YES			教师评语	项目提交与批阅表
+project_submission	12	marked_by	bigint	bigint	YES			批阅教师ID	项目提交与批阅表
+project_submission	13	marked_at	datetime	datetime	YES			批阅时间	项目提交与批阅表
+project_submission	14	create_time	datetime	datetime	NO		DEFAULT_GENERATED		项目提交与批阅表
+project_submission	15	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		项目提交与批阅表
+project_task	1	id	bigint	bigint	NO	PRI	auto_increment	主键	项目任务表
+project_task	2	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	项目任务表
+project_task	3	offering_id	bigint	bigint	NO			开课ID（冗余）	项目任务表
+project_task	4	term_id	bigint	bigint	NO			学期ID	项目任务表
+project_task	5	project_name	varchar	varchar(200)	NO			项目名称	项目任务表
+project_task	6	description	text	text	YES			要求说明	项目任务表
+project_task	7	lesson_id	bigint	bigint	YES			所属课时ID（可空）	项目任务表
+project_task	8	start_time	datetime	datetime	YES	MUL		开始时间	项目任务表
+project_task	9	end_time	datetime	datetime	YES			截止时间（逾期不允许补交）	项目任务表
+project_task	10	is_team	tinyint	tinyint(1)	NO			是否团队项目：1是（需组长提交贡献表）	项目任务表
+project_task	11	full_score	decimal	decimal(6,2)	NO			项目满分	项目任务表
+project_task	12	allow_formats	varchar	varchar(200)	NO			允许的提交形式（逗号分隔）	项目任务表
+project_task	13	scheme_item_id	bigint	bigint	YES			计入的评分项ID（为空表示仅记录不计分）	项目任务表
+project_task	14	publisher_id	bigint	bigint	NO			发起人（教师ID）	项目任务表
+project_task	15	status	varchar	varchar(20)	NO			状态：DRAFT草稿/PUBLISHED已发布/CLOSED已截止	项目任务表
+project_task	16	create_by	bigint	bigint	YES				项目任务表
+project_task	17	create_time	datetime	datetime	NO		DEFAULT_GENERATED		项目任务表
+project_task	18	update_by	bigint	bigint	YES				项目任务表
+project_task	19	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		项目任务表
+project_team	1	id	bigint	bigint	NO	PRI	auto_increment	主键	项目组队表
+project_team	2	project_id	bigint	bigint	NO	MUL		项目任务ID	项目组队表
+project_team	3	team_name	varchar	varchar(100)	YES			组名	项目组队表
+project_team	4	leader_student_id	bigint	bigint	NO			组长学生ID（贡献表提交人）	项目组队表
+project_team	5	member_json	json	json	NO			成员列表快照	项目组队表
+project_team	6	member_count	int	int	NO			成员数（冗余，便于校验）	项目组队表
+project_team	7	create_time	datetime	datetime	NO		DEFAULT_GENERATED		项目组队表
+project_team	8	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		项目组队表
+question	1	id	bigint	bigint	NO	PRI	auto_increment	主键	题目表
+question	2	paper_id	bigint	bigint	NO	MUL		试卷ID	题目表
+question	3	q_no	int	int	NO			题号（试卷内序号）	题目表
+question	4	q_type	varchar	varchar(20)	NO			题型：SINGLE单选/MULTI多选/JUDGE判断/BLANK填空/SHORT简答	题目表
+question	5	stem	text	text	NO			题干	题目表
+question	6	options_json	json	json	YES			选项（选择题使用）	题目表
+question	7	answer_json	json	json	YES			标准答案（结构见上）	题目表
+question	8	analysis	text	text	YES			解析（学生端是否可见取决于 paper.show_answer）	题目表
+question	9	full_score	decimal	decimal(6,2)	NO			本题分值	题目表
+question	10	group_name	varchar	varchar(100)	YES			大题名称（如“第一大题 单选题”），用于学生端分组展示	题目表
+question	11	sort_no	int	int	NO			排序	题目表
+question	12	create_time	datetime	datetime	NO		DEFAULT_GENERATED		题目表
+question	13	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		题目表
+questionnaire	1	id	bigint	bigint	NO	PRI	auto_increment	问卷ID	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	2	offering_id	bigint	bigint	NO	MUL		开课ID	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	3	course_id	bigint	bigint	NO	MUL		课程ID	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	4	term_id	bigint	bigint	NO	MUL		学期ID	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	5	questionnaire_type	varchar	varchar(30)	NO			类型：TEACHER_EVAL老师评价（本版只此一种，用于教师风格判定）	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	6	title	varchar	varchar(200)	YES			问卷标题	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	7	question_json	json	json	YES			题目定义：[{"code":"Q1","type":"SCORE","text":"..."}]	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	8	is_anonymous	tinyint	tinyint(1)	NO			是否匿名（老师评价默认匿名：不存学生ID，只存去重令牌）	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	9	collector_type	varchar	varchar(20)	NO			收集方式：COUNSELOR导员统一收集/ONLINE线上直收	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	10	collector_id	bigint	bigint	YES	MUL		收集人（导员ID）	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	11	collector_class_ids_json	json	json	YES			收集覆盖的行政班ID数组	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	12	open_time	datetime	datetime	YES			开放时间	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	13	close_time	datetime	datetime	YES			截止时间	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	14	status	varchar	varchar(20)	NO			状态：DRAFT草稿/OPEN收集中/CLOSED已截止/SUBMITTED已交教务/DISTRIBUTED已分发/ARCHIVED已归档	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	15	answer_count	int	int	NO			已作答份数	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	16	submit_to_admin_by	bigint	bigint	YES			提交教务的人（导员ID）	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	17	submit_to_admin_time	datetime	datetime	YES			提交教务时间	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	18	distributed_by	bigint	bigint	YES			分发人（教务ID）	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	19	distributed_time	datetime	datetime	YES			分发时间	问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	20	remark	varchar	varchar(200)	YES				问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	21	create_by	bigint	bigint	YES				问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	22	create_time	datetime	datetime	NO		DEFAULT_GENERATED		问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	23	update_by	bigint	bigint	YES				问卷表（老师评价 / 知识点讲解反馈）
+questionnaire	24	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		问卷表（老师评价 / 知识点讲解反馈）
+questionnaire_answer	1	id	bigint	bigint	NO	PRI	auto_increment	主键	问卷作答明细表（匿名去重）
+questionnaire_answer	2	questionnaire_id	bigint	bigint	NO	MUL		问卷ID	问卷作答明细表（匿名去重）
+questionnaire_answer	3	respondent_token	varchar	varchar(64)	NO			作答人去重令牌（匿名问卷用于防重复提交，不暴露身份）	问卷作答明细表（匿名去重）
+questionnaire_answer	4	student_id	bigint	bigint	YES	MUL		学生ID（匿名问卷为空）	问卷作答明细表（匿名去重）
+questionnaire_answer	5	enrollment_id	bigint	bigint	YES			选课ID（可空）	问卷作答明细表（匿名去重）
+questionnaire_answer	6	target_teacher_id	bigint	bigint	YES			被评价教师ID（老师评价类）	问卷作答明细表（匿名去重）
+questionnaire_answer	7	item_code	varchar	varchar(30)	NO			题目编码	问卷作答明细表（匿名去重）
+questionnaire_answer	8	answer_type	varchar	varchar(20)	NO			作答类型：SCORE评分/TEXT文本（本版只此两种）	问卷作答明细表（匿名去重）
+questionnaire_answer	9	score_value	decimal	decimal(5,2)	YES			评分值（如 1–5 分）	问卷作答明细表（匿名去重）
+questionnaire_answer	10	text_value	text	text	YES			文本作答	问卷作答明细表（匿名去重）
+questionnaire_answer	11	submit_time	datetime	datetime	YES			提交时间	问卷作答明细表（匿名去重）
+questionnaire_answer	12	create_time	datetime	datetime	NO		DEFAULT_GENERATED		问卷作答明细表（匿名去重）
+questionnaire_flow	1	id	bigint	bigint	NO	PRI	auto_increment	主键	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	2	questionnaire_id	bigint	bigint	NO	MUL		问卷ID	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	3	term_id	bigint	bigint	NO			学期ID	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	4	stage	varchar	varchar(30)	NO			环节：COUNSELOR_COLLECT导员收集/ADMIN_RECEIVE教务接收/ADMIN_DISTRIBUTE教务分发/TEACHER_VIEW授课组查看	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	5	stage_order	int	int	NO			环节顺序（1–4）	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	6	holder_id	bigint	bigint	YES	MUL		当前责任人ID	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	7	holder_role	varchar	varchar(20)	YES			当前责任人角色：COUNSELOR/ADMIN/TEACHER	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	8	entered_at	datetime	datetime	YES			进入本环节时间	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	9	deadline	datetime	datetime	YES			本环节截止时间	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	10	status	varchar	varchar(20)	NO	MUL		状态：PENDING未开始/IN_PROGRESS进行中/DONE已完成/OVERDUE已超时	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	11	done_at	datetime	datetime	YES			完成时间	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	12	note	varchar	varchar(200)	YES			说明	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	13	remind_count	int	int	NO			催办次数	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	14	last_remind_time	datetime	datetime	YES			最近催办时间	问卷流转状态表（防 4 环节断链）
+questionnaire_flow	15	create_time	datetime	datetime	NO		DEFAULT_GENERATED		问卷流转状态表（防 4 环节断链）
+questionnaire_flow	16	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		问卷流转状态表（防 4 环节断链）
+resource_file	1	id	bigint	bigint	NO	PRI	auto_increment	主键	资源文件表（课程资料库）
+resource_file	2	teaching_class_id	bigint	bigint	YES	MUL		所属教学班ID（空=教师公共资源）	资源文件表（课程资料库）
+resource_file	3	offering_id	bigint	bigint	YES			开课ID（空=公共资源）	资源文件表（课程资料库）
+resource_file	4	term_id	bigint	bigint	YES			学期ID（公共资源可为空）	资源文件表（课程资料库）
+resource_file	5	file_name	varchar	varchar(200)	NO			原始文件名（含扩展名）	资源文件表（课程资料库）
+resource_file	6	file_path	varchar	varchar(500)	NO			存储路径或对象 Key	资源文件表（课程资料库）
+resource_file	7	file_ext	varchar	varchar(20)	YES			扩展名：pdf/ppt/pptx/doc/docx/xlsx/zip/mp4…	资源文件表（课程资料库）
+resource_file	8	file_size	bigint	bigint	NO			文件大小（字节）	资源文件表（课程资料库）
+resource_file	9	mime_type	varchar	varchar(100)	YES			MIME 类型	资源文件表（课程资料库）
+resource_file	10	storage_type	varchar	varchar(20)	NO			存储方式：LOCAL本地目录/OSS对象存储	资源文件表（课程资料库）
+resource_file	11	upload_by	bigint	bigint	NO	MUL		上传人（教师ID）	资源文件表（课程资料库）
+resource_file	12	upload_role	varchar	varchar(20)	NO			上传人角色	资源文件表（课程资料库）
+resource_file	13	create_time	datetime	datetime	NO		DEFAULT_GENERATED		资源文件表（课程资料库）
+resource_file	14	is_void	tinyint	tinyint(1)	NO			是否作废：1是（逻辑删除）	资源文件表（课程资料库）
+resource_file	15	void_reason	varchar	varchar(200)	YES			作废原因	资源文件表（课程资料库）
+risk_engine_config	1	id	bigint	bigint	NO	PRI	auto_increment	主键	风险引擎配置表（版本化）
+risk_engine_config	2	engine_version	varchar	varchar(20)	NO	UNI		引擎版本号，如 v2.0.0；规则/权重/公式变化即升版	风险引擎配置表（版本化）
+risk_engine_config	3	effective_time	datetime	datetime	NO			生效时间	风险引擎配置表（版本化）
+risk_engine_config	4	is_active	tinyint	tinyint(1)	NO	MUL		是否当前生效版本（全库仅一条为1）	风险引擎配置表（版本化）
+risk_engine_config	5	channel_a_enabled	tinyint	tinyint(1)	NO			通道A（确定性风险）开关	风险引擎配置表（版本化）
+risk_engine_config	6	channel_b_enabled	tinyint	tinyint(1)	NO			通道B（班内相对）开关	风险引擎配置表（版本化）
+risk_engine_config	7	channel_c_enabled	tinyint	tinyint(1)	NO			通道C（跨班可比，依赖Δ）开关	风险引擎配置表（版本化）
+risk_engine_config	8	signal_weights_json	json	json	YES			个体信号权重：{"freshman":{"attendance":0.40,"homework":0.30,"score":0.25,"subjective":0.05},"normal":{"attendance":0.30,"homework":0.25,"score":0.30,"subjective":0.15}}	风险引擎配置表（版本化）
+risk_engine_config	9	delta_enabled	tinyint	tinyint(1)	NO			是否启用教师尺度 Δ 归一化	风险引擎配置表（版本化）
+risk_engine_config	10	course_factor_enabled	tinyint	tinyint(1)	NO			是否启用课程因子 c 归一化	风险引擎配置表（版本化）
+risk_engine_config	11	threshold_red	decimal	decimal(5,1)	NO			风险分档：红 ≥	风险引擎配置表（版本化）
+risk_engine_config	12	threshold_orange	decimal	decimal(5,1)	NO			橙 60–75	风险引擎配置表（版本化）
+risk_engine_config	13	threshold_yellow	decimal	decimal(5,1)	NO			黄 40–60（绿 <40）	风险引擎配置表（版本化）
+risk_engine_config	14	coverage_threshold	decimal	decimal(4,3)	NO			点名覆盖率阈值（1/3；低于此值：提醒补录+教务督办+置信度判低）	风险引擎配置表（版本化）
+risk_engine_config	15	coverage_soft_weeks	int	int	NO			期内软提醒：连续 N 周零录入即提醒	风险引擎配置表（版本化）
+risk_engine_config	16	counselor_week_start	int	int	NO			导员班集体提醒起始周（第1–4周不触发）	风险引擎配置表（版本化）
+risk_engine_config	17	counselor_rate_l1	decimal	decimal(4,3)	NO			班集体提醒档位1：预警占比 ≥	风险引擎配置表（版本化）
+risk_engine_config	18	counselor_min_l1	int	int	NO			档位1：绝对人数 ≥	风险引擎配置表（版本化）
+risk_engine_config	19	counselor_rate_l2	decimal	decimal(4,3)	NO			档位2（升级）：占比 ≥	风险引擎配置表（版本化）
+risk_engine_config	20	counselor_min_l2	int	int	NO			档位2：绝对人数 ≥	风险引擎配置表（版本化）
+risk_engine_config	21	counselor_risk_floor	decimal	decimal(5,1)	NO			导员端纳入范围：风险分 ≥（≥40 黄橙红进名单；绿不出现）	风险引擎配置表（版本化）
+risk_engine_config	22	multi_course_threshold	int	int	NO			多科目预警门限（≥3 门触发"重点关注该学生"）	风险引擎配置表（版本化）
+risk_engine_config	23	invalid_check_days	int	int	NO			干预无效判定最长观察天数（或下次 risk_state 刷新，先到为准）	风险引擎配置表（版本化）
+risk_engine_config	24	deduct_absent	decimal	decimal(4,1)	NO			扣分系数：每缺课一次	风险引擎配置表（版本化）
+risk_engine_config	25	deduct_late	decimal	decimal(4,1)	NO			扣分系数：每迟到一次	风险引擎配置表（版本化）
+risk_engine_config	26	deduct_leave	decimal	decimal(4,1)	NO			扣分系数：超免扣次数后每次请假	风险引擎配置表（版本化）
+risk_engine_config	27	leave_free_times	int	int	NO			请假免扣次数（每学期每门课）	风险引擎配置表（版本化）
+risk_engine_config	28	final_full_score	decimal	decimal(5,1)	NO			期末满分（"期末需考 x > 此值 → 实际不可达"的硬上限）	风险引擎配置表（版本化）
+risk_engine_config	29	delta_shrink_k	int	int	NO			Δ 收缩常数 k：λ = n/(n+k)	风险引擎配置表（版本化）
+risk_engine_config	30	delta_min_sample	int	int	NO			Δ 可用最小样本量（低于则 λ<0.33，视为不可用）	风险引擎配置表（版本化）
+risk_engine_config	31	delta_fuse_threshold	decimal	decimal(5,1)	NO			|Δ| 熔断阈值：超过则停用该 Δ 并推教务复核	风险引擎配置表（版本化）
+risk_engine_config	32	confidence_min_ok	decimal	decimal(4,3)	NO			置信度硬规则：覆盖率达标且锚点为A/A′时，W 不得低于此值	风险引擎配置表（版本化）
+risk_engine_config	33	remark	varchar	varchar(200)	YES				风险引擎配置表（版本化）
+risk_engine_config	34	create_by	bigint	bigint	YES				风险引擎配置表（版本化）
+risk_engine_config	35	create_time	datetime	datetime	NO		DEFAULT_GENERATED		风险引擎配置表（版本化）
+risk_engine_config	36	update_by	bigint	bigint	YES				风险引擎配置表（版本化）
+risk_engine_config	37	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		风险引擎配置表（版本化）
+risk_state	1	id	bigint	bigint	NO	PRI	auto_increment	主键	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	2	enrollment_id	bigint	bigint	NO	UNI		选课ID（一人一课一行）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	3	student_id	bigint	bigint	NO	MUL		学生ID	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	4	offering_id	bigint	bigint	NO	MUL		开课ID	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	5	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	6	term_id	bigint	bigint	NO	MUL		学期ID	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	7	absent_count	int	int	NO			A通道：当前累计缺课次数	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	8	late_count	int	int	NO			A通道：当前累计迟到次数	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	9	leave_count	int	int	NO			A通道：当前累计请假次数	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	10	allowed_absent	int	int	YES			A通道：允许缺课上限 N_max = floor(分母课次/3)	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	11	remaining_absent	int	int	YES			A通道：剩余可缺次数 = N_max − 已缺；0=再缺一次即挂；≤−1=必然挂科	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	12	hard_fail	tinyint	tinyint(1)	NO			A通道：是否已触发 1/3 硬门槛	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	13	near_fail	tinyint	tinyint(1)	NO			A通道：是否高危（剩余可缺 ≤ 1）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	14	final_exam_needed	decimal	decimal(6,1)	YES			A通道：期末需考分数 x = (pass_score + P − W_其余项)/r_f	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	15	final_unreachable	tinyint	tinyint(1)	NO			A通道：x > 期末满分 → 实际不可达	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	16	channel_a_level	varchar	varchar(20)	YES			A通道等级：SAFE正常/WATCH警戒/DANGER再缺一次即挂/FAIL必然挂科	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	17	channel_b_score	decimal	decimal(5,2)	YES			B通道：班内相对风险分（0–100）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	18	channel_b_rank	int	int	YES			B通道：班内风险排名（1 最危险）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	19	channel_b_class_size	int	int	YES			B通道：同班人数	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	20	channel_b_level	varchar	varchar(20)	YES			B通道等级：SAME_AS_A 语义不混算，仅作分档展示	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	21	channel_c_score	decimal	decimal(6,2)	YES			C通道：折算后的跨班可比风险分（影子分数，不落成绩表）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	22	delta_used	decimal	decimal(5,2)	YES			C通道：本次使用的教师尺度 Δ̂（收缩后）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	23	course_factor_used	decimal	decimal(5,3)	YES			C通道：本次使用的课程因子 c	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	24	channel_c_level	varchar	varchar(20)	YES			C通道等级：RED/ORANGE/YELLOW/GREEN（按 engine 阈值分档）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	25	risk_score	decimal	decimal(5,1)	YES			当前对外风险分（有 C 用 C，无 C 用 B，A 单列展示）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	26	risk_level	varchar	varchar(10)	YES			当前等级：RED/ORANGE/YELLOW/GREEN	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	27	active_channel	varchar	varchar(10)	YES			当前生效通道：A/B/C（教务看C、导员看A+B）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	28	confidence	decimal	decimal(4,3)	YES			置信度 W = 锚点强度 × 数据完备度 × 样本充足度（0–1）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	29	confidence_level	varchar	varchar(20)	YES			置信度档：HIGH/MEDIUM/LOW/VERY_LOW	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	30	output_mode	varchar	varchar(20)	YES			输出形态：FULL_SCORE完整分档/SCORE_WITH_NOTE带标注/BEHAVIOR_ONLY仅行为预警/INSUFFICIENT数据不足	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	31	data_quality_json	json	json	YES			数据质量明细：{"coverage":0.62,"anchorStrength":0.8,"sampleSize":120,"attendanceSourceMix":"NORMAL","missing":["mid_score"]}	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	32	trigger_source	varchar	varchar(20)	YES			本次刷新来源：EVALUATION评估/DATA_CHANGE数据变更/MANUAL人工/WITHDRAW退课作废	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	33	last_eval_time	datetime	datetime	YES	MUL		最近一次刷新时间（干预"无效判定"以此为窗口起点之一）	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	34	engine_version	varchar	varchar(20)	YES			计算所用引擎版本	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	35	is_void	tinyint	tinyint(1)	NO			是否作废（退课/重算）：1作废，不进任何统计与列表	当前风险状态表（替代每日快照；一人一课一行）
+risk_state	36	void_reason	varchar	varchar(200)	YES				当前风险状态表（替代每日快照；一人一课一行）
+risk_state	37	create_time	datetime	datetime	NO		DEFAULT_GENERATED		当前风险状态表（替代每日快照；一人一课一行）
+risk_state	38	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		当前风险状态表（替代每日快照；一人一课一行）
+score_item	1	id	bigint	bigint	NO	PRI	auto_increment	主键	分项得分明细表（分项级 Δ 的数据基础）
+score_item	2	enrollment_id	bigint	bigint	NO	MUL		选课ID	分项得分明细表（分项级 Δ 的数据基础）
+score_item	3	student_id	bigint	bigint	NO			学生ID（由 enrollment 决定，写入时校验一致）	分项得分明细表（分项级 Δ 的数据基础）
+score_item	4	scheme_item_id	bigint	bigint	NO	MUL		评分项ID（score_scheme_item）	分项得分明细表（分项级 Δ 的数据基础）
+score_item	5	term_id	bigint	bigint	NO	MUL		学期ID	分项得分明细表（分项级 Δ 的数据基础）
+score_item	6	times_no	int	int	NO			第几次（作业第几次、实验第几次；单次项恒为 1）	分项得分明细表（分项级 Δ 的数据基础）
+score_item	7	raw_value	varchar	varchar(20)	YES			原始取值（等级制/通过制用，如 优秀/通过/不通过）	分项得分明细表（分项级 Δ 的数据基础）
+score_item	8	score	decimal	decimal(5,1)	YES			得分（等级制已按 mapping_json 换算为数值）	分项得分明细表（分项级 Δ 的数据基础）
+score_item	9	full_score	decimal	decimal(5,1)	YES			该项满分（写入时快照，防止构成改动影响历史）	分项得分明细表（分项级 Δ 的数据基础）
+score_item	10	is_absent	tinyint	tinyint(1)	NO			是否缺交/缺考：1是（区别于"尚未录入"；统计时按 0 分计）	分项得分明细表（分项级 Δ 的数据基础）
+score_item	11	source	varchar	varchar(20)	NO			来源：MANUAL老师录入/AUTO系统自动算（如作业均分）	分项得分明细表（分项级 Δ 的数据基础）
+score_item	12	scorer_id	bigint	bigint	YES			打分人ID	分项得分明细表（分项级 Δ 的数据基础）
+score_item	13	scorer_role	varchar	varchar(20)	YES			打分人角色：TEACHER/ADMIN/SYSTEM	分项得分明细表（分项级 Δ 的数据基础）
+score_item	14	scored_at	datetime	datetime	YES	MUL		打分时间	分项得分明细表（分项级 Δ 的数据基础）
+score_item	15	is_void	tinyint	tinyint(1)	NO			是否作废	分项得分明细表（分项级 Δ 的数据基础）
+score_item	16	void_reason	varchar	varchar(200)	YES				分项得分明细表（分项级 Δ 的数据基础）
+score_item	17	remark	varchar	varchar(200)	YES				分项得分明细表（分项级 Δ 的数据基础）
+score_item	18	create_by	bigint	bigint	YES				分项得分明细表（分项级 Δ 的数据基础）
+score_item	19	create_time	datetime	datetime	NO		DEFAULT_GENERATED		分项得分明细表（分项级 Δ 的数据基础）
+score_item	20	update_by	bigint	bigint	YES				分项得分明细表（分项级 Δ 的数据基础）
+score_item	21	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		分项得分明细表（分项级 Δ 的数据基础）
+score_result	1	id	bigint	bigint	NO	PRI	auto_increment	主键	最终成绩单（判定结果留档；折算分不落库）
+score_result	2	enrollment_id	bigint	bigint	NO	UNI		选课ID	最终成绩单（判定结果留档；折算分不落库）
+score_result	3	student_id	bigint	bigint	NO	MUL		学生ID	最终成绩单（判定结果留档；折算分不落库）
+score_result	4	offering_id	bigint	bigint	NO	MUL		开课ID	最终成绩单（判定结果留档；折算分不落库）
+score_result	5	term_id	bigint	bigint	NO	MUL		学期ID	最终成绩单（判定结果留档；折算分不落库）
+score_result	6	weighted_score	decimal	decimal(6,2)	YES			加权分 W = Σ(得分/满分×100×权重)	最终成绩单（判定结果留档；折算分不落库）
+score_result	7	deduction_points	decimal	decimal(6,2)	YES			扣分 P = 2×缺课 + 1×迟到 + 1×max(0,请假−3)（无上限，不截断）	最终成绩单（判定结果留档；折算分不落库）
+score_result	8	total_score	decimal	decimal(6,2)	YES			总评 T = W − P（可为负）	最终成绩单（判定结果留档；折算分不落库）
+score_result	9	pass_score	int	int	YES			判定时适用的及格线（快照）	最终成绩单（判定结果留档；折算分不落库）
+score_result	10	absent_count	int	int	NO			判定时的缺课次数（快照，1/3 门槛的分子）	最终成绩单（判定结果留档；折算分不落库）
+score_result	11	late_count	int	int	NO			判定时的迟到次数（快照）	最终成绩单（判定结果留档；折算分不落库）
+score_result	12	leave_count	int	int	NO			判定时的请假次数（快照）	最终成绩单（判定结果留档；折算分不落库）
+score_result	13	allowed_absent	int	int	YES			允许缺课上限 N_max = floor(分母课次/3)（快照）	最终成绩单（判定结果留档；折算分不落库）
+score_result	14	effective_sessions	int	int	YES			判定时使用的分母课次（教务确认后的实际课次快照）	最终成绩单（判定结果留档；折算分不落库）
+score_result	15	hard_fail	tinyint	tinyint(1)	NO	MUL		是否触发 1/3 硬门槛：1是（不看分数，直接挂科）	最终成绩单（判定结果留档；折算分不落库）
+score_result	16	is_fail	tinyint	tinyint(1)	NO			是否挂科：T < 及格线 或 触发硬门槛	最终成绩单（判定结果留档；折算分不落库）
+score_result	17	fail_reason	varchar	varchar(30)	YES			挂科原因：SCORE分数不足/HARD_LINE缺课超1/3/NO_SCORE无成绩	最终成绩单（判定结果留档；折算分不落库）
+score_result	18	score_status	varchar	varchar(20)	NO			成绩状态：PENDING待定/FINAL已定/DEFERRED缓考/DEFERRED_GIVEUP缓考后弃考/ABSENT_EXAM旷考/NO_SCORE成绩未齐	最终成绩单（判定结果留档；折算分不落库）
+score_result	19	retake_times	int	int	NO			重修次数（0首次）	最终成绩单（判定结果留档；折算分不落库）
+score_result	20	engine_version	varchar	varchar(20)	YES			计算所用引擎版本（规则/权重/公式变化即升版）	最终成绩单（判定结果留档；折算分不落库）
+score_result	21	calculated_at	datetime	datetime	YES			本次计算结果时间	最终成绩单（判定结果留档；折算分不落库）
+score_result	22	is_void	tinyint	tinyint(1)	NO			是否作废（退课、重算覆盖等）	最终成绩单（判定结果留档；折算分不落库）
+score_result	23	remark	varchar	varchar(200)	YES				最终成绩单（判定结果留档；折算分不落库）
+score_result	24	create_time	datetime	datetime	NO		DEFAULT_GENERATED		最终成绩单（判定结果留档；折算分不落库）
+score_result	25	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		最终成绩单（判定结果留档；折算分不落库）
+score_scheme	1	id	bigint	bigint	NO	PRI	auto_increment	构成ID	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	2	group_id	bigint	bigint	NO	MUL		课程组ID	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	3	term_id	bigint	bigint	NO			学期ID（业务表统一带）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	4	version	int	int	NO			版本号（同一课程组内自增，最新版为当前生效版）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	5	level	varchar	varchar(10)	NO			锁定时的层级快照（L1/L2/L3）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	6	source_template_id	bigint	bigint	YES			来源模板ID（可空）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	7	total_weight	decimal	decimal(5,2)	NO			一级项权重合计（锁定前必须=100.00）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	8	confirm_status	varchar	varchar(20)	NO	MUL		确认状态：DRAFT草稿/CONFIRMING确认中/CONFIRMED已确认/LOCKED已锁定	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	9	confirm_total	int	int	NO			应确认人数（该课程组本学期任课老师数）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	10	confirm_done	int	int	NO			已确认人数	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	11	initiator_id	bigint	bigint	YES			发起人（教师ID）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	12	confirmed_by_json	json	json	YES			确认明细：[{"teacherId":1,"teacherName":"李老师","time":"..."}]	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	13	locked	tinyint	tinyint(1)	NO			是否已锁定：1已锁（学期内不可改）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	14	locked_by	bigint	bigint	YES			锁定操作人	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	15	locked_at	datetime	datetime	YES			锁定时间	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	16	lock_type	varchar	varchar(20)	YES			锁定方式：TEACHER_COLLECTIVE全体确认/ADMIN_RULED教务裁定/TEMPLATE_AUTO模板默认	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	17	remark	varchar	varchar(200)	YES			备注（如教务裁定原因）	成绩构成表（课程组共用，锁定后不可改）
+score_scheme	18	create_by	bigint	bigint	YES				成绩构成表（课程组共用，锁定后不可改）
+score_scheme	19	create_time	datetime	datetime	NO		DEFAULT_GENERATED		成绩构成表（课程组共用，锁定后不可改）
+score_scheme	20	update_by	bigint	bigint	YES				成绩构成表（课程组共用，锁定后不可改）
+score_scheme	21	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		成绩构成表（课程组共用，锁定后不可改）
+score_scheme_item	1	id	bigint	bigint	NO	PRI	auto_increment	评分项ID	评分项定义表（两级；考勤不得入内）
+score_scheme_item	2	scheme_id	bigint	bigint	NO	MUL		构成ID	评分项定义表（两级；考勤不得入内）
+score_scheme_item	3	parent_id	bigint	bigint	YES			父项ID（NULL=一级项；非空=二级项）	评分项定义表（两级；考勤不得入内）
+score_scheme_item	4	item_level	tinyint	tinyint	NO			层级：1一级项 2二级项	评分项定义表（两级；考勤不得入内）
+score_scheme_item	5	item_code	varchar	varchar(30)	NO			评分项编码（同一构成内唯一），如 USUAL / HW / FINAL_EXAM	评分项定义表（两级；考勤不得入内）
+score_scheme_item	6	item_name	varchar	varchar(50)	NO			评分项名称，如 课后作业 / 三级项目答辩	评分项定义表（两级；考勤不得入内）
+score_scheme_item	7	category	varchar	varchar(30)	NO			大类（仅用于统计与展示，不限制项的组合）：HOMEWORK作业/QUIZ课堂测试/PERFORMANCE课堂表现/EXPERIMENT实验/PROJECT项目/PRACTICE实践/MIDTERM期中/FINAL期末/OTHER其他	评分项定义表（两级；考勤不得入内）
+score_scheme_item	8	weight	decimal	decimal(5,2)	NO			权重(%)：一级项占最终总评、二级项占其父项；同级合计必须=100	评分项定义表（两级；考勤不得入内）
+score_scheme_item	9	full_score	decimal	decimal(5,1)	NO			该项满分	评分项定义表（两级；考勤不得入内）
+score_scheme_item	10	data_source	varchar	varchar(20)	NO			数据来源：AUTO系统自动算（作业/机考）/MANUAL老师录入	评分项定义表（两级；考勤不得入内）
+score_scheme_item	11	score_type	varchar	varchar(20)	NO			分数形态：NUMERIC数值/PASS_FAIL通过制/GRADE等级制	评分项定义表（两级；考勤不得入内）
+score_scheme_item	12	mapping_json	json	json	YES			分数映射（等级制/通过制→数值），如 {"优秀":95,"良好":85,"通过":85,"不通过":50}	评分项定义表（两级；考勤不得入内）
+score_scheme_item	13	expected_times	int	int	NO			预计次数（如作业 9 次、实验 5 次）	评分项定义表（两级；考勤不得入内）
+score_scheme_item	14	aggregate_mode	varchar	varchar(20)	NO			多次项汇总方式：AVG均值/SUM累加/MAX最高/LAST最近一次	评分项定义表（两级；考勤不得入内）
+score_scheme_item	15	is_anchor	tinyint	tinyint(1)	NO			是否锚点项（终结性收口项）：1是（统一命题闭卷/机考/大作业答辩），供通道 C 校准用	评分项定义表（两级；考勤不得入内）
+score_scheme_item	16	anchor_layer	varchar	varchar(10)	YES			锚点层级：A统一命题考核/NONE无（"大一摸底考""高考分"两条判定逻辑已废弃）	评分项定义表（两级；考勤不得入内）
+score_scheme_item	17	is_subjective	tinyint	tinyint(1)	NO			是否主观项：1是（分项级 Δ 只在主观项上估计）	评分项定义表（两级；考勤不得入内）
+score_scheme_item	18	scorer_role	varchar	varchar(20)	NO			打分主体：TEACHER/ADMIN/SYSTEM	评分项定义表（两级；考勤不得入内）
+score_scheme_item	19	sort_no	int	int	NO			排序号	评分项定义表（两级；考勤不得入内）
+score_scheme_item	20	status	varchar	varchar(20)	NO				评分项定义表（两级；考勤不得入内）
+score_scheme_item	21	create_by	bigint	bigint	YES				评分项定义表（两级；考勤不得入内）
+score_scheme_item	22	create_time	datetime	datetime	NO		DEFAULT_GENERATED		评分项定义表（两级；考勤不得入内）
+score_scheme_item	23	update_by	bigint	bigint	YES				评分项定义表（两级；考勤不得入内）
+score_scheme_item	24	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		评分项定义表（两级；考勤不得入内）
+score_template	1	id	bigint	bigint	NO	PRI	auto_increment	模板ID	成绩构成模板表
+score_template	2	template_code	varchar	varchar(30)	NO	UNI		模板编码，如 EXAM_DEFAULT	成绩构成模板表
+score_template	3	template_name	varchar	varchar(50)	NO			模板名称，如 考试课默认构成	成绩构成模板表
+score_template	4	course_type	varchar	varchar(20)	NO	MUL		适用课程类型：EXAM/ASSESS/EXPERIMENT/PROJECT	成绩构成模板表
+score_template	5	level	varchar	varchar(10)	NO			适用层级：L1/L2/L3	成绩构成模板表
+score_template	6	items_json	json	json	YES			评分项定义（两级，结构见上方注释）	成绩构成模板表
+score_template	7	description	varchar	varchar(200)	YES			说明	成绩构成模板表
+score_template	8	is_default	tinyint	tinyint(1)	NO			是否该课程类型的默认模板	成绩构成模板表
+score_template	9	status	varchar	varchar(20)	NO				成绩构成模板表
+score_template	10	create_by	bigint	bigint	YES				成绩构成模板表
+score_template	11	create_time	datetime	datetime	NO		DEFAULT_GENERATED		成绩构成模板表
+score_template	12	update_by	bigint	bigint	YES				成绩构成模板表
+score_template	13	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		成绩构成模板表
+student	1	id	bigint	bigint	NO	PRI	auto_increment	学生ID	学生表
+student	2	account_id	bigint	bigint	YES	MUL		账号ID（迁移期可为空，迁移后应非空）	学生表
+student	3	student_no	varchar	varchar(20)	NO	UNI		学号	学生表
+student	4	student_name	varchar	varchar(30)	NO			姓名	学生表
+student	5	gender	tinyint	tinyint(1)	YES			性别：1男 2女 0未知	学生表
+student	6	enroll_year	int	int	YES			入学年份，如 2024（年级由此推算，不再存"大一上"这类学期值）	学生表
+student	7	major_id	bigint	bigint	YES	MUL		专业ID（转专业后更新，历史由 audit_log 留痕）	学生表
+student	8	admin_class_id	bigint	bigint	YES	MUL		行政班ID	学生表
+student	9	status	varchar	varchar(20)	NO	MUL		学籍状态：IN_SCHOOL在读/SUSPENDED休学/WITHDRAWN退学/GRADUATED毕业	学生表
+student	10	phone	varchar	varchar(20)	YES				学生表
+student	11	email	varchar	varchar(100)	YES				学生表
+student	12	create_time	datetime	datetime	NO		DEFAULT_GENERATED		学生表
+student	13	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		学生表
+student_fail_history	1	id	bigint	bigint	NO	PRI	auto_increment	主键	学生跨学期成绩/挂科历史表
+student_fail_history	2	student_id	bigint	bigint	NO	MUL		学生ID	学生跨学期成绩/挂科历史表
+student_fail_history	3	term_id	bigint	bigint	NO			学期ID	学生跨学期成绩/挂科历史表
+student_fail_history	4	course_id	bigint	bigint	NO	MUL		课程ID	学生跨学期成绩/挂科历史表
+student_fail_history	5	offering_id	bigint	bigint	NO			开课ID	学生跨学期成绩/挂科历史表
+student_fail_history	6	final_score	decimal	decimal(6,2)	YES			最终总评 T（快照）	学生跨学期成绩/挂科历史表
+student_fail_history	7	pass_score	int	int	YES			及格线（快照）	学生跨学期成绩/挂科历史表
+student_fail_history	8	is_fail	tinyint	tinyint(1)	NO	MUL		是否挂科	学生跨学期成绩/挂科历史表
+student_fail_history	9	hard_fail	tinyint	tinyint(1)	NO			是否因 1/3 硬门槛挂科	学生跨学期成绩/挂科历史表
+student_fail_history	10	is_retake	tinyint	tinyint(1)	NO			是否重修记录	学生跨学期成绩/挂科历史表
+student_fail_history	11	score_status	varchar	varchar(20)	YES			成绩状态（FINAL/DEFERRED_GIVEUP/ABSENT_EXAM…）	学生跨学期成绩/挂科历史表
+student_fail_history	12	engine_version	varchar	varchar(20)	YES				学生跨学期成绩/挂科历史表
+student_fail_history	13	archived_at	datetime	datetime	YES			归档为历史的时间（学期结束结算后写入）	学生跨学期成绩/挂科历史表
+student_fail_history	14	create_time	datetime	datetime	NO		DEFAULT_GENERATED		学生跨学期成绩/挂科历史表
+student_fail_history	15	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		学生跨学期成绩/挂科历史表
+submission	1	id	bigint	bigint	NO	PRI	auto_increment	主键	提交与作答记录表
+submission	2	paper_id	bigint	bigint	NO	MUL		试卷ID	提交与作答记录表
+submission	3	teaching_class_id	bigint	bigint	NO	MUL		教学班ID（冗余）	提交与作答记录表
+submission	4	term_id	bigint	bigint	NO			学期ID	提交与作答记录表
+submission	5	student_id	bigint	bigint	NO			学生ID	提交与作答记录表
+submission	6	enrollment_id	bigint	bigint	NO	MUL		选课ID（过程数据挂在选课上）	提交与作答记录表
+submission	7	submit_status	varchar	varchar(20)	NO			状态：SUBMITTED已交/MARKED已批阅/ABSENT缺考	提交与作答记录表
+submission	8	start_time	datetime	datetime	YES			开考时间	提交与作答记录表
+submission	9	submit_time	datetime	datetime	YES			交卷时间	提交与作答记录表
+submission	10	duration_seconds	int	int	YES			答题用时（秒）	提交与作答记录表
+submission	11	objective_score	decimal	decimal(6,2)	NO			客观题得分（系统判）	提交与作答记录表
+submission	12	subjective_score	decimal	decimal(6,2)	NO			主观题得分（教师判）	提交与作答记录表
+submission	13	total_score	decimal	decimal(6,2)	YES			总分（批阅完成后写入）	提交与作答记录表
+submission	14	marked_status	varchar	varchar(20)	NO			批阅进度：NOT_MARKED/SYSTEM_MARKED客观已判/ALL_MARKED全部批完	提交与作答记录表
+submission	15	marked_by	bigint	bigint	YES			最后批阅人（教师ID；系统判分为空）	提交与作答记录表
+submission	16	marked_at	datetime	datetime	YES			最后批阅时间	提交与作答记录表
+submission	17	is_absent	tinyint	tinyint(1)	NO			是否缺考：1是（记 0 分）	提交与作答记录表
+submission	18	remark	varchar	varchar(200)	YES			整卷批注	提交与作答记录表
+submission	19	create_time	datetime	datetime	NO		DEFAULT_GENERATED		提交与作答记录表
+submission	20	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		提交与作答记录表
+submission_answer	1	id	bigint	bigint	NO	PRI	auto_increment	主键	逐题作答与判分表
+submission_answer	2	submission_id	bigint	bigint	NO	MUL		提交记录ID	逐题作答与判分表
+submission_answer	3	question_id	bigint	bigint	NO	MUL		题目ID	逐题作答与判分表
+submission_answer	4	answer_json	json	json	YES			学生答案（结构同 question.answer_json）	逐题作答与判分表
+submission_answer	5	score	decimal	decimal(6,2)	YES			本题得分	逐题作答与判分表
+submission_answer	6	is_correct	tinyint	tinyint(1)	YES			客观题是否正确：1对/0错（主观题为空）	逐题作答与判分表
+submission_answer	7	comment	varchar	varchar(500)	YES			教师批注	逐题作答与判分表
+submission_answer	8	marked_by_type	varchar	varchar(20)	YES			判卷人类型：SYSTEM系统/TEACHER教师/AI智能	逐题作答与判分表
+submission_answer	9	marked_by	bigint	bigint	YES			判卷人ID（教师ID；系统或AI为空）	逐题作答与判分表
+submission_answer	10	marked_at	datetime	datetime	YES			判卷时间	逐题作答与判分表
+submission_answer	11	create_time	datetime	datetime	NO		DEFAULT_GENERATED		逐题作答与判分表
+submission_answer	12	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		逐题作答与判分表
+sys_account	1	id	bigint	bigint	NO	PRI	auto_increment	账号ID	统一账号表（四端登录）
+sys_account	2	login_no	varchar	varchar(30)	NO	UNI		登录号（学号/工号/管理员号，全库唯一）	统一账号表（四端登录）
+sys_account	3	password_hash	varchar	varchar(100)	NO			口令哈希：PBKDF2WithHmacSHA256，格式 pbkdf2$迭代次数$Base64(盐)$Base64(哈希)	统一账号表（四端登录）
+sys_account	4	role	varchar	varchar(20)	NO	MUL		角色：STUDENT/TEACHER/COUNSELOR/ADMIN	统一账号表（四端登录）
+sys_account	5	real_name	varchar	varchar(30)	YES			姓名（冗余展示用，可与档案表同步）	统一账号表（四端登录）
+sys_account	6	status	varchar	varchar(20)	NO			状态：ACTIVE正常/DISABLED停用/LOCKED锁定	统一账号表（四端登录）
+sys_account	7	token	varchar	varchar(64)	YES	UNI		登录令牌（32 位十六进制，落库保存，服务重启后仍有效）	统一账号表（四端登录）
+sys_account	8	token_expire_time	datetime	datetime	YES			令牌过期时间（默认签发后 12 小时）	统一账号表（四端登录）
+sys_account	9	pwd_update_time	datetime	datetime	YES			最近改密时间	统一账号表（四端登录）
+sys_account	10	last_login_time	datetime	datetime	YES			最近登录时间	统一账号表（四端登录）
+sys_account	11	create_time	datetime	datetime	NO		DEFAULT_GENERATED		统一账号表（四端登录）
+sys_account	12	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		统一账号表（四端登录）
+system_config	1	id	bigint	bigint	NO	PRI	auto_increment	主键	运营配置表
+system_config	2	config_key	varchar	varchar(60)	NO	UNI		配置键，如 archive.mid.week	运营配置表
+system_config	3	config_value	varchar	varchar(500)	YES			配置值	运营配置表
+system_config	4	config_type	varchar	varchar(20)	NO			值类型：STRING/INT/DECIMAL/BOOL/JSON	运营配置表
+system_config	5	config_group	varchar	varchar(30)	NO	MUL		分组：ARCHIVE归档/NOTIFY通知/ATTENDANCE考勤/COVERAGE覆盖率/QUESTIONNAIRE问卷/SYSTEM系统	运营配置表
+system_config	6	description	varchar	varchar(200)	YES			说明	运营配置表
+system_config	7	is_editable	tinyint	tinyint(1)	NO			是否允许界面修改	运营配置表
+system_config	8	create_by	bigint	bigint	YES				运营配置表
+system_config	9	create_time	datetime	datetime	NO		DEFAULT_GENERATED		运营配置表
+system_config	10	update_by	bigint	bigint	YES				运营配置表
+system_config	11	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		运营配置表
+teacher	1	id	bigint	bigint	NO	PRI	auto_increment	教师ID	教师表
+teacher	2	account_id	bigint	bigint	YES	MUL		账号ID	教师表
+teacher	3	teacher_no	varchar	varchar(20)	NO	UNI		工号	教师表
+teacher	4	teacher_name	varchar	varchar(30)	NO			姓名	教师表
+teacher	5	gender	tinyint	tinyint(1)	YES			性别：1男 2女 0未知	教师表
+teacher	6	title	varchar	varchar(30)	YES			职称：教授/副教授/讲师/助教/未定级（展示用；Δ 收缩由样本量自动决定，不依赖职称）	教师表
+teacher	7	college_name	varchar	varchar(50)	YES			所属学院/教研室	教师表
+teacher	8	phone	varchar	varchar(20)	YES				教师表
+teacher	9	email	varchar	varchar(100)	YES				教师表
+teacher	10	status	varchar	varchar(20)	NO	MUL		状态：ACTIVE/LEFT离职	教师表
+teacher	11	create_time	datetime	datetime	NO		DEFAULT_GENERATED		教师表
+teacher	12	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		教师表
+teacher_style	1	id	bigint	bigint	NO	PRI	auto_increment	主键	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	2	teacher_id	bigint	bigint	NO	MUL		教师ID	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	3	offering_id	bigint	bigint	NO	MUL		开课ID（Δ 是"该教师在该课"的尺度）	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	4	course_id	bigint	bigint	NO	MUL		课程ID	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	5	term_id	bigint	bigint	NO			学期ID	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	6	scheme_item_id	bigint	bigint	YES			评分项ID（分项级 Δ；整体级为空）	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	7	item_code	varchar	varchar(30)	NO			评分项编码；整体级固定 OVERALL	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	8	raw_delta	decimal	decimal(5,2)	YES			未收缩的原始 Δ（班 vs 课程平均）	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	9	delta	decimal	decimal(5,2)	YES			收缩后的 Δ̂ = raw_delta × λ（实际用于折算）	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	10	shrink_lambda	decimal	decimal(4,3)	YES			收缩系数 λ = n/(n+k)，k 见 risk_engine_config	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	11	sample_size	int	int	NO			参与估计的样本量（学生数）	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	12	std_dev	decimal	decimal(5,2)	YES			样本标准差（异常检测用）	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	13	fused	tinyint	tinyint(1)	NO			是否熔断：1停用该 Δ（|Δ| 超阈值，等教务复核）	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	14	fuse_reason	varchar	varchar(200)	YES			熔断原因/复核说明	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	15	review_by	bigint	bigint	YES			复核人（教务ID）	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	16	review_time	datetime	datetime	YES			复核时间	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	17	status	varchar	varchar(20)	NO	MUL		状态：ACTIVE可用/INSUFFICIENT样本不足/FUSED已熔断/REVIEWED复核通过	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	18	engine_version	varchar	varchar(20)	YES				教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	19	calc_time	datetime	datetime	YES			估计时间	教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	20	create_time	datetime	datetime	NO		DEFAULT_GENERATED		教师尺度Δ表（分项级，含收缩与熔断）
+teacher_style	21	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		教师尺度Δ表（分项级，含收缩与熔断）
+teaching_class	1	id	bigint	bigint	NO	PRI	auto_increment	教学班ID	教学班表（1 位老师）
+teaching_class	2	offering_id	bigint	bigint	NO	MUL		开课ID	教学班表（1 位老师）
+teaching_class	3	teacher_id	bigint	bigint	NO	MUL		任课教师ID（一个教学班只有一位老师）	教学班表（1 位老师）
+teaching_class	4	class_code	varchar	varchar(30)	NO			教学班编码，如 CS101-01	教学班表（1 位老师）
+teaching_class	5	class_name	varchar	varchar(50)	YES			教学班名称，如 计算机基础2-01班	教学班表（1 位老师）
+teaching_class	6	capacity	int	int	YES			容量（可选）	教学班表（1 位老师）
+teaching_class	7	is_retake_class	tinyint	tinyint(1)	NO	MUL		是否重修班：1是（仅展示与筛选用，统计上不作特殊处理）	教学班表（1 位老师）
+teaching_class	8	invite_code	varchar	varchar(6)	YES	UNI		6 位入班邀请码（教师生成，学期内有效、次数不限）	教学班表（1 位老师）
+teaching_class	9	join_review_enabled	tinyint	tinyint(1)	NO			是否开启入班审核：1需要教师同意	教学班表（1 位老师）
+teaching_class	10	status	varchar	varchar(20)	NO			状态：ACTIVE/CLOSED	教学班表（1 位老师）
+teaching_class	11	create_by	bigint	bigint	YES				教学班表（1 位老师）
+teaching_class	12	create_time	datetime	datetime	NO		DEFAULT_GENERATED		教学班表（1 位老师）
+teaching_class	13	update_by	bigint	bigint	YES				教学班表（1 位老师）
+teaching_class	14	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		教学班表（1 位老师）
+teaching_class_admin_class	1	id	bigint	bigint	NO	PRI	auto_increment	主键	教学班-行政班关联表
+teaching_class_admin_class	2	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	教学班-行政班关联表
+teaching_class_admin_class	3	admin_class_id	bigint	bigint	NO	MUL		行政班ID	教学班-行政班关联表
+teaching_class_admin_class	4	create_time	datetime	datetime	NO		DEFAULT_GENERATED		教学班-行政班关联表
+teaching_class_fail_rate	1	id	bigint	bigint	NO	PRI	auto_increment	主键	教学班挂科率表（→老师）
+teaching_class_fail_rate	2	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	教学班挂科率表（→老师）
+teaching_class_fail_rate	3	offering_id	bigint	bigint	NO	MUL		开课ID	教学班挂科率表（→老师）
+teaching_class_fail_rate	4	teacher_id	bigint	bigint	NO	MUL		任课教师ID	教学班挂科率表（→老师）
+teaching_class_fail_rate	5	term_id	bigint	bigint	NO			学期ID	教学班挂科率表（→老师）
+teaching_class_fail_rate	6	examinee_count	int	int	NO			分母：实际考核人数（教务二次确认，扣除缓考/无成绩）	教学班挂科率表（→老师）
+teaching_class_fail_rate	7	fail_count	int	int	NO			分子：挂科人数	教学班挂科率表（→老师）
+teaching_class_fail_rate	8	fail_rate	decimal	decimal(5,2)	NO			挂科率(%) = fail_count / examinee_count × 100	教学班挂科率表（→老师）
+teaching_class_fail_rate	9	hard_fail_count	int	int	NO			其中因 1/3 硬门槛挂科的人数	教学班挂科率表（→老师）
+teaching_class_fail_rate	10	is_retake_class	tinyint	tinyint(1)	NO			是否重修班（仅展示；不作特殊排除）	教学班挂科率表（→老师）
+teaching_class_fail_rate	11	engine_version	varchar	varchar(20)	YES				教学班挂科率表（→老师）
+teaching_class_fail_rate	12	calc_time	datetime	datetime	YES			计算时间	教学班挂科率表（→老师）
+teaching_class_fail_rate	13	create_time	datetime	datetime	NO		DEFAULT_GENERATED		教学班挂科率表（→老师）
+teaching_class_fail_rate	14	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		教学班挂科率表（→老师）
+teaching_objective	1	id	bigint	bigint	NO	PRI	auto_increment	主键	教学目标表
+teaching_objective	2	teaching_class_id	bigint	bigint	NO	MUL		教学班ID	教学目标表
+teaching_objective	3	offering_id	bigint	bigint	NO	MUL		开课ID	教学目标表
+teaching_objective	4	term_id	bigint	bigint	NO			学期ID	教学目标表
+teaching_objective	5	obj_code	varchar	varchar(30)	NO			教学目标编号（教师自编，如 ADanaN4）	教学目标表
+teaching_objective	6	obj_content	varchar	varchar(1000)	NO			教学目标内容	教学目标表
+teaching_objective	7	obj_type	varchar	varchar(30)	YES			目标类型（教师自填，如 能力目标/素质目标）	教学目标表
+teaching_objective	8	sort_no	int	int	NO			展示顺序	教学目标表
+teaching_objective	9	status	varchar	varchar(20)	NO			状态：ACTIVE/DISABLED	教学目标表
+teaching_objective	10	create_by	bigint	bigint	YES				教学目标表
+teaching_objective	11	create_time	datetime	datetime	NO		DEFAULT_GENERATED		教学目标表
+teaching_objective	12	update_by	bigint	bigint	YES				教学目标表
+teaching_objective	13	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		教学目标表
+term	1	id	bigint	bigint	NO	PRI	auto_increment	学期ID	学期表（全库时间轴）
+term	2	term_code	varchar	varchar(20)	NO	UNI		学期编码，如 2024-2025-1	学期表（全库时间轴）
+term	3	school_year	varchar	varchar(20)	NO	MUL		学年，如 2024-2025	学期表（全库时间轴）
+term	4	term_no	tinyint	tinyint	NO			学期序号：1=秋季 2=春季 3=小学期	学期表（全库时间轴）
+term	5	term_name	varchar	varchar(30)	NO			学期显示名，如 2024-2025学年第一学期	学期表（全库时间轴）
+term	6	start_date	date	date	NO			开学日期	学期表（全库时间轴）
+term	7	end_date	date	date	NO			结束日期	学期表（全库时间轴）
+term	8	total_weeks	int	int	NO			教学周数（默认值，具体以各开课为准）	学期表（全库时间轴）
+term	9	is_current	tinyint	tinyint(1)	NO	MUL		是否当前学期：1是 0否（全库只允许一条为1）	学期表（全库时间轴）
+term	10	status	varchar	varchar(20)	NO			状态：PLANNING筹备中/ACTIVE进行中/CLOSED已结束	学期表（全库时间轴）
+term	11	create_time	datetime	datetime	NO		DEFAULT_GENERATED		学期表（全库时间轴）
+term	12	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		学期表（全库时间轴）
+term_calendar	1	id	bigint	bigint	NO	PRI	auto_increment	主键	教学周历表（周次/假期/考试周）
+term_calendar	2	term_id	bigint	bigint	NO	MUL		学期ID	教学周历表（周次/假期/考试周）
+term_calendar	3	week_no	int	int	NO			教学周次（1..total_weeks）	教学周历表（周次/假期/考试周）
+term_calendar	4	start_date	date	date	NO	MUL		本周起始日期（周一）	教学周历表（周次/假期/考试周）
+term_calendar	5	end_date	date	date	NO			本周结束日期（周日）	教学周历表（周次/假期/考试周）
+term_calendar	6	week_type	varchar	varchar(20)	NO			周类型：NORMAL正常/HOLIDAY假期/EXAM考试周/PRACTICE实践周	教学周历表（周次/假期/考试周）
+term_calendar	7	holiday_days	int	int	NO			本周内法定假日天数（用于扣减应上课次）	教学周历表（周次/假期/考试周）
+term_calendar	8	note	varchar	varchar(100)	YES			备注，如 国庆假期/校运动会	教学周历表（周次/假期/考试周）
+term_calendar	9	create_time	datetime	datetime	NO		DEFAULT_GENERATED		教学周历表（周次/假期/考试周）
+term_calendar	10	update_time	datetime	datetime	NO		DEFAULT_GENERATED on update CURRENT_TIMESTAMP		教学周历表（周次/假期/考试周）

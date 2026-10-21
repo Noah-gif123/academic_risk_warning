@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #app { height: 100%; }
+  body { @apply bg-slate-100 text-slate-800; font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif; }
+}
+
+@layer components {
+  .card { @apply bg-white rounded-xl shadow-sm border border-slate-200; }
+  .btn { @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition; }
+  .btn-primary { @apply btn bg-brand-500 text-white hover:bg-brand-600; }
+  .btn-ghost { @apply btn border border-slate-300 text-slate-600 hover:bg-slate-50; }
+  .input { @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
+  .tag { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs; }
+}

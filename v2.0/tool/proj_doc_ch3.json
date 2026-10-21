@@ -1,0 +1,106 @@
+{
+  "blocks": [
+    { "t": "h1", "x": "3. 子系统设计" },
+    { "t": "p", "x": "本章按子系统展开。系统按“数据来源 → 判定 → 处置”三条链划分，其中数据来源链归入 **3.1 教学数据与活动子系统**，判定链与处置链归入 **3.2 学情预警子系统**；3.3 给出核心子系统（学情预警子系统）的详细设计。每个子系统按职责说明、对外接口、内部静态结构、关键模块流程四项描述。" },
+
+    { "t": "h2", "x": "3.1 教学数据与活动子系统" },
+    { "t": "p", "x": "**职责说明。** 该子系统负责把过程数据采进来，是整套预警的数据起点，包含四块职责：① 课程内容管理（导学富文本、教学目标、目录：按课次组织课前预习资料 / 课中随堂测验 / 课后作业）；② 教学活动管理（测验与作业的题目导入、校对、发布与在线作答，项目任务的发布、文件提交、组队与团队贡献表）；③ 考勤管理（课表驱动点名单、批量导入、行级留痕、期中 / 期末归档与退回重交）；④ 成绩与批改（待批改、客观题自动判分、主观题教师批阅、手工评分项录入、成绩矩阵与总评汇总）。它对外只暴露面向教师与学生的接口，不参与风险判定。" },
+    { "t": "p", "x": "**对外接口（取两个核心）。** 教学数据与活动子系统对外开放的接口较多，下表列两个最核心的接口作为契约示例。" },
+    { "t": "table", "cap": "教学数据与活动子系统核心接口", "widths": [18, 16, 24, 22, 20],
+      "head": ["接口名", "方法与路径", "输入", "输出", "异常 / 错误码"],
+      "rows": [
+        ["发布教学活动", "POST /api/teacher/activities", "teachingClassId、type（QUIZ / HOMEWORK / PROJECT）、title、startTime、endTime、durationMinutes、score、schemeItemId、papers", "activityId、status（PUBLISHED）、studentCount", "401 未登录；403 非本人教学班；400 参数错误 / 评分项不存在；409 已过截止时间"],
+        ["提交教学活动", "POST /api/student/submissions", "activityId、answers 或 files、teamMembers、contribution（团队项目）", "submissionId、submitStatus、submittedAt", "401 未登录；403 未选课或非本班；400 缺少必填项；409 逾期不允许补交"]
+      ] },
+    { "t": "note", "x": "鉴权方式：所有接口要求有效令牌；令牌中携带角色与归属（学生 id / 教学班 id），服务端据此限定数据范围，禁止客户端传参决定可见范围。逾期校验以服务器时间为准，逾期提交直接返回 409（本版一律不允许补交）。" },
+    { "t": "p", "x": "**内部静态结构（取两个核心类）。**" },
+    { "t": "table", "cap": "教学数据与活动子系统核心类", "widths": [18, 34, 48],
+      "head": ["核心类", "关键属性", "关键方法与关系"],
+      "rows": [
+        ["Enrollment（选课）", "studentId、teachingClassId、offeringId、termId、status、retakeTimes", "attendanceOf(session)、absenceCount()、deductionPoints()；与教学班 N:1、与考勤记录 1:N、与分项得分 1:N，是过程数据挂载的根"],
+        ["LearningActivity（教学活动）", "teachingClassId、type、title、startTime、endTime、durationMinutes、fullScore、schemeItemId、publishStatus", "publish()、close()、pendingCount()；对应测验 / 作业 / 项目三类；通过 schemeItemId 关联成绩构成中的评分项，得分由 Submission 汇总后自动写入"]
+      ] },
+    { "t": "p", "x": "**关键模块流程（考勤录入到学生可见）。** 教师从待办或课表选择本次课，系统按课表定位课次并返回全班默认出勤名单；教师只勾选异常（缺课 / 迟到 / 请假）后提交。服务端在**同一个事务**内完成三件事：校验（选课有效、课次未作废、该课次未被归档）、写入考勤记录（阶段＝平时）与行级留痕、更新该生的缺课 / 迟到 / 请假次数与扣分；事务提交后学生端即可看到明细。**异常处理与事务边界**：整节课未点名时不产生任何记录（既不默认全勤也不默认缺课）；同一学生同一课次由唯一约束保证只有一条记录，重复提交按更新处理并留痕；归档后的课次不允许教师改动，只能走教务更正；批量导入时若存在无法匹配的行则整批不写入，避免半批数据入库。时序如图3-1 所示。" },
+    { "t": "img", "file": "out/f225_seq.png", "cap": "教师录入考勤到学生可见时序图" },
+
+    { "t": "h2", "x": "3.2 学情预警子系统" },
+    { "t": "p", "x": "**职责说明。** 该子系统消费教学数据，产出风险结论并组织干预闭环，包含五块职责：① 风险判定（通道判据：已缺课是否达到允许上限、剩余可缺次数、期末需考分数是否超过满分）；② 多源信号融合与课程侧校正（出勤扣分、作业提交行为、分项得分，叠加课程类型与难度档位、课程历史挂科率、教师尺度 Δ）；③ 等级与置信度（按三族规则取最高等级，输出完整分档 / 带标注 / 仅行为 / 数据不足四种模式）；④ 预警与通知（生成、升级、超时、关闭、撤销，按聚合键去重通知）；⑤ 干预闭环（教师 / 辅导员 / 教务三级处理记录、上报与终止、生命周期时间线）。大模型只在第三阶段接入，且不参与本子系统任何数值计算。" },
+    { "t": "p", "x": "**对外接口（取两个核心）。**" },
+    { "t": "table", "cap": "学情预警子系统核心接口", "widths": [18, 16, 24, 22, 20],
+      "head": ["接口名", "方法与路径", "输入", "输出", "异常 / 错误码"],
+      "rows": [
+        ["触发风险判定", "POST /api/engine/evaluate", "termId、offeringId 或 enrollmentId（可空表示按学期全量）、trigger（DATA_CHANGED / MANUAL / SCHEDULED）", "evaluatedCount、riskStateCount、alertCreatedCount、engineVersion", "401 未登录；403 非教务或非定时任务；400 参数错误；409 该学期无有效引擎版本"],
+        ["查看预警列表", "GET /api/teacher/alerts", "offeringId、level?、status?、page", "预警记录列表（等级、触发通道与规则、风险分、置信度、依据快照、处理状态）", "401 未登录；403 非本人教学班；400 参数错误"]
+      ] },
+    { "t": "note", "x": "鉴权方式：触发判定仅限教务管理员或系统定时任务；预警读取按角色限定数据范围（教师限本人教学班、辅导员限名下行政班、学生仅本人）。所有写操作记录操作人、角色与时间，进入审计日志与预警时间线。" },
+    { "t": "p", "x": "**内部静态结构（取两个核心类）。**" },
+    { "t": "table", "cap": "学情预警子系统核心类", "widths": [18, 34, 48],
+      "head": ["核心类", "关键属性", "关键方法与关系"],
+      "rows": [
+        ["RiskEngine（规则引擎）", "engineVersion、config（阈值 / 系数 / 开关）、channelJudges、confidenceEvaluator、teacherStyleEstimator", "evaluate(enrollment)、writeRiskState()、raiseAlert()；只读教学数据，写风险状态与预警；与 RiskEngineConfig N:1，与 RiskState 1:N"],
+        ["AlertService（预警服务）", "alertRecord、interventionRecord、notification、aggregateKey", "create()、escalate()、close(reason)、revoke(reason)、overdueCheck()；与 RiskState 1:N，与干预记录 1:N，与通知 1:N"]
+      ] },
+    { "t": "p", "x": "**关键模块流程（预警处理与干预闭环）。** 预警生成后通知到教师与辅导员；教师查看触发依据并记录处理动作（课堂提醒、约谈、补强任务、联系辅导员），系统在**下次风险评估或 14 天后（先到为准）**自动复评；风险下降则关闭预警，未改善则进行第二次处理；两次无效后由辅导员介入谈话或班会，判断材料齐全后上报教务，由教务面谈或提供具体帮助并记录结果；始终无改善则终止干预并说明原因。**异常处理与事务边界**：处理动作与预警状态变更在同一事务内写入，保证不会出现“有处理记录但状态未更新”；超时未处理由定时任务扫描并升级提醒（幂等，同一预警同一步骤只提醒一次）；依据数据错录时允许教师撤销预警并填写理由，撤销记录保留但不删除原预警；终止干预必须填写原因。流程如图3-2 所示。" },
+    { "t": "img", "file": "out/f222_flow.png", "cap": "预警处理与干预闭环活动图" },
+
+    { "t": "h2", "x": "3.3 学情预警子系统详细设计" },
+    { "t": "p", "x": "本节的详细设计对象是系统的核心子系统——学情预警子系统。它是唯一产出“风险结论”的模块，也是与其他子系统耦合最紧的模块，因此对接口契约、类职责与事务边界做完整说明。" },
+
+    { "t": "h3", "x": "3.3.1 接口设计" },
+    { "t": "p", "x": "下表给出两个核心接口的完整契约；其余接口（预警详情、处理与撤销、干预记录、报表等）遵循同一套约定：统一前缀、令牌鉴权、JSON 交换、业务错误返回 HTTP 200 + body.code，未登录或令牌失效返回真实 HTTP 401。" },
+    { "t": "table", "cap": "核心接口契约", "widths": [14, 13, 21, 21, 19, 12],
+      "head": ["接口名", "方法与路径", "输入参数", "输出", "异常与错误码", "鉴权方式"],
+      "rows": [
+        ["触发风险判定", "POST /api/engine/evaluate", "termId (Long)、offeringId (Long, 可空)、enrollmentId (Long, 可空)、trigger (枚举)", "evaluatedCount、riskStateCount、alertCreatedCount、engineVersion (String)", "401 未登录；403 无权触发；400 参数校验失败；409 无有效引擎版本；500 服务内部错误", "令牌 + 角色 = 教务管理员或系统定时任务"],
+        ["查看学生风险状态", "GET /api/student/risk-states", "offeringId (Long, 可空)、termId (Long)", "riskScore、riskLevel、activeChannel、confidence、outputMode、absentCount、remainingAbsent（按可见性规则裁剪）、triggerRule", "401 未登录；400 参数错误；404 无本学期选课记录", "令牌 + 角色 = 学生（仅本人数据）"]
+      ] },
+    { "t": "p", "x": "OpenAPI（Swagger）片段（节选）：" },
+    { "t": "note", "x": "paths:" },
+    { "t": "note", "x": "  /api/engine/evaluate:" },
+    { "t": "note", "x": "    post:" },
+    { "t": "note", "x": "      summary: 触发风险判定（教务 / 定时任务）" },
+    { "t": "note", "x": "      security: [ { bearerAuth: [] } ]" },
+    { "t": "note", "x": "      requestBody:" },
+    { "t": "note", "x": "        content:" },
+    { "t": "note", "x": "          application/json:" },
+    { "t": "note", "x": "            schema:" },
+    { "t": "note", "x": "              type: object" },
+    { "t": "note", "x": "              required: [ termId, trigger ]" },
+    { "t": "note", "x": "              properties:" },
+    { "t": "note", "x": "                termId: { type: integer, format: int64 }" },
+    { "t": "note", "x": "                offeringId: { type: integer, format: int64, nullable: true }" },
+    { "t": "note", "x": "                trigger: { type: string, enum: [DATA_CHANGED, MANUAL, SCHEDULED] }" },
+    { "t": "note", "x": "      responses:" },
+    { "t": "note", "x": "        '200': { description: 评估完成，返回评估人数、写入的风险状态数与新增预警数 }" },
+    { "t": "note", "x": "        '401': { description: 未登录或令牌失效 }" },
+    { "t": "note", "x": "        '403': { description: 无权限触发判定 }" },
+    { "t": "note", "x": "        '409': { description: 该学期没有生效的引擎版本 }" },
+
+    { "t": "h3", "x": "3.3.2 静态类设计" },
+    { "t": "p", "x": "学情预警子系统的核心领域类如图3-3 所示。设计上遵循两条原则：一是**职责单一**——引擎只负责“算”，预警服务只负责“管流程”，判定结果由 RiskState 承载、处置过程由 AlertRecord 承载，避免出现把计算、状态与通知揉在一起的“上帝类”；二是**边界清晰**——引擎只读教学数据、只写风险状态与预警，智能体层只读真值，不反向改写判定。" },
+    { "t": "img", "file": "out/217_class_domain.png", "cap": "核心领域类图（实体类与主要职责）" },
+    { "t": "p", "x": "两个关键类的说明如下表。" },
+    { "t": "table", "cap": "关键类说明", "widths": [18, 34, 48],
+      "head": ["类", "关键属性", "关键方法 / 关系"],
+      "rows": [
+        ["RiskState（当前风险状态）", "enrollmentId、absentCount、allowedAbsent、remainingAbsent、hardFail、nearFail、finalExamNeeded、riskScore、riskLevel、activeChannel、confidence、outputMode、engineVersion", "margin()：返回安全边际（预计总评 − 及格线）；level()：按三族规则取最高等级；isHardFail()：判断是否已触发缺课硬门槛。与 Enrollment 为 1:1（一人一课一行），与 AlertRecord 为 1:N"],
+        ["AlertRecord（预警记录）", "studentId、enrollmentId、offeringId、alertLevel、triggerChannel、triggerRule、riskScore、confidence、status、isCurrent、escalated、expireTime、engineVersion", "escalate()：升级到辅导员 / 教务层级；close(reason)：关闭并记录结果；timeline()：返回该预警的生命周期事件。与 RiskState 为 N:1，与干预记录、通知均为 1:N；同一门课的多条预警用 isCurrent 标记当前有效"]
+      ] },
+
+    { "t": "h3", "x": "3.3.3 模块流程设计" },
+    { "t": "p", "x": "子系统内部的关键流程是“风险评估到通知与升级”，时序如图3-4 所示。流程为：定时任务或教务手动触发评估 → 引擎读取该批次学生的考勤、分项得分、作业与引擎配置 → 逐生计算通道判据、多源信号与课程侧校正 → 计算安全边际与等级、确定置信度与输出模式 → 写入风险状态（带引擎版本号） → 达到阈值则生成预警记录与时间线、发出通知 → 定时任务扫描超时未处理的预警并触发升级提醒。" },
+    { "t": "img", "file": "out/f226_seq.png", "cap": "风险评估到通知与升级时序图" },
+    { "t": "p", "x": "**事务边界与异常处理。** ① 评估按“一名学生 = 一个事务”处理：单个学生的判定、风险状态写入与预警生成在同一事务内完成，避免出现“有预警但没有风险状态”的不一致；某个学生数据异常只回滚该学生，不影响整批。② 通知在判定事务提交之后异步发出：通知失败不回滚判定结果，由定时任务重试，并按“预警 + 通知类型 + 标题”幂等，保证同一步骤不重复打扰。③ 引擎版本在评估开始时一次性读取并随结果落库，评估中途不换版本，保证同一批结果口径一致。④ 异常分支：覆盖率低于三分之一时置信度判低、只输出行为层面提示；数据不全时不给出分数结论；同一学生同一门课已有有效预警时不重复生成，改为更新现有预警的等级与依据。" },
+
+    { "t": "p", "x": "**【本章自评（学习自检）】**" },
+    { "t": "plain_table",
+      "head": ["自检项（对照本章要求逐项勾选）", "自评 ✓/△/✗", "说明（不足处简要记录）"],
+      "widths": [58, 12, 30],
+      "rows": [
+        ["各子系统职责与接口契约完整清晰", "✓", "两个子系统分别给出职责说明与两个核心接口的契约（输入、输出、异常与错误码、鉴权方式），并附 OpenAPI 片段"],
+        ["核心类职责单一、关系合理（无上帝类）", "✓", "引擎只负责计算、预警服务只负责流程，判定结果与处置过程分别由 RiskState 与 AlertRecord 承载；每个子系统只列两个核心类并说明关系与基数"],
+        ["关键流程含异常处理与事务边界", "✓", "考勤录入、预警处理、风险评估三条关键流程均写明事务边界与异常分支（未点名、逾期、退回归档、低置信度、通知重试幂等、单生事务回滚）"],
+        ["AI 生成的接口/类已人工核对安全性", "✓", "接口与类定义的初稿由 AI 辅助生成，随后人工核对：鉴权与数据范围（防越权）、参数校验（防注入与非法枚举）、逾期与并发（唯一约束防重）、敏感数值的可见性裁剪均已逐项确认"]
+      ] }
+  ]
+}

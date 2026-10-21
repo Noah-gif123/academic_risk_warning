@@ -64,3 +64,16 @@ frontend/.playwright-cli/
 
 ### 本地构建缓存（Gradle 用户目录副本，勿提交） ###
 .gradle-home/
+
+### 前端依赖与构建产物（勿提交） ###
+node_modules/
+dist/
+**/dist/
+**/node_modules/
+
+### 文档/图表构建的临时与中间产物（勿提交） ###
+v2.0/tool/_*.txt
+v2.0/tool/_*.sql
+v2.0/tool/*.bak
+v2.0/tool/out_*.docx
+v2.0/tool/columns.tsv.bak

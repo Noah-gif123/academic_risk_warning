@@ -1,102 +1,152 @@
 {
- "title": "图2.13 成绩域实体关系",
- "w": 988,
- "h": 495,
+ "title": "图2.13 成绩与教学活动域实体关系",
+ "w": 1160,
+ "h": 540,
  "nodes": [
   {
    "id": "bd",
    "t": "boundary",
    "x": 16,
    "y": 42,
-   "w": 956,
-   "h": 387,
-   "label": "成绩域实体关系"
+   "w": 1128,
+   "h": 440,
+   "label": "成绩与教学活动域实体关系"
   },
   {
    "id": "e0",
    "t": "entity",
-   "x": 46,
+   "x": 40,
    "y": 92,
-   "w": 272,
+   "w": 250,
    "h": 94,
    "label": "选课 enrollment",
    "rows": [
     "id*",
-    "student_id",
-    "teaching_class_id",
-    "term_id"
+    "student_id / teaching_class_id",
+    "offering_id / term_id",
+    "status / retake_times"
    ],
    "fs": 12.5
   },
   {
    "id": "e1",
    "t": "entity",
-   "x": 358,
+   "x": 320,
    "y": 92,
-   "w": 272,
+   "w": 250,
    "h": 111,
    "label": "评分项 score_scheme_item",
    "rows": [
     "id*",
-    "scheme_id",
+    "scheme_id / parent_id",
     "item_code / item_name",
     "category / weight",
-    "is_anchor / is_subjective"
+    "data_source / is_subjective"
    ],
    "fs": 12.5
   },
   {
    "id": "e2",
    "t": "entity",
-   "x": 670,
+   "x": 600,
    "y": 92,
-   "w": 272,
+   "w": 250,
    "h": 128,
    "label": "分项得分 score_item",
    "rows": [
     "id*",
     "enrollment_id / student_id",
-    "scheme_item_id",
-    "times_no",
+    "scheme_item_id / times_no",
     "raw_value / score / full_score",
     "is_absent / scorer_id"
    ],
    "fs": 12.5
   },
   {
-   "id": "e3",
-   "t": "entity",
-   "x": 46,
-   "y": 254,
-   "w": 272,
-   "h": 128,
-   "label": "作业提交 homework_item",
-   "rows": [
-    "id*",
-    "enrollment_id / student_id",
-    "offering_id / scheme_item_id",
-    "homework_no",
-    "due_date / submit_time",
-    "submit_status / is_late"
-   ],
-   "fs": 12.5
-  },
-  {
    "id": "e4",
    "t": "entity",
-   "x": 358,
-   "y": 254,
-   "w": 272,
+   "x": 880,
+   "y": 92,
+   "w": 236,
    "h": 145,
    "label": "成绩单 score_result",
    "rows": [
     "id*",
     "enrollment_id / student_id",
     "offering_id / term_id",
-    "weighted_score",
-    "deduction_points / total_score",
+    "weighted_score / deduction_points",
+    "total_score / pass_score",
     "absent_count / allowed_absent",
     "hard_fail / is_fail / fail_reason"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e3",
+   "t": "entity",
+   "x": 40,
+   "y": 290,
+   "w": 250,
+   "h": 128,
+   "label": "试卷 paper",
+   "rows": [
+    "id*",
+    "teaching_class_id / lesson_id",
+    "paper_type / paper_name",
+    "full_score / scheme_item_id",
+    "start_time / end_time",
+    "show_score / show_answer / status"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e5",
+   "t": "entity",
+   "x": 320,
+   "y": 290,
+   "w": 250,
+   "h": 128,
+   "label": "提交 submission",
+   "rows": [
+    "id*",
+    "paper_id / enrollment_id",
+    "submit_status / marked_status",
+    "objective_score / subjective_score",
+    "total_score / is_absent"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e6",
+   "t": "entity",
+   "x": 600,
+   "y": 290,
+   "w": 250,
+   "h": 111,
+   "label": "逐题作答 submission_answer",
+   "rows": [
+    "id*",
+    "submission_id / question_id",
+    "answer_json / score",
+    "is_correct / comment",
+    "marked_by_type / marked_by"
+   ],
+   "fs": 12.5
+  },
+  {
+   "id": "e7",
+   "t": "entity",
+   "x": 880,
+   "y": 290,
+   "w": 236,
+   "h": 111,
+   "label": "团队贡献表 project_contribution",
+   "rows": [
+    "id*",
+    "project_id / team_id",
+    "contribution_json",
+    "total_ratio（须=1）",
+    "is_locked / submit_time"
    ],
    "fs": 12.5
   }
@@ -109,7 +159,7 @@
    "l": "",
    "lf": "1",
    "lt": "N",
-   "lw": 170
+   "lw": 190
   },
   {
    "f": "e1",
@@ -118,16 +168,7 @@
    "l": "",
    "lf": "1",
    "lt": "N",
-   "lw": 170
-  },
-  {
-   "f": "e0",
-   "to": "e3",
-   "k": "assoc",
-   "l": "",
-   "lf": "1",
-   "lt": "N",
-   "lw": 170
+   "lw": 190
   },
   {
    "f": "e0",
@@ -136,8 +177,44 @@
    "l": "",
    "lf": "1",
    "lt": "1",
-   "lw": 170
+   "lw": 190
+  },
+  {
+   "f": "e1",
+   "to": "e3",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 190
+  },
+  {
+   "f": "e3",
+   "to": "e5",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 190
+  },
+  {
+   "f": "e0",
+   "to": "e5",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 190
+  },
+  {
+   "f": "e5",
+   "to": "e6",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 190
   }
  ],
- "caption": "注：教师录入的是原始分；折算后的分数只存在于引擎内部，不回写 score_item，成绩单中也不保存折算分。"
+ "caption": "注：作业与测验统一由试卷—提交—逐题作答承载，自动型评分项按提交得分汇总；成绩单只存判定结果。"
 }

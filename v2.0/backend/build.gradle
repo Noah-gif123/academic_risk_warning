@@ -1,0 +1,65 @@
+// 说明：本工程使用 Gradle 构建。
+// 采用 buildscript + apply plugin 的写法（而不是 plugins { } 块）：
+// 插件按普通 Maven 坐标从国内镜像解析，可达性好、并能复用本地缓存。
+// 版本管理用 platform(spring-boot-dependencies) 统一，不需要额外插件。
+buildscript {
+    repositories {
+        maven { url = uri('https://maven.aliyun.com/repository/public') }
+        maven { url = uri('https://maven.aliyun.com/repository/gradle-plugin') }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.springframework.boot:spring-boot-gradle-plugin:4.0.6'
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'org.springframework.boot'
+
+group = 'com.example'
+version = '2.0.0-SNAPSHOT'
+description = '学情预警系统 v2.0 后端'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    maven { url = uri('https://maven.aliyun.com/repository/public') }
+    mavenCentral()
+}
+
+dependencies {
+    // 统一版本：Spring Boot 4.0.6 的 BOM（各 configuration 都要挂上，否则 compileOnly/annotationProcessor 拿不到版本）
+    implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.6')
+    compileOnly platform('org.springframework.boot:spring-boot-dependencies:4.0.6')
+    annotationProcessor platform('org.springframework.boot:spring-boot-dependencies:4.0.6')
+    testImplementation platform('org.springframework.boot:spring-boot-dependencies:4.0.6')
+
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+
+    implementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.15'
+    // 分页拦截器所在模块（3.5.9+ 拆分）；当前未启用分页，联网后可放开并加回 MybatisPlusConfig
+    // implementation 'com.baomidou:mybatis-plus-jsqlparser:3.5.15'
+
+    // 显式锁定 9.2.0（Boot 4.0.6 的 BOM 会约束到 9.7.0，用 strictly 保号）
+    implementation('com.mysql:mysql-connector-j:9.2.0') { version { strictly '9.2.0' } }
+    implementation 'org.apache.poi:poi-ooxml:5.2.5'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

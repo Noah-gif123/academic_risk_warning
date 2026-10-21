@@ -1,63 +1,46 @@
 {
  "title": "图2.11 开课与成绩构成域实体关系",
- "w": 988,
- "h": 623,
+ "w": 1160,
+ "h": 540,
  "nodes": [
   {
    "id": "bd",
    "t": "boundary",
    "x": 16,
    "y": 42,
-   "w": 956,
-   "h": 515,
+   "w": 1128,
+   "h": 440,
    "label": "开课与成绩构成域实体关系"
   },
   {
    "id": "e0",
    "t": "entity",
-   "x": 46,
+   "x": 40,
    "y": 92,
-   "w": 272,
+   "w": 250,
    "h": 111,
    "label": "课程 course",
    "rows": [
     "id*",
-    "course_code / course_name",
-    "course_type / credit",
+    "course_name / course_type",
+    "credit / total_hours",
     "difficulty_factor_code",
     "prerequisite_course_id"
    ],
    "fs": 12.5
   },
   {
-   "id": "e1",
-   "t": "entity",
-   "x": 358,
-   "y": 92,
-   "w": 272,
-   "h": 94,
-   "label": "知识点 course_knowledge_point",
-   "rows": [
-    "id*",
-    "course_id / parent_id",
-    "kp_code / kp_name",
-    "chapter / kp_level"
-   ],
-   "fs": 12.5
-  },
-  {
    "id": "e2",
    "t": "entity",
-   "x": 670,
+   "x": 320,
    "y": 92,
-   "w": 272,
+   "w": 250,
    "h": 111,
    "label": "课程组 course_group",
    "rows": [
     "id*",
     "course_id / term_id",
-    "level",
-    "level_request_status",
+    "level / level_request_status",
     "status"
    ],
    "fs": 12.5
@@ -65,9 +48,9 @@
   {
    "id": "e3",
    "t": "entity",
-   "x": 46,
-   "y": 237,
-   "w": 272,
+   "x": 600,
+   "y": 92,
+   "w": 250,
    "h": 128,
    "label": "开课实例 course_offering",
    "rows": [
@@ -83,9 +66,9 @@
   {
    "id": "e4",
    "t": "entity",
-   "x": 358,
-   "y": 237,
-   "w": 272,
+   "x": 880,
+   "y": 92,
+   "w": 236,
    "h": 111,
    "label": "教学班 teaching_class",
    "rows": [
@@ -100,9 +83,9 @@
   {
    "id": "e5",
    "t": "entity",
-   "x": 670,
-   "y": 237,
-   "w": 272,
+   "x": 40,
+   "y": 280,
+   "w": 250,
    "h": 77,
    "label": "教学班-行政班 teaching_class_admin_class",
    "rows": [
@@ -115,9 +98,9 @@
   {
    "id": "e6",
    "t": "entity",
-   "x": 46,
-   "y": 399,
-   "w": 272,
+   "x": 320,
+   "y": 280,
+   "w": 250,
    "h": 111,
    "label": "成绩构成模板 score_template",
    "rows": [
@@ -132,27 +115,26 @@
   {
    "id": "e7",
    "t": "entity",
-   "x": 358,
-   "y": 399,
-   "w": 272,
-   "h": 128,
+   "x": 600,
+   "y": 280,
+   "w": 250,
+   "h": 111,
    "label": "成绩构成 score_scheme",
    "rows": [
     "id*",
     "group_id / term_id",
     "version / level",
     "source_template_id",
-    "confirm_status",
-    "locked / locked_at"
+    "confirm_status / locked"
    ],
    "fs": 12.5
   },
   {
    "id": "e8",
    "t": "entity",
-   "x": 670,
-   "y": 399,
-   "w": 272,
+   "x": 880,
+   "y": 280,
+   "w": 236,
    "h": 128,
    "label": "评分项 score_scheme_item",
    "rows": [
@@ -160,7 +142,6 @@
     "scheme_id / parent_id",
     "item_code / item_name",
     "category / weight / full_score",
-    "is_anchor / is_subjective",
     "data_source / score_type"
    ],
    "fs": 12.5
@@ -169,21 +150,21 @@
  "edges": [
   {
    "f": "e0",
-   "to": "e1",
-   "k": "assoc",
-   "l": "",
-   "lf": "1",
-   "lt": "N",
-   "lw": 170
-  },
-  {
-   "f": "e0",
    "to": "e2",
    "k": "assoc",
    "l": "",
    "lf": "1",
    "lt": "N",
-   "lw": 170
+   "lw": 180
+  },
+  {
+   "f": "e0",
+   "to": "e3",
+   "k": "assoc",
+   "l": "",
+   "lf": "1",
+   "lt": "N",
+   "lw": 180
   },
   {
    "f": "e2",
@@ -192,7 +173,7 @@
    "l": "",
    "lf": "1",
    "lt": "N",
-   "lw": 170
+   "lw": 180
   },
   {
    "f": "e3",
@@ -201,7 +182,7 @@
    "l": "",
    "lf": "1",
    "lt": "N",
-   "lw": 170
+   "lw": 180
   },
   {
    "f": "e4",
@@ -210,16 +191,16 @@
    "l": "",
    "lf": "1",
    "lt": "N",
-   "lw": 170
+   "lw": 180
   },
   {
    "f": "e6",
    "to": "e7",
-   "k": "assoc",
-   "l": "",
+   "k": "dash",
+   "l": "可空",
    "lf": "1",
    "lt": "N",
-   "lw": 170
+   "lw": 180
   },
   {
    "f": "e2",
@@ -228,7 +209,7 @@
    "l": "",
    "lf": "1",
    "lt": "N",
-   "lw": 170
+   "lw": 180
   },
   {
    "f": "e7",
@@ -237,17 +218,8 @@
    "l": "",
    "lf": "1",
    "lt": "N",
-   "lw": 170
-  },
-  {
-   "f": "e8",
-   "to": "e1",
-   "k": "dash",
-   "l": "",
-   "lf": "N",
-   "lt": "1",
-   "lw": 170
+   "lw": 180
   }
  ],
- "caption": "注：评分项通过 parent_id 自关联形成两级结构；同一层级权重之和必须为 100% 才能锁定。"
+ "caption": "注：本版已删除课程编码与知识点，课程只保留名称、类型、学分与难度档位；评分项通过 parent_id 自关联形成两级结构，同一层级权重之和必须为 100% 才能锁定。"
 }
