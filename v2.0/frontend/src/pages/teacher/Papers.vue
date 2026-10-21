@@ -10,7 +10,7 @@
     </div>
 
     <p class="text-xs text-slate-400">
-      题目支持从 Word 导入 → 校对 → 发布；客观题（单选/多选/判断/填空）交卷即判，简答题由你批阅并记录判卷人。
+      题目支持从 Word 导入 → 校对 → 发布；单选 / 多选 / 判断交卷即判，<b>填空与简答由你批阅并记录判卷人</b>。
       作业与测验不允许迟交、不允许教师代交，截止后未交的按缺考记 0 分。
     </p>
 
@@ -181,12 +181,12 @@
             </template>
             <template v-else-if="q.qType === 'BLANK'">
               <div class="flex items-center gap-2">
-                <span class="text-xs text-slate-500">各空答案（每行一个，按顺序）</span>
+                <span class="text-xs text-slate-500">各空参考答案（每行一个，按顺序）</span>
                 <span class="tag bg-brand-50 text-brand-600">共 {{ blankCountOf(q) }} 空</span>
               </div>
               <textarea v-model="q.answerText" rows="2" class="input mt-1" placeholder="中央处理器&#10;丢失"></textarea>
               <p class="text-xs text-slate-400">
-                学生端按这里的行数生成输入框：要几空就写几行（增加空=多写一行，减少空=删掉一行）；一行都没写时按题干下划线组数兜底。
+                填空由你逐卷给分，这里不参与自动判分：行数只决定学生端的空数（要几空就写几行）；一行都没写时按题干下划线组数兜底。
               </p>
             </template>
             <template v-else>

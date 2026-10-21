@@ -29,6 +29,7 @@ import com.example.academic_risk_warning.mapper.SubmissionAnswerMapper;
 import com.example.academic_risk_warning.mapper.SubmissionMapper;
 import com.example.academic_risk_warning.mapper.TeacherMapper;
 import com.example.academic_risk_warning.mapper.TeachingClassMapper;
+import com.example.academic_risk_warning.util.GradeEngine;
 import com.example.academic_risk_warning.vo.PaperVO;
 import com.example.academic_risk_warning.vo.SubmissionAnswerVO;
 import com.example.academic_risk_warning.vo.SubmissionVO;
@@ -330,7 +331,7 @@ public class PaperService {
                     continue;
                 }
                 Question q = qs.get(a.getQuestionId());
-                if (q == null || !"SHORT".equalsIgnoreCase(q.getQType())) {
+                if (q == null || !GradeEngine.isManual(q.getQType())) {
                     continue;
                 }
                 BigDecimal score = it.getScore() == null ? ZERO : it.getScore();
@@ -405,7 +406,7 @@ public class PaperService {
             if (q == null) {
                 continue;
             }
-            boolean isShort = "SHORT".equalsIgnoreCase(q.getQType());
+            boolean isShort = GradeEngine.isManual(q.getQType());
             BigDecimal score = a.getScore() == null ? ZERO : a.getScore();
             if (isShort) {
                 boolean marked = "TEACHER".equals(a.getMarkedByType()) || "AI".equals(a.getMarkedByType());
@@ -471,7 +472,7 @@ public class PaperService {
         int subjective = 0;
         for (Question q : qs) {
             sum = sum.add(q.getFullScore() == null ? ZERO : q.getFullScore());
-            if ("SHORT".equalsIgnoreCase(q.getQType())) {
+            if (GradeEngine.isManual(q.getQType())) {
                 subjective++;
             }
         }
@@ -569,7 +570,7 @@ public class PaperService {
                 av.setMarkedBy(a.getMarkedBy());
                 av.setMarkedByName(a.getMarkedBy() == null ? null : markedNames.get(a.getMarkedBy()));
                 av.setMarkedAt(a.getMarkedAt());
-                if ("SHORT".equalsIgnoreCase(q.getQType())
+                if (GradeEngine.isManual(q.getQType())
                         && (a.getMarkedByType() == null || a.getMarkedByType().isEmpty())) {
                     pending++;
                 }

@@ -280,7 +280,7 @@ public class StudentPaperService {
             answerMapper.insert(a);
             if (r.isPending()) {
                 pending = true;
-            } else if ("SHORT".equalsIgnoreCase(q.getQType())) {
+            } else if (GradeEngine.isManual(q.getQType())) {
                 subj = subj.add(r.getScore());
             } else {
                 obj = obj.add(r.getScore());

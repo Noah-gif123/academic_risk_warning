@@ -45,8 +45,13 @@ public final class GradeEngine {
     public static Result grade(Question q, String answerJson) {
         BigDecimal full = q.getFullScore() == null ? BigDecimal.ZERO : q.getFullScore();
         String type = q.getQType() == null ? "" : q.getQType().toUpperCase();
-        if (!"SHORT".equals(type) && (answerJson == null || answerJson.trim().isEmpty()
-                || "{}".equals(answerJson.trim()) || "[]".equals(answerJson.trim()))) {
+        // 填空与简答一律人工批阅：填空题的写法差异太大（同义词、单位、简写、顺序），
+        // 机器逐字比对容易误判，改由教师按空给分，口径更稳、可解释
+        if (isManual(type)) {
+            return new Result(BigDecimal.ZERO, null, true);
+        }
+        if (answerJson == null || answerJson.trim().isEmpty()
+                || "{}".equals(answerJson.trim()) || "[]".equals(answerJson.trim())) {
             return new Result(BigDecimal.ZERO, 0, false);
         }
         switch (type) {
@@ -63,35 +68,19 @@ public final class GradeEngine {
                 boolean ok = std != null && std.equals(mine);
                 return new Result(ok ? full : BigDecimal.ZERO, ok ? 1 : 0, false);
             }
-            case "BLANK": {
-                List<String> std = MiniJson.arrayStrings(q.getAnswerJson(), "answers");
-                List<String> mine = MiniJson.arrayStrings(answerJson, "answers");
-                if (std.isEmpty()) {
-                    return new Result(BigDecimal.ZERO, 0, false);
-                }
-                boolean ignoreCase = !Boolean.FALSE.equals(MiniJson.boolValue(q.getAnswerJson(), "ignoreCase"));
-                boolean trim = !Boolean.FALSE.equals(MiniJson.boolValue(q.getAnswerJson(), "trim"));
-                boolean ok = std.size() == mine.size();
-                if (ok) {
-                    for (int i = 0; i < std.size(); i++) {
-                        String a = std.get(i);
-                        String b = mine.get(i) == null ? "" : mine.get(i);
-                        if (trim) {
-                            a = a.trim();
-                            b = b.trim();
-                        }
-                        if (!(ignoreCase ? a.equalsIgnoreCase(b) : a.equals(b))) {
-                            ok = false;
-                            break;
-                        }
-                    }
-                }
-                return new Result(ok ? full : BigDecimal.ZERO, ok ? 1 : 0, false);
-            }
             default:
-                // 简答题：等教师批阅
+                // 兜底：未识别的题型同样交给老师
                 return new Result(BigDecimal.ZERO, null, true);
         }
+    }
+
+    /** 需要人工批阅的题型：简答题与填空题 */
+    public static boolean isManual(String qType) {
+        if (qType == null) {
+            return true;
+        }
+        String t = qType.toUpperCase();
+        return "SHORT".equals(t) || "BLANK".equals(t);
     }
 
     private static List<String> norm(List<String> in) {

@@ -73,7 +73,7 @@
       </div>
 
       <div class="card p-4 flex items-center justify-between">
-        <span class="text-xs text-slate-400">提交后不能修改；客观题立即判分，简答题等老师批阅。</span>
+        <span class="text-xs text-slate-400">提交后不能修改；单选/多选/判断立即判分，填空与简答等老师批阅。</span>
         <button class="btn-primary text-sm" :disabled="submitting" @click="submit(false)">
           {{ submitting ? '提交中…' : '交卷' }}
         </button>

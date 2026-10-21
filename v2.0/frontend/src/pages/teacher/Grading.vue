@@ -11,7 +11,7 @@
     </div>
 
     <p class="text-xs text-slate-400">
-      客观题已自动判分；简答题需要你逐题给分，系统记录判卷人（每题一行）。缺考学生记 0 分，无需批改。
+      单选 / 多选 / 判断由系统自动判分；<b>填空与简答需要你逐题给分</b>，系统记录判卷人（每题一行）。缺考学生记 0 分，无需批改。
     </p>
 
     <div class="card p-4">
@@ -88,12 +88,13 @@
 
         <div class="text-sm space-y-1 pl-14">
           <p><span class="text-xs text-slate-400">学生作答：</span>{{ answerText(a.answerJson, a.qType) }}</p>
-          <p v-if="a.qType !== 'SHORT'"><span class="text-xs text-slate-400">标准答案：</span>{{ answerText(a.stdAnswerJson, a.qType) }}</p>
-          <p v-else><span class="text-xs text-slate-400">参考要点：</span>{{ answerText(a.stdAnswerJson, 'SHORT') }}</p>
+          <p v-if="a.qType === 'SHORT'"><span class="text-xs text-slate-400">参考要点：</span>{{ answerText(a.stdAnswerJson, 'SHORT') }}</p>
+          <p v-else-if="a.qType === 'BLANK'"><span class="text-xs text-slate-400">参考答案：</span>{{ answerText(a.stdAnswerJson, 'BLANK') }}</p>
+          <p v-else><span class="text-xs text-slate-400">标准答案：</span>{{ answerText(a.stdAnswerJson, a.qType) }}</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 pl-14">
-          <template v-if="a.qType === 'SHORT'">
+          <template v-if="isManual(a.qType)">
             <span class="text-xs text-slate-500">给分</span>
             <input v-model.number="drafts[a.id].score" type="number" :max="a.fullScore" min="0" class="input w-24" />
             <span class="text-xs text-slate-400">/ {{ a.fullScore }}</span>
@@ -112,7 +113,7 @@
         <button class="btn-primary text-sm" :disabled="active.isAbsent === 1 || saving" @click="submitGrade">
           {{ saving ? '提交中…' : '提交批改' }}
         </button>
-        <span class="text-xs text-slate-400">只提交简答题的分数；客观题分数不可改。</span>
+        <span class="text-xs text-slate-400">只提交填空/简答的分数；单选、多选、判断由系统判分，不可改。</span>
       </div>
 
       <!-- 批改完成反馈 -->
@@ -186,6 +187,9 @@ function toast(msg, isOk = true) {
 function typeLabel(t) { return (questionTypes.find((x) => x.value === t) || {}).label || t }
 function statusLabel(s) { return { SUBMITTED: '已交', MARKED: '已批阅', ABSENT: '缺考' }[s] || s }
 function markedLabel(s) { return { NOT_MARKED: '未判', SYSTEM_MARKED: '客观已判', ALL_MARKED: '批完' }[s] || s }
+/** 需要人工批阅的题型：填空与简答（与后端 GradeEngine.isManual 同一口径） */
+function isManual(t) { return t === 'SHORT' || t === 'BLANK' }
+
 /** 填空题空数（按标准答案条数） */
 function blankCount(json) {
   try {
@@ -235,7 +239,7 @@ function backToList() {
 
 async function submitGrade() {
   const items = (active.value.answers || [])
-    .filter((a) => a.qType === 'SHORT')
+    .filter((a) => isManual(a.qType))
     .map((a) => ({ answerId: a.id, score: drafts[a.id].score, comment: drafts[a.id].comment }))
   saving.value = true
   try {
