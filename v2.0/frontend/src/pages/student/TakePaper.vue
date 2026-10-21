@@ -62,7 +62,7 @@
                 <span class="text-xs text-slate-400 w-14">第 {{ bi + 1 }} 空</span>
                 <input v-model="answers[q.id].answers[bi]" class="input" />
               </div>
-              <button class="text-xs text-brand-600 hover:underline" @click="answers[q.id].answers.push('')">+ 增加一空</button>
+              <p class="text-xs text-slate-400">空数以题干为准，不能自行增删。</p>
             </div>
 
             <div class="mt-2" v-else>
@@ -101,8 +101,9 @@
           <span class="text-xs text-slate-400 w-12">第 {{ a.qNo }} 题</span>
           <span class="tag bg-slate-100 text-slate-500">{{ typeLabel(a.qType) }}</span>
           <span class="text-sm flex-1">{{ a.stem }}</span>
-          <span class="text-xs" :class="a.isCorrect === 1 ? 'text-emerald-600' : 'text-red-600'">
-            {{ a.score ?? '待批' }} / {{ a.fullScore }}
+          <span v-if="!a.markedByType" class="text-xs text-amber-600">待老师批阅 · 满分 {{ a.fullScore }}</span>
+          <span v-else class="text-xs" :class="a.isCorrect === 1 ? 'text-emerald-600' : 'text-red-600'">
+            {{ a.score ?? 0 }} / {{ a.fullScore }}
           </span>
         </div>
         <p class="text-sm pl-14"><span class="text-xs text-slate-400">我的作答：</span>{{ answerText(a.answerJson, a.qType) }}</p>
@@ -131,7 +132,13 @@ const message = ref('')
 const ok = ref(true)
 const submitting = ref(false)
 const remain = ref(0)
-const startedAt = ref(new Date().toISOString().slice(0, 19))
+/** 本地时间字符串（不要用 toISOString，那是 UTC，会让“用时”多出 8 小时） */
+function nowLocal() {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
+const startedAt = ref(nowLocal())
 let timer = null
 
 const taking = computed(() => !!(paper.value && paper.value.canAnswer && !result.value))

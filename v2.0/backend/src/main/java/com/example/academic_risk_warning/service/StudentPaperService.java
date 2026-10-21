@@ -202,6 +202,20 @@ public class StudentPaperService {
         if (startedAt.isAfter(now)) {
             startedAt = now;
         }
+        // 客户端时区/时钟异常（例如把本地时间当成 UTC 发上来）会让用时离谱，这里做兜底：
+        // 早于开考时间按开考时间算；早于 24 小时视为无效客户端时间，按本次提交重新计时
+        if (p.getStartTime() != null && startedAt.isBefore(p.getStartTime())) {
+            startedAt = p.getStartTime();
+        }
+        if (startedAt.isBefore(now.minusHours(24))) {
+            startedAt = now;
+        }
+        // 限时卷再兜一层：客户端把本地时间当 UTC 发上来会多出 8 小时，
+        // 超过“限时 + 6 小时”一律视为客户端时间不可信，按本次提交重新计时
+        if (p.getDurationMinutes() != null && p.getDurationMinutes() > 0
+                && Duration.between(startedAt, now).toMinutes() > p.getDurationMinutes() + 360) {
+            startedAt = now;
+        }
         int seconds = (int) Math.max(0, Duration.between(startedAt, now).getSeconds());
         String remark = null;
         if (p.getDurationMinutes() != null && p.getDurationMinutes() > 0) {
@@ -247,9 +261,13 @@ public class StudentPaperService {
             a.setQuestionId(q.getId());
             a.setAnswerJson(ans == null || ans.trim().isEmpty() ? null : ans);
             GradeEngine.Result r = GradeEngine.grade(q, a.getAnswerJson());
-            a.setScore(r.getScore());
-            a.setIsCorrect(r.getCorrect());
-            if (!r.isPending()) {
+            if (r.isPending()) {
+                // 主观题等老师批阅：分数留空，避免前端显示成 0 分
+                a.setScore(null);
+                a.setIsCorrect(null);
+            } else {
+                a.setScore(r.getScore());
+                a.setIsCorrect(r.getCorrect());
                 a.setMarkedByType("SYSTEM");
                 a.setMarkedAt(now);
             }

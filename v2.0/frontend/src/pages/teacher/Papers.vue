@@ -99,8 +99,9 @@
               <button v-if="p.status === 'DRAFT'" class="text-emerald-600 hover:underline mr-2" @click="doPublish(p, true)">发布</button>
               <button v-if="p.status === 'PUBLISHED'" class="text-amber-600 hover:underline mr-2" @click="doPublish(p, false)">撤回</button>
               <button v-if="p.status === 'PUBLISHED'" class="text-slate-500 hover:underline mr-2" @click="doClose(p)">截止</button>
+              <button v-if="p.status === 'DRAFT'" class="text-red-500 hover:underline mr-2" @click="askDelete(p)">删除草稿</button>
               <button class="text-brand-600 hover:underline"
-                      @click="$router.push({ path: '/teacher/grading', query: { paperId: p.id } })">交卷与批改</button>
+                      @click="$router.push({ path: '/teacher/grading', query: { paperId: p.id, teachingClassId, offeringId: offeringId || undefined } })">交卷与批改</button>
             </td>
           </tr>
           <tr v-if="!papers.length"><td colspan="8" class="py-6 text-center text-slate-400">还没有测验或作业</td></tr>
@@ -199,6 +200,23 @@
         <span class="text-xs text-slate-400">合计 {{ totalScore }} 分（保存时会重算试卷满分）</span>
       </div>
     </div>
+
+    <!-- 删除草稿确认弹窗 -->
+    <div v-if="pendingDelete" class="fixed inset-0 z-40 bg-slate-900/40 flex items-center justify-center px-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5 space-y-3">
+        <h3 class="font-semibold text-slate-800">删除草稿？</h3>
+        <p class="text-sm text-slate-600">
+          即将删除「{{ pendingDelete.paperName }}」及其 {{ pendingDelete.questionCount || 0 }} 道题目，删除后不可恢复。
+        </p>
+        <p class="text-xs text-slate-400">只有草稿能删除；已发布、已截止或已有学生交卷的试卷不允许删除。</p>
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button class="btn-ghost text-sm" :disabled="deleting" @click="pendingDelete = null">取消</button>
+          <button class="btn-primary text-sm !bg-red-600" :disabled="deleting" @click="confirmDelete">
+            {{ deleting ? '删除中…' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -208,6 +226,7 @@ import { useRoute } from 'vue-router'
 import { paperApi, questionTypes, paperTypes } from '../../api/paper'
 import { contentApi } from '../../api/content'
 import { scoreApi } from '../../api/score'
+import { notify } from '../../toast'
 
 const route = useRoute()
 const props = defineProps({
@@ -236,9 +255,11 @@ const form = reactive({
 
 const totalScore = computed(() => Math.round(questions.value.reduce((s, q) => s + Number(q.fullScore || 0), 0) * 100) / 100)
 
+/** 页内提示（嵌入到教学详情页时用浮层，保证一定看得到） */
 function toast(msg, isOk = true) {
   message.value = msg
   ok.value = isOk
+  notify(msg, isOk)
   setTimeout(() => { if (message.value === msg) message.value = '' }, 3500)
 }
 function typeLabel(t) { return (paperTypes.find((x) => x.value === t) || {}).label || t }
@@ -390,12 +411,44 @@ function applyImport(res) {
 }
 
 async function doPublish(p, publish) {
+  if (publish && (!p.questionCount || p.questionCount === 0)) {
+    toast('这份卷子还没有题目，不能发布：请先导入或添加题目', false)
+    return
+  }
   try {
     await paperApi.publish(p.id, publish)
-    toast(publish ? '已发布，学生可见' : '已撤回为草稿')
+    toast(publish ? '发布成功：学生现在可以看到并作答' : '已撤回为草稿（学生不可见）')
     await load()
     if (editing.value && editing.value.id === p.id) await edit(p)
   } catch (e) { toast(e.message, false) }
+}
+
+// ---------------- 删除草稿（带确认弹窗） ----------------
+const pendingDelete = ref(null)
+const deleting = ref(false)
+
+function askDelete(p) {
+  if (p.status !== 'DRAFT') {
+    toast('只有草稿可以删除；已发布的请先撤回', false)
+    return
+  }
+  if (p.submitCount && p.submitCount > 0) {
+    toast('已有学生交卷，不能删除这份试卷', false)
+    return
+  }
+  pendingDelete.value = p
+}
+async function confirmDelete() {
+  const p = pendingDelete.value
+  if (!p) return
+  deleting.value = true
+  try {
+    await paperApi.remove(p.id)
+    pendingDelete.value = null
+    if (editing.value && editing.value.id === p.id) editing.value = null
+    toast('已删除草稿：' + p.paperName)
+    await load()
+  } catch (e) { toast(e.message, false) } finally { deleting.value = false }
 }
 async function doClose(p) {
   try {

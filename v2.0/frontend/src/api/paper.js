@@ -5,6 +5,7 @@ export const paperApi = {
   list: (teachingClassId) => http.get(`/teacher/papers?teachingClassId=${teachingClassId}`),
   get: (id) => http.get(`/teacher/papers/${id}`),
   save: (body) => http.post('/teacher/papers', body),
+  remove: (id) => http.delete(`/teacher/papers/${id}`),
   publish: (id, publish) => http.post(`/teacher/papers/${id}/publish?publish=${publish}`),
   close: (id) => http.post(`/teacher/papers/${id}/close`),
   importQuestions: (file) => {

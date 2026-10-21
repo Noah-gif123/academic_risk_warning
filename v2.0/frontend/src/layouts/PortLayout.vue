@@ -73,6 +73,8 @@
     </main>
 
     <footer class="text-center text-xs text-slate-400 py-4">学情预警系统 v2.0 · 四端统一入口</footer>
+
+    <ToastHost />
   </div>
 </template>
 
@@ -83,6 +85,7 @@ import { NAV } from '../nav'
 import { ROLES, clearSession, session } from '../session'
 import { authApi } from '../api/auth'
 import { notificationApi } from '../api/notification'
+import ToastHost from '../components/ToastHost.vue'
 
 const props = defineProps({ role: { type: String, required: true } })
 const route = useRoute()

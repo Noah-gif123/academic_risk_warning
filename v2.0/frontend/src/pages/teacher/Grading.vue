@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
-        <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.back()">← 返回</button>
+        <button class="text-sm text-slate-400 hover:text-slate-600" @click="goBack">← 返回{{ backLabel }}</button>
         <h1 class="text-lg font-semibold text-slate-800">交卷与批改</h1>
         <span v-if="paper" class="tag bg-brand-50 text-brand-600">{{ paper.paperName }}</span>
         <span v-if="paper" class="tag bg-slate-100 text-slate-500">满分 {{ paper.fullScore }}</span>
@@ -95,11 +95,12 @@
           <template v-if="a.qType === 'SHORT'">
             <span class="text-xs text-slate-500">给分</span>
             <input v-model.number="drafts[a.id].score" type="number" :max="a.fullScore" min="0" class="input w-24" />
+            <span class="text-xs text-slate-400">/ {{ a.fullScore }}</span>
             <input v-model="drafts[a.id].comment" class="input flex-1 min-w-48" placeholder="评语（可选）" />
           </template>
           <template v-else>
             <span class="text-sm" :class="a.isCorrect === 1 ? 'text-emerald-600' : 'text-red-600'">
-              {{ a.isCorrect === 1 ? '正确' : '错误' }} · {{ a.score }} 分
+              {{ a.isCorrect === 1 ? '正确' : '错误' }} · {{ a.score ?? 0 }} / {{ a.fullScore }} 分
             </span>
           </template>
         </div>
@@ -107,19 +108,36 @@
 
       <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
         <input v-model="remark" class="input flex-1 min-w-64" placeholder="整卷批注（可选）" />
-        <button class="btn-primary text-sm" :disabled="active.isAbsent === 1" @click="submitGrade">提交批改</button>
+        <button class="btn-primary text-sm" :disabled="active.isAbsent === 1 || saving" @click="submitGrade">
+          {{ saving ? '提交中…' : '提交批改' }}
+        </button>
         <span class="text-xs text-slate-400">只提交简答题的分数；客观题分数不可改。</span>
+      </div>
+
+      <!-- 批改完成反馈 -->
+      <div v-if="done" class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 space-y-1">
+        <p class="font-medium">
+          ✓ {{ done.studentName }} 批改完成 · 总分 {{ done.totalScore }} 分
+          <span class="ml-2 text-xs">{{ done.allMarked ? '该卷已全部批完' : '仍有主观题未批' }}</span>
+        </p>
+        <p class="text-xs text-emerald-600">已写入判卷人（{{ active.markedByName || '当前账号' }}）与批改时间，可在列表里看到状态变化。</p>
+        <div class="flex items-center gap-2 pt-1">
+          <button v-if="nextUnmarked" class="btn-primary text-xs" @click="openNext">批改下一位（{{ nextUnmarked.studentName }}）</button>
+          <button class="btn-ghost text-xs" @click="backToList">返回列表</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { paperApi, questionTypes } from '../../api/paper'
+import { notify } from '../../toast'
 
 const route = useRoute()
+const router = useRouter()
 const paperId = Number(route.query.paperId || 0)
 
 const paper = ref(null)
@@ -129,10 +147,39 @@ const drafts = reactive({})
 const remark = ref('')
 const message = ref('')
 const ok = ref(true)
+const saving = ref(false)
+const done = ref(null)
+
+/** 返回列表：回到教学详情对应的页签（测验 / 作业 / 项目），而不是笼统的上一页 */
+const teachingClassId = computed(() => (paper.value && paper.value.teachingClassId)
+  || Number(route.query.teachingClassId || 0))
+const offeringId = computed(() => Number(route.query.offeringId || 0))
+const backTab = computed(() => {
+  const t = paper.value && paper.value.paperType
+  if (t === 'HOMEWORK') return 'homework'
+  if (t === 'PROJECT') return 'project'
+  return 'quiz'
+})
+const backLabel = computed(() => ({ quiz: '测验列表', homework: '作业列表', project: '项目' }[backTab.value] || '列表'))
+
+function goBack() {
+  if (!paper.value || !teachingClassId.value) { router.back(); return }
+  router.push({
+    path: '/teacher/teaching',
+    query: {
+      teachingClassId: teachingClassId.value,
+      offeringId: offeringId.value || undefined,
+      tab: backTab.value
+    }
+  })
+}
+
+const nextUnmarked = computed(() => rows.value.find((r) => r.markedStatus !== 'ALL_MARKED' && r.isAbsent !== 1 && (!active.value || r.id !== active.value.id)) || null)
 
 function toast(msg, isOk = true) {
   message.value = msg
   ok.value = isOk
+  notify(msg, isOk)
   setTimeout(() => { if (message.value === msg) message.value = '' }, 3500)
 }
 function typeLabel(t) { return (questionTypes.find((x) => x.value === t) || {}).label || t }
@@ -153,11 +200,13 @@ function answerText(json, type) {
 
 async function load() {
   rows.value = await paperApi.submissions(paperId)
-  const list = await paperApi.list(route.query.teachingClassId ? Number(route.query.teachingClassId) : 1).catch(() => [])
-  paper.value = list.find((p) => p.id === paperId) || null
+  if (!paper.value) {
+    paper.value = await paperApi.get(paperId).catch(() => null)
+  }
 }
 
 async function open(r) {
+  done.value = null
   const full = await paperApi.submission(r.id)
   active.value = full
   remark.value = full.remark || ''
@@ -166,16 +215,32 @@ async function open(r) {
   })
 }
 
+async function openNext() {
+  const n = nextUnmarked.value
+  if (n) await open(n)
+}
+
+function backToList() {
+  active.value = null
+  done.value = null
+}
+
 async function submitGrade() {
   const items = (active.value.answers || [])
     .filter((a) => a.qType === 'SHORT')
     .map((a) => ({ answerId: a.id, score: drafts[a.id].score, comment: drafts[a.id].comment }))
+  saving.value = true
   try {
     const res = await paperApi.grade(active.value.id, { items, remark: remark.value })
-    toast('批改已保存，总分 ' + res.totalScore)
     active.value = res
+    done.value = {
+      studentName: res.studentName,
+      totalScore: res.totalScore,
+      allMarked: res.markedStatus === 'ALL_MARKED'
+    }
+    toast('批改已保存：' + res.studentName + ' 总分 ' + res.totalScore + ' 分')
     await load()
-  } catch (e) { toast(e.message, false) }
+  } catch (e) { toast(e.message, false) } finally { saving.value = false }
 }
 
 onMounted(async () => {

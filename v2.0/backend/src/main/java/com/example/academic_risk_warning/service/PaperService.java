@@ -220,6 +220,26 @@ public class PaperService {
         return toVO(p, true);
     }
 
+    /** 删除草稿：只有草稿、且没有学生交卷时才允许删除（已发布的请先撤回） */
+    @Transactional
+    public void deletePaper(Long paperId, Long teacherId) {
+        Paper p = requireMyPaper(paperId, teacherId);
+        if ("PUBLISHED".equals(p.getStatus())) {
+            throw new BizException("已发布的试卷不能删除，请先撤回为草稿");
+        }
+        if ("CLOSED".equals(p.getStatus())) {
+            throw new BizException("已截止的试卷不能删除");
+        }
+        long subs = submissionMapper.selectCount(Wrappers.<Submission>lambdaQuery()
+                .eq(Submission::getPaperId, paperId));
+        if (subs > 0) {
+            throw new BizException("已有学生交卷，不能删除这份试卷");
+        }
+        questionMapper.delete(Wrappers.<Question>lambdaQuery().eq(Question::getPaperId, paperId));
+        paperMapper.deleteById(paperId);
+        auditService.record("PAPER", paperId, "DELETE", null, null, "删除试卷草稿：" + p.getPaperName());
+    }
+
     private int markAbsentForPaper(Paper p, Long teacherId) {
         List<Enrollment> ens = enrollmentMapper.selectList(Wrappers.<Enrollment>lambdaQuery()
                 .eq(Enrollment::getTeachingClassId, p.getTeachingClassId()));

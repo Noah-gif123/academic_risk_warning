@@ -3,7 +3,9 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600"
-                @click="$router.push({ path: '/teacher/course/' + offeringId })">← 返回课程详情</button>
+                @click="$router.push(offeringId ? { path: '/teacher/course/' + offeringId } : '/teacher/courses')">
+          ← 返回{{ offeringId ? '课程详情' : '全部课程' }}
+        </button>
         <h1 class="text-lg font-semibold text-slate-800">教学详情</h1>
         <span class="tag bg-slate-100 text-slate-500">教学班 #{{ teachingClassId }}</span>
       </div>

@@ -62,6 +62,13 @@ public class TeacherPaperController {
         return Result.ok(paperService.closePaper(id, me()));
     }
 
+    /** 删除草稿（仅有草稿、无交卷时可用） */
+    @DeleteMapping("/papers/{id}")
+    public Result<Void> delete(@PathVariable Long id) {
+        paperService.deletePaper(id, me());
+        return Result.ok();
+    }
+
     /** 导入题目：只解析，不入库（教师校对后再保存） */
     @PostMapping("/papers/import")
     public Result<PaperImportVO> parse(@RequestParam("file") MultipartFile file) {

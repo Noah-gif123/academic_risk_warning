@@ -74,6 +74,7 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 | GET | `/api/notifications?unreadOnly=&page=&size=` | 四端共用消息中心：我的消息（按 `notification_receipt.recipient_id/role` 过滤分页） |
 | GET | `/api/notifications/unread-count` | 未读数（顶栏红点，前端 60 秒轮询） |
 | POST | `/api/notifications/{id}/read`、`/api/notifications/read-all` | 标记单条已读 / 全部已读（幂等，只能改自己的回执） |
+| DELETE | `/api/teacher/papers/{id}` | 删除试卷草稿（仅草稿、且无交卷；已发布需先撤回为草稿） |
 | GET/POST | `/api/admin/terms`、`/api/admin/terms/current`、`/api/admin/terms/{id}/calendar[/generate]` | 学期与教学周历 |
 | GET/POST | `/api/admin/majors`、`/api/admin/classes`、`/api/admin/counselor-assignments` | 专业、行政班、辅导员分配 |
 | GET/POST | `/api/admin/offerings`、`/api/admin/offerings/{id}/confirm-actual` | 开课实例与有效课次确认 |
