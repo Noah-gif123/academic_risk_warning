@@ -60,20 +60,19 @@
       </div>
       <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 max-h-[620px] overflow-y-auto pr-1">
         <div v-for="c in cards" :key="c.teachingClassId" class="card overflow-hidden flex flex-col hover:shadow-md transition">
-          <div class="h-32 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
+          <div class="h-24 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
             <span class="tag bg-white/85 text-slate-700">{{ courseTypeLabel(c.courseType) }}</span>
             <span class="tag" :class="c.status === '进行中' ? 'bg-white/90 text-brand-700' : 'bg-white/70 text-slate-600'">
               {{ c.status }}
             </span>
           </div>
-          <div class="p-4 pb-5 flex-1 flex flex-col justify-between">
-            <div class="space-y-2">
+          <div class="p-4 flex-1 flex flex-col justify-between">
+            <div class="space-y-1.5">
               <h3 class="text-base font-semibold text-slate-800 leading-snug">{{ c.courseName }}</h3>
               <p class="text-sm text-slate-500">{{ c.termName }}</p>
-              <p class="text-sm text-slate-400">{{ c.teacherName }}</p>
-              <p class="text-sm text-slate-400">{{ c.className }}</p>
+              <p class="text-sm text-slate-400">{{ c.teacherName }} ｜ {{ c.className }}</p>
             </div>
-            <div class="flex items-center justify-between mt-5 pt-3 border-t border-slate-100">
+            <div class="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
               <span class="text-xs text-slate-400">{{ c.canEnter ? '可以进入学习' : '暂不可进入' }}</span>
               <button class="text-sm text-brand-600 hover:underline font-medium"
                       :disabled="!c.canEnter"
