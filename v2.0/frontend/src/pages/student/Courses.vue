@@ -56,19 +56,22 @@
     <div v-if="!items.length" class="card p-10 text-center text-slate-400 text-sm">
       暂无课程{{ filters.keyword || filters.status ? '（试试重置筛选）' : '，用邀请码加入一门课吧' }}。
     </div>
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-5">
-      <div v-for="c in items" :key="c.teachingClassId" class="card overflow-hidden hover:shadow-md transition">
-        <div class="h-24 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div v-for="c in items" :key="c.teachingClassId" class="card overflow-hidden hover:shadow-md transition flex flex-col">
+        <div class="h-32 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
           <span class="tag bg-white/85 text-slate-700">{{ courseTypeLabel(c.courseType) }}</span>
           <span class="tag" :class="c.status === '进行中' ? 'bg-white/90 text-brand-700' : 'bg-white/70 text-slate-600'">
             {{ c.status }}
           </span>
         </div>
-        <div class="p-5 space-y-1.5">
-          <h3 class="text-lg font-semibold text-slate-800 leading-snug">{{ c.courseName }}</h3>
-          <p class="text-sm text-slate-500">{{ c.termName }}</p>
-          <p class="text-sm text-slate-400">{{ c.teacherName }} ｜ {{ c.className }}</p>
-          <button class="text-sm text-brand-600 hover:underline font-medium mt-2"
+        <div class="p-4 pb-5 flex-1 flex flex-col justify-between space-y-3">
+          <div class="space-y-2">
+            <h3 class="text-base font-semibold text-slate-800 leading-snug">{{ c.courseName }}</h3>
+            <p class="text-sm text-slate-500">{{ c.termName }}</p>
+            <p class="text-sm text-slate-400">{{ c.teacherName }}</p>
+            <p class="text-sm text-slate-400">{{ c.className }}</p>
+          </div>
+          <button class="text-sm text-brand-600 hover:underline font-medium self-start pt-2 border-t border-slate-100 w-full text-left"
                   @click="$router.push({ path: '/student/course/' + c.teachingClassId })">开始学习 →</button>
         </div>
       </div>

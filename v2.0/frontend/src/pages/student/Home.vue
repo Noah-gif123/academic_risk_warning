@@ -58,21 +58,22 @@
       <div v-else-if="!cards.length" class="card p-10 text-center text-slate-400 text-sm">
         本学期暂无课程。可以到「课程学习」输入邀请码加入课程。
       </div>
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[560px] overflow-y-auto pr-1">
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 max-h-[620px] overflow-y-auto pr-1">
         <div v-for="c in cards" :key="c.teachingClassId" class="card overflow-hidden flex flex-col hover:shadow-md transition">
-          <div class="h-28 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
+          <div class="h-32 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
             <span class="tag bg-white/85 text-slate-700">{{ courseTypeLabel(c.courseType) }}</span>
             <span class="tag" :class="c.status === '进行中' ? 'bg-white/90 text-brand-700' : 'bg-white/70 text-slate-600'">
               {{ c.status }}
             </span>
           </div>
-          <div class="p-5 flex-1 flex flex-col justify-between">
-            <div class="space-y-1.5">
-              <h3 class="text-lg font-semibold text-slate-800 leading-snug">{{ c.courseName }}</h3>
+          <div class="p-4 pb-5 flex-1 flex flex-col justify-between">
+            <div class="space-y-2">
+              <h3 class="text-base font-semibold text-slate-800 leading-snug">{{ c.courseName }}</h3>
               <p class="text-sm text-slate-500">{{ c.termName }}</p>
-              <p class="text-sm text-slate-400">{{ c.teacherName }} ｜ {{ c.className }}</p>
+              <p class="text-sm text-slate-400">{{ c.teacherName }}</p>
+              <p class="text-sm text-slate-400">{{ c.className }}</p>
             </div>
-            <div class="flex items-center justify-between mt-4">
+            <div class="flex items-center justify-between mt-5 pt-3 border-t border-slate-100">
               <span class="text-xs text-slate-400">{{ c.canEnter ? '可以进入学习' : '暂不可进入' }}</span>
               <button class="text-sm text-brand-600 hover:underline font-medium"
                       :disabled="!c.canEnter"

@@ -35,24 +35,24 @@
     <div v-if="!shown.length" class="card p-10 text-center text-slate-400 text-sm">
       没有符合条件的课程。
     </div>
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       <div v-for="c in shown" :key="c.offeringId" class="card overflow-hidden flex flex-col hover:shadow-md transition">
-        <div class="h-24 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
+        <div class="h-32 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
           <span class="tag bg-white/85 text-slate-700">{{ courseTypeLabel(c.courseType) }}</span>
           <span class="tag" :class="c.allClosed ? 'bg-white/80 text-slate-600' : 'bg-white/90 text-brand-700'">
             {{ c.allClosed ? '已结课' : '进行中' }}
           </span>
         </div>
-        <div class="p-5 flex-1 flex flex-col justify-between">
-          <div class="space-y-1.5">
-            <h3 class="text-lg font-semibold text-slate-800 leading-snug">{{ c.courseName }}</h3>
+        <div class="p-4 pb-5 flex-1 flex flex-col justify-between space-y-3">
+          <div class="space-y-2">
+            <h3 class="text-base font-semibold text-slate-800 leading-snug">{{ c.courseName }}</h3>
             <p class="text-sm text-slate-500">{{ c.termName }}</p>
             <p class="text-sm text-slate-400">负责 {{ c.classCount }} 个教学班 ｜ 学生 {{ c.studentCount }} 人</p>
             <p class="text-sm text-slate-400">
               {{ (c.classes || []).map((x) => x.classCode + ' ' + x.className).join('、') }}
             </p>
           </div>
-          <div class="flex items-center justify-between mt-4">
+          <div class="flex items-center justify-between pt-3 border-t border-slate-100">
             <button class="text-sm text-brand-600 hover:underline font-medium"
                     @click="$router.push({ path: '/teacher/course/' + c.offeringId })">课程详情 →</button>
             <button class="text-sm text-slate-500 hover:underline"
