@@ -79,6 +79,7 @@ public class RiskEngineService {
     private final TermMapper termMapper;
     private final CourseContentService contentService;
     private final AuditService auditService;
+    private final AlertEventService alertEventService;
 
     // ============================================================ 判定入口
     /**
@@ -210,6 +211,12 @@ public class RiskEngineService {
                 RiskState existing = riskStateMapper.selectOne(Wrappers.<RiskState>lambdaQuery()
                         .eq(RiskState::getEnrollmentId, e.getId()).last("limit 1"));
                 String beforeLevel = existing == null ? null : existing.getRiskLevel();
+                // 判定前快照（只看等级，用于事件层判断生成/升级/降级/关闭）
+                RiskState beforeSnapshot = null;
+                if (existing != null) {
+                    beforeSnapshot = new RiskState();
+                    beforeSnapshot.setRiskLevel(existing.getRiskLevel());
+                }
                 RiskState state = existing == null ? new RiskState() : existing;
 
                 state.setEnrollmentId(e.getId());
@@ -256,6 +263,8 @@ public class RiskEngineService {
                     riskStateMapper.updateById(state);
                     updated++;
                 }
+                // 第 2 步：判定后同步预警事件（生成 / 升级 / 降级 / 自动关闭 + 通知）
+                alertEventService.sync(beforeSnapshot, state);
                 if (beforeLevel != null && !beforeLevel.equals(level)) {
                     levelChanged++;
                 }

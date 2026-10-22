@@ -78,6 +78,10 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 | POST | `/api/engine/evaluate?termId=&offeringId=&teachingClassId=&enrollmentId=&trigger=` | **风险判定引擎**（第二阶段第 1 步）：按冻结口径算 A/B 通道并写 `risk_state`（一人一课一行、覆盖刷新、幂等）；教师只能按自己的教学班触发，教务可按学期/开课/选课触发 |
 | GET | `/api/teacher/risks?teachingClassId=&level=&keyword=` | 教师端风险名单（按等级/学号姓名过滤，按风险分倒序） |
 | GET | `/api/teacher/risks/stats?teachingClassId=` | 教师端预警总览（红/橙/黄/绿计数、硬门槛人数、最近判定时间、引擎版本） |
+| GET | `/api/teacher/alerts?offeringId=&teachingClassId=&level=&status=` | **预警事件列表**（第二阶段第 2 步）：只返回本人教学班的预警，按风险分倒序 |
+| GET | `/api/teacher/alerts/stats?teachingClassId=` | 预警总览计数（红橙黄、待处理/处理中/已关闭、已升级） |
+| GET | `/api/teacher/alerts/{id}` | 预警详情：预警本体 + 时间线（alert_flow_log）+ 处置记录（intervention_record）+ 当前风险状态 |
+| POST | `/api/teacher/alerts/{id}/claim`、`/handle`、`/close`、`/dismiss`、`/remind` | 认领 → 记录处理（写干预记录）→ 关闭（填结论）/ 忽略（必填原因）/ 提醒学生（站内消息） |
 | GET/POST | `/api/admin/terms`、`/api/admin/terms/current`、`/api/admin/terms/{id}/calendar[/generate]` | 学期与教学周历 |
 | GET/POST | `/api/admin/majors`、`/api/admin/classes`、`/api/admin/counselor-assignments` | 专业、行政班、辅导员分配 |
 | GET/POST | `/api/admin/offerings`、`/api/admin/offerings/{id}/confirm-actual` | 开课实例与有效课次确认 |
