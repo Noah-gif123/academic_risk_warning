@@ -75,6 +75,9 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 | GET | `/api/notifications/unread-count` | 未读数（顶栏红点，前端 60 秒轮询） |
 | POST | `/api/notifications/{id}/read`、`/api/notifications/read-all` | 标记单条已读 / 全部已读（幂等，只能改自己的回执） |
 | DELETE | `/api/teacher/papers/{id}` | 删除试卷草稿（仅草稿、且无交卷；已发布需先撤回为草稿） |
+| POST | `/api/engine/evaluate?termId=&offeringId=&teachingClassId=&enrollmentId=&trigger=` | **风险判定引擎**（第二阶段第 1 步）：按冻结口径算 A/B 通道并写 `risk_state`（一人一课一行、覆盖刷新、幂等）；教师只能按自己的教学班触发，教务可按学期/开课/选课触发 |
+| GET | `/api/teacher/risks?teachingClassId=&level=&keyword=` | 教师端风险名单（按等级/学号姓名过滤，按风险分倒序） |
+| GET | `/api/teacher/risks/stats?teachingClassId=` | 教师端预警总览（红/橙/黄/绿计数、硬门槛人数、最近判定时间、引擎版本） |
 | GET/POST | `/api/admin/terms`、`/api/admin/terms/current`、`/api/admin/terms/{id}/calendar[/generate]` | 学期与教学周历 |
 | GET/POST | `/api/admin/majors`、`/api/admin/classes`、`/api/admin/counselor-assignments` | 专业、行政班、辅导员分配 |
 | GET/POST | `/api/admin/offerings`、`/api/admin/offerings/{id}/confirm-actual` | 开课实例与有效课次确认 |
