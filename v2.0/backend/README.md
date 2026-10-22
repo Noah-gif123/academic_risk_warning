@@ -79,9 +79,10 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 | GET | `/api/teacher/risks?teachingClassId=&level=&keyword=` | 教师端风险名单（按等级/学号姓名过滤，按风险分倒序） |
 | GET | `/api/teacher/risks/stats?teachingClassId=` | 教师端预警总览（红/橙/黄/绿计数、硬门槛人数、最近判定时间、引擎版本） |
 | GET | `/api/teacher/alerts?offeringId=&teachingClassId=&level=&status=` | **预警事件列表**（第二阶段第 2 步）：只返回本人教学班的预警，按风险分倒序 |
-| GET | `/api/teacher/alerts/stats?teachingClassId=` | 预警总览计数（红橙黄、待处理/处理中/已关闭、已升级） |
+| GET | `/api/teacher/alerts/stats?teachingClassId=` | 预警总览计数（红橙黄、待处理/处理中/已关闭、已升级、今日新增、已判定人数、最近判定时间、引擎版本） |
 | GET | `/api/teacher/alerts/{id}` | 预警详情：预警本体 + 时间线（alert_flow_log）+ 处置记录（intervention_record）+ 当前风险状态 |
-| POST | `/api/teacher/alerts/{id}/claim`、`/handle`、`/close`、`/dismiss`、`/remind` | 认领 → 记录处理（写干预记录）→ 关闭（填结论）/ 忽略（必填原因）/ 提醒学生（站内消息） |
+| POST | `/api/teacher/alerts/{id}/claim`、`/handle`、`/close`、`/dismiss`、`/remind` | 认领 → 记录处理（写干预记录）→ 关闭（填结论）/ 忽略（必填原因）/ 提醒学生（站内消息，已结束的预警不可再提醒） |
+| GET | `/api/teacher/alerts/export?teachingClassId=&level=&status=` | **第 3 步**：教师端预警名单导出（xlsx，字段与列表一致：学号/姓名/教学班/课程/等级/通道/规则/风险分/置信度/缺课额度/期末需考/状态/处置/依据/生成时间） |
 | GET/POST | `/api/admin/terms`、`/api/admin/terms/current`、`/api/admin/terms/{id}/calendar[/generate]` | 学期与教学周历 |
 | GET/POST | `/api/admin/majors`、`/api/admin/classes`、`/api/admin/counselor-assignments` | 专业、行政班、辅导员分配 |
 | GET/POST | `/api/admin/offerings`、`/api/admin/offerings/{id}/confirm-actual` | 开课实例与有效课次确认 |
@@ -188,6 +189,14 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 及格线取 `course_offering.pass_score`；缺课 > `N_max` 直接 `HARD_LINE` 硬门槛挂科；
 **缺考/未交按 0 分计**（与「未录入」区分），有任一分项未录入时总评为 `NO_SCORE` 且不允许汇总；
 汇总后写入 `score_result`（`score_status=FINAL`，记录引擎版本），**折算分不落库**。
+
+**风险判定与预警事件（第二阶段 1-2）口径**：`N_max = floor(有效课次/3)`；A 通道按缺课硬线
+（缺课 > N_max 即 `FAIL`、剩余额度 ≤1 为危险、期末需考 > 100 分视作不可达）优先给出结论，
+B 通道 `S_B = clamp(0,100, 100 − T + 3×缺课)` 兜底并算班内排名；`置信度 = 覆盖率 × 完整性 × 样本量`，
+覆盖率 < 1/3 或置信度 < 0.15 时只输出 `BEHAVIOR_ONLY`（仅行为预警，不给分数结论）；分级线红 75 / 橙 60 / 黄 40，
+判定结果一人一课一行写入 `risk_state`（覆盖刷新、幂等、记录 `engine_version`）。事件层按「判定前等级 → 判定后等级」
+生成 / 升级 / 降级 / 自动关闭 `alert_record`，同等级只刷新分数与证据不刷时间线；一人一课只保留一条 `is_current=1`；
+**人工关闭或忽略后，同等级风险在 7 天冷却期内不再重复生成预警**，避免反复判定刷出重复告警。
 
 ## 配置要点（`src/main/resources/application.yml`）
 

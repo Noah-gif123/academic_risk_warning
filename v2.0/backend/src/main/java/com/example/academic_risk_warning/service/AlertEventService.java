@@ -36,9 +36,18 @@ import com.example.academic_risk_warning.security.LoginUser;
 import com.example.academic_risk_warning.vo.AlertRowVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -69,6 +78,8 @@ public class AlertEventService {
 
     private static final String[] LEVELS = { "GREEN", "YELLOW", "ORANGE", "RED" };
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyyMMdd");
+    /** 人工关闭/忽略后，同等级风险再次判定时的静默天数（避免重复判定刷出重复预警） */
+    private static final int REPEAT_ALERT_COOLDOWN_DAYS = 7;
 
     private final AlertRecordMapper alertMapper;
     private final AlertFlowLogMapper flowMapper;
@@ -111,6 +122,13 @@ public class AlertEventService {
             return;
         }
         if (current == null) {
+            // 人工关闭/忽略后同等级仍在冷却期内，不重复生成，避免重复判定刷出一堆重复预警
+            AlertRecord recent = recentManualClose(after.getEnrollmentId(), newLevel);
+            if (recent != null) {
+                log.info("跳过重复告警：enrollment={} level={} 最近一次人工关闭于 {}",
+                        after.getEnrollmentId(), newLevel, recent.getCloseTime());
+                return;
+            }
             createAlert(after, newLevel);
             return;
         }
@@ -131,6 +149,24 @@ public class AlertEventService {
     }
 
     // ============================================================ 生成 / 升级 / 降级 / 关闭
+    /** 同等级、人工关闭/忽略且仍在冷却期内的最近一条预警（无则返回 null） */
+    private AlertRecord recentManualClose(Long enrollmentId, String level) {
+        AlertRecord recent = alertMapper.selectOne(Wrappers.<AlertRecord>lambdaQuery()
+                .eq(AlertRecord::getEnrollmentId, enrollmentId)
+                .eq(AlertRecord::getIsVoid, 0)
+                .in(AlertRecord::getStatus, "CLOSED", "DISMISSED")
+                .eq(AlertRecord::getAlertLevel, level)
+                .isNotNull(AlertRecord::getCloseBy)
+                .isNotNull(AlertRecord::getCloseTime)
+                .orderByDesc(AlertRecord::getCloseTime)
+                .last("limit 1"));
+        if (recent == null || recent.getCloseTime() == null) {
+            return null;
+        }
+        return recent.getCloseTime().isAfter(LocalDateTime.now().minusDays(REPEAT_ALERT_COOLDOWN_DAYS))
+                ? recent : null;
+    }
+
     private void createAlert(RiskState s, String level) {
         LocalDateTime now = LocalDateTime.now();
         AlertRecord a = new AlertRecord();
@@ -348,6 +384,9 @@ public class AlertEventService {
     @Transactional
     public int remindStudent(LoginUser user, Long alertId, String note) {
         AlertRecord a = requireMyAlert(user, alertId);
+        if ("CLOSED".equals(a.getStatus()) || "DISMISSED".equals(a.getStatus())) {
+            throw new BizException("预警已结束，不能再提醒学生");
+        }
         RiskState s = riskStateMapper.selectOne(Wrappers.<RiskState>lambdaQuery()
                 .eq(RiskState::getEnrollmentId, a.getEnrollmentId()).last("limit 1"));
         RiskState snapshot = s == null ? new RiskState() : s;
@@ -376,12 +415,10 @@ public class AlertEventService {
         if (user == null) {
             throw new BizException("请先登录");
         }
-        List<TeachingClass> mine = classMapper.selectList(Wrappers.<TeachingClass>lambdaQuery()
-                .eq(user.getRefId() != null, TeachingClass::getTeacherId, user.getRefId()));
-        if (mine.isEmpty()) {
+        List<Long> classIds = myClassIds(user);
+        if (classIds.isEmpty()) {
             return List.of();
         }
-        List<Long> classIds = mine.stream().map(TeachingClass::getId).collect(Collectors.toList());
         if (teachingClassId != null) {
             if (!classIds.contains(teachingClassId)) {
                 throw new BizException("只能查看自己教学班的预警");
@@ -399,7 +436,7 @@ public class AlertEventService {
         return toRows(alerts);
     }
 
-    /** 教师端总览计数 */
+    /** 教师端总览计数（预警侧 + 判定侧元信息） */
     public Map<String, Object> stats(LoginUser user, Long teachingClassId) {
         List<AlertRowVO> rows = listForTeacher(user, null, teachingClassId, null, null);
         Map<String, Object> map = new LinkedHashMap<>();
@@ -411,7 +448,142 @@ public class AlertEventService {
         map.put("handling", rows.stream().filter((r) -> "HANDLING".equals(r.getStatus())).count());
         map.put("closed", rows.stream().filter((r) -> "CLOSED".equals(r.getStatus())).count());
         map.put("escalated", rows.stream().filter((r) -> r.getEscalated() != null && r.getEscalated() == 1).count());
+        LocalDate today = LocalDate.now();
+        map.put("todayNew", rows.stream()
+                .filter((r) -> r.getCreateTime() != null && today.equals(r.getCreateTime().toLocalDate()))
+                .count());
+        map.put("pending", rows.stream().filter((r) -> "ACTIVE".equals(r.getStatus())
+                || "HANDLING".equals(r.getStatus()) || "ESCALATED".equals(r.getStatus())).count());
+
+        // 判定侧：最近判定时间 + 引擎版本 + 已判定学生数
+        List<Long> classIds = myClassIds(user);
+        if (teachingClassId != null) {
+            if (!classIds.contains(teachingClassId)) {
+                throw new BizException("只能查看自己教学班的预警");
+            }
+            classIds = List.of(teachingClassId);
+        }
+        map.put("evaluated", 0L);
+        map.put("lastEvalTime", null);
+        map.put("engineVersion", null);
+        if (!classIds.isEmpty()) {
+            map.put("evaluated", riskStateMapper.selectCount(Wrappers.<RiskState>lambdaQuery()
+                    .in(RiskState::getTeachingClassId, classIds)
+                    .eq(RiskState::getIsVoid, 0)));
+            RiskState latest = riskStateMapper.selectOne(Wrappers.<RiskState>lambdaQuery()
+                    .in(RiskState::getTeachingClassId, classIds)
+                    .eq(RiskState::getIsVoid, 0)
+                    .isNotNull(RiskState::getLastEvalTime)
+                    .orderByDesc(RiskState::getLastEvalTime)
+                    .last("limit 1"));
+            if (latest != null) {
+                map.put("lastEvalTime", latest.getLastEvalTime());
+                map.put("engineVersion", latest.getEngineVersion());
+            }
+        }
         return map;
+    }
+
+    /** 教师端导出（xlsx）：一行一条预警，字段与列表页一致 */
+    public byte[] exportForTeacher(LoginUser user, Long teachingClassId, String level, String status) {
+        List<AlertRowVO> rows = listForTeacher(user, null, teachingClassId, level, status);
+        String[] heads = { "学号", "姓名", "教学班", "课程", "预警等级", "触发通道", "触发规则", "风险分",
+                "置信度", "输出模式", "缺课次数", "允许缺课", "剩余额度", "硬性不合格", "期末需考",
+                "状态", "处置人", "处置说明", "判定依据", "生成时间" };
+        try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            Sheet sheet = wb.createSheet("预警名单");
+            CellStyle headStyle = wb.createCellStyle();
+            Font font = wb.createFont();
+            font.setBold(true);
+            headStyle.setFont(font);
+            headStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            Row head = sheet.createRow(0);
+            for (int i = 0; i < heads.length; i++) {
+                head.createCell(i).setCellValue(heads[i]);
+                head.getCell(i).setCellStyle(headStyle);
+                sheet.setColumnWidth(i, (i == 18 ? 40 : 14) * 256);
+            }
+            int r = 1;
+            for (AlertRowVO v : rows) {
+                Row row = sheet.createRow(r++);
+                int c = 0;
+                row.createCell(c++).setCellValue(nvl(v.getStudentNo()));
+                row.createCell(c++).setCellValue(nvl(v.getStudentName()));
+                row.createCell(c++).setCellValue(nvl(v.getClassCode()));
+                row.createCell(c++).setCellValue(nvl(v.getCourseName()));
+                row.createCell(c++).setCellValue(levelText(v.getAlertLevel()));
+                row.createCell(c++).setCellValue(nvl(v.getTriggerChannel()));
+                row.createCell(c++).setCellValue(nvl(v.getTriggerRule()));
+                row.createCell(c++).setCellValue(v.getRiskScore() == null ? "" : v.getRiskScore().toPlainString());
+                row.createCell(c++).setCellValue(v.getConfidence() == null ? "" : v.getConfidence().toPlainString());
+                row.createCell(c++).setCellValue(nvl(v.getOutputMode()));
+                row.createCell(c++).setCellValue(nz(v.getAbsentCount()));
+                row.createCell(c++).setCellValue(nz(v.getAllowedAbsent()));
+                row.createCell(c++).setCellValue(nz(v.getRemainingAbsent()));
+                row.createCell(c++).setCellValue(nz(v.getHardFail()) == 1 ? "是" : "否");
+                row.createCell(c++).setCellValue(v.getFinalExamNeeded() == null ? ""
+                        : (nz(v.getFinalUnreachable()) == 1 ? "不可达" : v.getFinalExamNeeded().toPlainString()));
+                row.createCell(c++).setCellValue(statusText(v.getStatus()));
+                row.createCell(c++).setCellValue(nvl(v.getHandleRole()));
+                row.createCell(c++).setCellValue(nvl(v.getHandleNote()));
+                row.createCell(c++).setCellValue(nvl(v.getAlertReason()));
+                row.createCell(c).setCellValue(v.getCreateTime() == null ? ""
+                        : v.getCreateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            }
+            wb.write(bos);
+            return bos.toByteArray();
+        } catch (IOException e) {
+            throw new BizException("导出失败：" + e.getMessage());
+        }
+    }
+
+    private static String levelText(String level) {
+        if (level == null) {
+            return "";
+        }
+        switch (level) {
+            case "RED":
+                return "红色";
+            case "ORANGE":
+                return "橙色";
+            case "YELLOW":
+                return "黄色";
+            case "GREEN":
+                return "绿色";
+            default:
+                return level;
+        }
+    }
+
+    private static String statusText(String status) {
+        if (status == null) {
+            return "";
+        }
+        switch (status) {
+            case "ACTIVE":
+                return "待处理";
+            case "HANDLING":
+                return "处理中";
+            case "ESCALATED":
+                return "已升级";
+            case "CLOSED":
+                return "已关闭";
+            case "DISMISSED":
+                return "已忽略";
+            default:
+                return status;
+        }
+    }
+
+    /** 当前用户（教师）名下教学班 id */
+    private List<Long> myClassIds(LoginUser user) {
+        if (user == null) {
+            throw new BizException("请先登录");
+        }
+        return classMapper.selectList(Wrappers.<TeachingClass>lambdaQuery()
+                        .eq(user.getRefId() != null, TeachingClass::getTeacherId, user.getRefId()))
+                .stream().map(TeachingClass::getId).collect(Collectors.toList());
     }
 
     /** 单条预警及其时间线（教师端详情用） */

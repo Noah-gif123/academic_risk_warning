@@ -36,7 +36,7 @@ const routes = [
     { path: 'courses', component: () => import('../pages/teacher/Courses.vue'), meta: { title: '全部课程' } },
     { path: 'course/:offeringId', component: () => import('../pages/teacher/CourseDetail.vue'), meta: { title: '课程详情' } },
     { path: 'teaching', component: () => import('../pages/teacher/TeachingDetail.vue'), meta: { title: '教学详情' } },
-    { path: 'monitor', component: Placeholder, meta: { title: '预警监控' } }
+    { path: 'monitor', component: () => import('../pages/teacher/Monitor.vue'), meta: { title: '预警监控' } }
   ] },
 
   { path: '/counselor', component: () => import('../layouts/PortLayout.vue'), props: { role: 'COUNSELOR' }, children: [

@@ -34,10 +34,32 @@ public class TeacherAlertController {
         return Result.ok(alertEventService.listForTeacher(UserContext.require(), offeringId, teachingClassId, level, status));
     }
 
-    /** 预警总览计数：总数、红橙黄、待处理/处理中/已关闭、已升级 */
+    /** 预警总览计数：总数、红橙黄、待处理/处理中/已关闭、已升级、今日新增、最近判定 */
     @GetMapping("/stats")
     public Result<Map<String, Object>> stats(@RequestParam(required = false) Long teachingClassId) {
         return Result.ok(alertEventService.stats(UserContext.require(), teachingClassId));
+    }
+
+    /** 导出预警名单（xlsx，字段与列表页一致） */
+    @GetMapping("/export")
+    public org.springframework.http.ResponseEntity<byte[]> export(@RequestParam(required = false) Long teachingClassId,
+                                                                @RequestParam(required = false) String level,
+                                                                @RequestParam(required = false) String status) {
+        byte[] body = alertEventService.exportForTeacher(UserContext.require(), teachingClassId, level, status);
+        String name = "预警名单.xlsx";
+        String encoded;
+        try {
+            encoded = java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8.name())
+                    .replace("+", "%20");
+        } catch (java.io.UnsupportedEncodingException e) {
+            encoded = "alerts.xlsx";
+        }
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename*=UTF-8''" + encoded)
+                .contentType(org.springframework.http.MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(body);
     }
 
     /** 预警详情：预警本体 + 时间线 + 处置记录 + 当前风险状态 */
