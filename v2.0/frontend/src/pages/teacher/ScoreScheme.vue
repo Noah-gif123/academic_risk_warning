@@ -6,7 +6,7 @@
         <h1 class="text-lg font-semibold text-slate-800">成绩构成</h1>
         <span v-if="scheme" class="tag bg-brand-50 text-brand-600">{{ scheme.courseName }}</span>
         <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ scheme.termName }}</span>
-        <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ scheme.courseType }} · {{ scheme.level }}</span>
+        <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ courseTypeLabel(scheme.courseType) }} · {{ scheme.level }}</span>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
@@ -44,7 +44,7 @@
           <select v-model="tplId" class="input mt-1 w-64">
             <option :value="''">请选择模板</option>
             <option v-for="t in templates" :key="t.id" :value="t.id">
-              {{ t.templateName }}（{{ t.courseType }} · {{ t.level }}）
+              {{ t.templateName }}（{{ courseTypeLabel(t.courseType) }} · {{ t.level }}）
             </option>
           </select>
         </label>
@@ -141,6 +141,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { scoreApi } from '../../api/score'
+import { courseTypeLabel } from '../../labels'
 
 const route = useRoute()
 const router = useRouter()

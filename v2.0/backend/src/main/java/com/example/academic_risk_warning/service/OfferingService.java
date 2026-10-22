@@ -92,7 +92,8 @@ public class OfferingService {
             vo.setEffectiveSessions(o.getEffectiveSessions());
             vo.setEffectiveSource(o.getEffectiveSource());
             vo.setPassScore(o.getPassScore());
-            vo.setStatus(o.getStatus());
+            vo.setActualSubmitStatus(o.getActualSubmitStatus());
+        vo.setStatus(o.getStatus());
             vo.setClassCount(classCounts.getOrDefault(o.getId(), 0L).intValue());
             vo.setEnrollCount(enrollCounts.getOrDefault(o.getId(), 0L).intValue());
             vo.setSessionCount(sessionCounts.getOrDefault(o.getId(), 0L).intValue());
@@ -162,6 +163,9 @@ public class OfferingService {
         CourseOffering o = offeringMapper.selectById(offeringId);
         if (o == null) {
             throw new BizException("开课实例不存在");
+        }
+        if ("CONFIRMED".equals(o.getActualSubmitStatus())) {
+            throw new BizException("有效课次已确认并锁定，不能重复确认；如需调整请联系系统管理员");
         }
         // 实际课次优先取“已生成的课次数”（已发生/已排定的课）；没有再退回计划课次
         long generated = sessionMapper.selectCount(Wrappers.<CourseSession>lambdaQuery()

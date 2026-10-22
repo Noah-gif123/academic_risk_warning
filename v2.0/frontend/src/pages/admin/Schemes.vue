@@ -28,7 +28,7 @@
           <tr v-for="t in templates" :key="t.id" class="border-b border-slate-100">
             <td class="py-2">{{ t.templateCode }}</td>
             <td class="py-2">{{ t.templateName }}</td>
-            <td class="py-2 text-slate-500">{{ t.courseType }}</td>
+            <td class="py-2 text-slate-500">{{ courseTypeLabel(t.courseType) }}</td>
             <td class="py-2 text-slate-500">{{ t.level }}</td>
             <td class="py-2">{{ t.isDefault === 1 ? '默认' : '—' }}</td>
             <td class="py-2 text-slate-500">{{ t.description || '—' }}</td>
@@ -61,7 +61,7 @@
         <tbody>
           <tr v-for="s in schemes" :key="s.id" class="border-b border-slate-100"
               :class="active && active.id === s.id ? 'bg-brand-50/40' : ''">
-            <td class="py-2">{{ s.courseName }} <span class="tag bg-slate-100 text-slate-500 ml-1">{{ s.courseType }}</span></td>
+            <td class="py-2">{{ s.courseName }} <span class="tag bg-slate-100 text-slate-500 ml-1">{{ courseTypeLabel(s.courseType) }}</span></td>
             <td class="py-2 text-slate-500">{{ s.termName }}</td>
             <td class="py-2 text-right">v{{ s.version }}</td>
             <td class="py-2 text-right" :class="Number(s.totalWeight) === 100 ? 'text-emerald-600' : 'text-red-600'">{{ s.totalWeight }}</td>
@@ -124,6 +124,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { adminApi } from '../../api/admin'
+import { courseTypeLabel } from '../../labels'
 import { adminScoreApi } from '../../api/score'
 
 const message = ref('')

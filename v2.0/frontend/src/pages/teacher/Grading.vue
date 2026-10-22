@@ -51,7 +51,9 @@
             <td class="py-2 text-right font-medium">{{ r.totalScore ?? '待批' }}</td>
             <td class="py-2 text-slate-500">{{ fmt(r.submitTime) }}</td>
             <td class="py-2 text-right">
-              <button class="text-brand-600 hover:underline" @click="open(r)">{{ r.isAbsent === 1 ? '查看' : '批改' }}</button>
+              <button class="text-brand-600 hover:underline" :disabled="opening === r.id" @click="open(r)">
+                {{ opening === r.id ? '打开中…' : (r.isAbsent === 1 ? '查看' : '批改') }}
+              </button>
             </td>
           </tr>
           <tr v-if="!rows.length"><td colspan="9" class="py-6 text-center text-slate-400">还没有学生交卷</td></tr>
@@ -60,7 +62,7 @@
     </div>
 
     <!-- 批改面板 -->
-    <div class="card p-4 space-y-3" v-if="active">
+    <div ref="panelEl" class="card p-4 space-y-3 scroll-mt-4" v-if="active">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">
           {{ active.studentNo }} · {{ active.studentName }} 的作答
@@ -133,7 +135,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { paperApi, questionTypes } from '../../api/paper'
 import { notify } from '../../toast'
@@ -150,6 +152,8 @@ const remark = ref('')
 const message = ref('')
 const ok = ref(true)
 const saving = ref(false)
+const opening = ref(0)
+const panelEl = ref(null)
 const done = ref(null)
 
 /** 返回列表：回到教学详情对应的页签（测验 / 作业 / 项目），而不是笼统的上一页 */
@@ -219,12 +223,24 @@ async function load() {
 
 async function open(r) {
   done.value = null
-  const full = await paperApi.submission(r.id)
-  active.value = full
-  remark.value = full.remark || ''
-  ;(full.answers || []).forEach((a) => {
-    drafts[a.id] = { score: a.score == null ? 0 : Number(a.score), comment: a.comment || '' }
-  })
+  opening.value = r.id
+  try {
+    const full = await paperApi.submission(r.id)
+    active.value = full
+    remark.value = full.remark || ''
+    ;(full.answers || []).forEach((a) => {
+      drafts[a.id] = { score: a.score == null ? 0 : Number(a.score), comment: a.comment || '' }
+    })
+    // 批改面板在列表下方，打开后滚到面板，避免“点了没反应”的错觉
+    await nextTick()
+    if (panelEl.value && panelEl.value.scrollIntoView) {
+      panelEl.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  } catch (e) {
+    toast('打开作答失败：' + e.message, false)
+  } finally {
+    opening.value = 0
+  }
 }
 
 async function openNext() {

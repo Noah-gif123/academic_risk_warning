@@ -166,6 +166,7 @@ public class AttendanceService {
         if ("CANCELLED".equals(session.getStatus())) {
             throw new BizException("该课次已取消，不能点名");
         }
+        ensureNotLocked(session);
         Map<Long, String> wanted = new LinkedHashMap<>();
         Map<Long, String> leaveTypes = new LinkedHashMap<>();
         if (req.getItems() != null) {
@@ -249,6 +250,7 @@ public class AttendanceService {
         if ("ARCHIVE".equals(r.getPhase())) {
             throw new BizException("该记录已归档并冻结：教师不能修改，需教务更正并留痕");
         }
+        ensureNotLocked(session);
         String status = normalizeStatus(req.getStatus());
         String leaveType = LEAVE.equals(status) ? req.getLeaveType() : null;
         String old = r.getStatus();
@@ -333,6 +335,69 @@ public class AttendanceService {
     }
 
     // ============================================================ 批量导入
+    /**
+     * 考勤导入模板：表头与示例行固定，第一列学号可对照本教学班名单逐个填写。
+     * 返回 xlsx 字节，由 Controller 以附件下载。
+     */
+    public byte[] importTemplate(Long teachingClassId, Long teacherId) {
+        TeachingClass tc = contentService.requireMyClass(teachingClassId, teacherId);
+        List<CourseSession> sessions = sessionsOf(tc);
+        String firstNo = "";
+        List<String> sampleNos = new ArrayList<>();
+        for (Enrollment e : enrollmentsOf(tc.getId())) {
+            Student st = studentMapper.selectById(e.getStudentId());
+            if (st != null) {
+                if (firstNo.isEmpty()) {
+                    firstNo = st.getStudentNo();
+                }
+                if (sampleNos.size() < 3) {
+                    sampleNos.add(st.getStudentNo());
+                }
+            }
+        }
+        int firstSessionNo = sessions.isEmpty() ? 1 : sessions.get(0).getSessionNo();
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            Sheet sheet = wb.createSheet("考勤导入");
+            String[] head = { "学号", "课次序号", "状态", "请假类型" };
+            Row h = sheet.createRow(0);
+            for (int i = 0; i < head.length; i++) {
+                Cell c = h.createCell(i);
+                c.setCellValue(head[i]);
+                sheet.setColumnWidth(i, (i == 2 || i == 3) ? 14 * 256 : 18 * 256);
+            }
+            String[][] sample = {
+                    { firstNo.isEmpty() ? "20250001" : firstNo, String.valueOf(firstSessionNo), "出勤", "" },
+                    { sampleNos.size() > 1 ? sampleNos.get(1) : "20250002", String.valueOf(firstSessionNo), "迟到", "" },
+                    { sampleNos.size() > 2 ? sampleNos.get(2) : "20250003", String.valueOf(firstSessionNo), "缺课", "" }
+            };
+            for (int i = 0; i < sample.length; i++) {
+                Row r = sheet.createRow(i + 1);
+                for (int j = 0; j < sample[i].length; j++) {
+                    r.createCell(j).setCellValue(sample[i][j]);
+                }
+            }
+            Sheet note = wb.createSheet("填写说明");
+            String[] lines = {
+                    "1. 第一列填学号（本教学班名单里的学号），不能为空；",
+                    "2. 第二列填课次序号（课次表里的“第几次”，不是周次）；",
+                    "3. 第三列只能填：出勤 / 迟到 / 缺课 / 请假；",
+                    "4. 第四列只有“请假”时才填：事假 / 病假 / 公假，其他留空；",
+                    "5. 导入成功即视为该课次考勤已提交并锁定，之后不能再改（需教务更正）；",
+                    "6. 只支持 .xlsx 与 .csv；表头行可以保留，系统会自动跳过。",
+                    "教学班：" + tc.getClassCode() + "（" + (tc.getClassName() == null ? "" : tc.getClassName()) + "）"
+            };
+            for (int i = 0; i < lines.length; i++) {
+                note.createRow(i).createCell(0).setCellValue(lines[i]);
+            }
+            note.setColumnWidth(0, 90 * 256);
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            wb.write(bos);
+            return bos.toByteArray();
+        } catch (Exception e) {
+            throw new BizException("生成导入模板失败：" + e.getMessage());
+        }
+    }
+
     @Transactional
     public AttendanceImportVO importFile(MultipartFile file, Long teachingClassId, Long teacherId) {
         TeachingClass tc = contentService.requireMyClass(teachingClassId, teacherId);
@@ -411,6 +476,11 @@ public class AttendanceService {
             if (r != null && "ARCHIVE".equals(r.getPhase())) {
                 skipped++;
                 addError(errors, "第 " + (total + 1) + " 行：该课次已归档，导入不改归档数据");
+                continue;
+            }
+            if ("CALLED".equals(session.getRollCallStatus())) {
+                skipped++;
+                addError(errors, "第 " + (total + 1) + " 行：该课次考勤已提交并锁定，不能再用导入覆盖（需教务更正）");
                 continue;
             }
             String leaveType = LEAVE.equals(status) ? mapLeaveType(leaveText) : null;
@@ -756,6 +826,13 @@ public class AttendanceService {
             throw new BizException("课次不属于该教学班");
         }
         return s;
+    }
+
+    /** 考勤“提交即锁定”：已点名的课次，教师不能再改，只能走教务更正 */
+    private void ensureNotLocked(CourseSession session) {
+        if ("CALLED".equals(session.getRollCallStatus())) {
+            throw new BizException("该课次考勤已提交并锁定，不能再修改；如需更正请联系教务处");
+        }
     }
 
     private List<Enrollment> enrollmentsOf(Long teachingClassId) {

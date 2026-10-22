@@ -15,7 +15,7 @@
         <label class="text-sm">行政班
           <select v-model="form.adminClassId" class="input mt-1">
             <option :value="''">请选择</option>
-            <option v-for="c in classes" :key="c.adminClassId" :value="c.adminClassId">{{ c.className }}</option>
+            <option v-for="c in classes" :key="c.adminClassId" :value="c.adminClassId">{{ c.className }}（{{ c.gradeYear }}级）</option>
           </select>
         </label>
         <label class="text-sm">评价的课程（开课）

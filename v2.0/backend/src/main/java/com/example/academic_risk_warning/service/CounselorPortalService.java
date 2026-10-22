@@ -711,7 +711,7 @@ public class CounselorPortalService {
                         AdministrativeClass ac = adminClassMapper.selectById(Long.parseLong(t));
                         if (ac != null) {
                             v.setAdminClassId(ac.getId());
-                            v.setAdminClassName(ac.getClassName());
+                            v.setAdminClassName(classLabel(ac));
                         }
                     } catch (NumberFormatException ignored) {
                         // 忽略脏数据

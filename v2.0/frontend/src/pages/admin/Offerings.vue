@@ -17,7 +17,7 @@
         <label class="text-sm">课程
           <select v-model="form.courseId" class="input mt-1">
             <option :value="''">请选择</option>
-            <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.courseName }}（{{ c.courseType }}）</option>
+            <option v-for="c in courses" :key="c.id" :value="c.id">{{ c.courseName }}（{{ courseTypeLabel(c.courseType) }}）</option>
           </select>
         </label>
         <label class="text-sm">计划周数
@@ -51,7 +51,7 @@
         <tbody>
           <tr v-for="o in offerings" :key="o.id" class="border-b border-slate-100"
               :class="active && active.id === o.id ? 'bg-brand-50/40' : ''">
-            <td class="py-2">{{ o.courseName }} <span class="tag bg-slate-100 text-slate-500 ml-1">{{ o.courseType }}</span></td>
+            <td class="py-2">{{ o.courseName }} <span class="tag bg-slate-100 text-slate-500 ml-1">{{ courseTypeLabel(o.courseType) }}</span></td>
             <td class="py-2 text-slate-500">{{ o.termName }}</td>
             <td class="py-2 text-right">{{ o.plannedSessions }}</td>
             <td class="py-2 text-right">
@@ -64,7 +64,10 @@
             <td class="py-2 text-right">{{ o.sessionCount }}</td>
             <td class="py-2 text-right whitespace-nowrap">
               <button class="text-brand-600 hover:underline mr-3" @click="selectOffering(o)">教学班 / 课次</button>
-              <button class="text-emerald-600 hover:underline" @click="doConfirm(o)">确认有效课次</button>
+              <span v-if="o.actualSubmitStatus === 'CONFIRMED'" class="text-slate-400" title="有效课次已锁定">
+                已确认并锁定
+              </span>
+              <button v-else class="text-emerald-600 hover:underline" @click="doConfirm(o)">确认有效课次</button>
             </td>
           </tr>
           <tr v-if="!offerings.length"><td colspan="8" class="py-6 text-center text-slate-400">暂无开课实例</td></tr>
@@ -162,6 +165,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { adminApi } from '../../api/admin'
+import { courseTypeLabel } from '../../labels'
 
 const message = ref('')
 const ok = ref(true)
@@ -210,7 +214,12 @@ async function createOffering() {
   } catch (e) { toast(e.message, false) }
 }
 async function doConfirm(o) {
-  try { await adminApi.confirmActual(o.id); toast('已确认有效课次'); await loadOfferings() }
+  const ok = window.confirm(
+    '确认「' + o.courseName + '」的有效课次为 ' + (o.actualSessions || o.plannedSessions) + '？\n\n'
+    + '确认后该开课实例的有效课次将锁定，作为 1/3 缺课门槛与点名覆盖率的分母，不能再重复确认。'
+  )
+  if (!ok) return
+  try { await adminApi.confirmActual(o.id); toast('已确认有效课次并锁定'); await loadOfferings() }
   catch (e) { toast(e.message, false) }
 }
 async function createClass() {

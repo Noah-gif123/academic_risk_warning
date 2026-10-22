@@ -71,6 +71,21 @@ public class TeacherAttendanceController {
         return Result.ok(attendanceService.importFile(file, teachingClassId, me()));
     }
 
+    /** 下载考勤导入模板（xlsx，含表头/示例行/填写说明） */
+    @GetMapping("/attendance/import-template")
+    public org.springframework.http.ResponseEntity<byte[]> importTemplate(@RequestParam Long teachingClassId) {
+        byte[] body = attendanceService.importTemplate(teachingClassId, me());
+        String fileName = "考勤导入模板.xlsx";
+        String encoded = java.net.URLEncoder.encode(fileName, java.nio.charset.StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename*=UTF-8''" + encoded)
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .body(body);
+    }
+
     @GetMapping("/attendance/archives")
     public Result<List<ArchiveVO>> archives(@RequestParam Long teachingClassId) {
         return Result.ok(attendanceService.listTeacherArchives(teachingClassId, me()));

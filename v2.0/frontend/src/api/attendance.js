@@ -13,6 +13,8 @@ export const attendanceApi = {
     fd.append('file', file)
     return http.upload(`/teacher/attendance/import?teachingClassId=${teachingClassId}`, fd)
   },
+  template: (teachingClassId) =>
+    http.download(`/teacher/attendance/import-template?teachingClassId=${teachingClassId}`, '考勤导入模板.xlsx'),
   archives: (teachingClassId) => http.get(`/teacher/attendance/archives?teachingClassId=${teachingClassId}`),
   submitArchive: (body) => http.post('/teacher/attendance/archives', body)
 }

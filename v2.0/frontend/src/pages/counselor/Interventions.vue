@@ -13,7 +13,7 @@
       <label class="text-sm">行政班
         <select v-model="adminClassId" class="input mt-1 w-56" @change="load">
           <option :value="0">全部班级</option>
-          <option v-for="c in classes" :key="c.adminClassId" :value="c.adminClassId">{{ c.className }}</option>
+          <option v-for="c in classes" :key="c.adminClassId" :value="c.adminClassId">{{ c.className }}（{{ c.gradeYear }}级）</option>
         </select>
       </label>
       <label class="text-xs mb-2 text-slate-500">共 {{ rows.length }} 条记录</label>
