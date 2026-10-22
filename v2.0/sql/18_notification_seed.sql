@@ -1,5 +1,5 @@
 -- ============================================================
--- 18_notification_seed.sql  四端消息中心演示数据
+-- 18_notification_seed.sql（已被 20_rebuild_demo.sql 取代：20 里已含四端消息，重复执行会重复插入）  四端消息中心演示数据
 -- 说明：notification 为通知主体（聚合去重），notification_receipt 为“每个接收人 × 渠道”一行；
 --       消息中心按 receipt(recipient_id, recipient_role, channel='IN_APP') 关联 notification 列表。
 --       本脚本可重复执行：先按标题清理本脚本插入的演示通知，再重新写入。

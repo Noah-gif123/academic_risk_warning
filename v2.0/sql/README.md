@@ -34,10 +34,27 @@
 | **15** | **`15_alter_2026_09.sql`** | **2026-09 口径修订（删知识点 / 删课程编码 / 作业改造 / 覆盖率 1/3）** | — |
 | | | **合计建表** | **60** |
 
+### 演示数据脚本（按需执行，不参与建表）
+
+| 文件 | 作用 | 说明 |
+|---|---|---|
+| `16_auth_token.sql` | 令牌落库 | `sys_account` 增加 `token` / `token_expire_time` + `uk_token` |
+| `17_dict_align.sql` | 数据字典口径对齐 | 只改列注释（`enrollment.status`、`password_hash`） |
+| `18_notification_seed.sql` | 四端消息演示数据 | **已被 `20_rebuild_demo.sql` 覆盖，勿与 20 一起执行**（会重复） |
+| **`19_cleanup_demo.sql`** | **清理脏数据** | 删测试卷、空壳学期；修枚举值；清内部标记；`teacher_style` 中的合成真值 |
+| **`20_rebuild_demo.sql`** | **重建主线演示数据**（由 `tool/seed_demo.js` 生成） | 3 班 × 45 人、5 门课、12 教学班、540 选课、192 课次、6480 考勤、540 成绩单、10+2 张试卷、540 风险、30 预警、问卷四环节；term 4 历史 + term 8 合成样本 |
+| **`21_tidy_after_rebuild.sql`** | 重建后收尾 | 清孤儿教学班/选课，合成学期改由 6~9 号教师带班 |
+
 ```bash
-mysql --host=127.0.0.1 -uroot -p study_warning_system_v2 < 01_base_layer.sql
-# … 依次 02 → 14
-mysql --host=127.0.0.1 -uroot -p study_warning_system_v2 < 15_alter_2026_09.sql
+# 建表（01→15）
+mysql -uroot -p study_warning_system_v2 < 01_base_layer.sql
+# … 依次 02 → 14，再 15
+mysql -uroot -p study_warning_system_v2 < 15_alter_2026_09.sql
+
+# 演示数据（一条主线 + 历史 + 合成样本）
+mysql -uroot -p study_warning_system_v2 < 19_cleanup_demo.sql
+mysql -uroot -p study_warning_system_v2 < 20_rebuild_demo.sql
+mysql -uroot -p study_warning_system_v2 < 21_tidy_after_rebuild.sql
 ```
 
 > 基线（01–10）保持原样、修订集中在 15 号脚本，便于审计“哪些是后来改的”。

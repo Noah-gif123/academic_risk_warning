@@ -182,7 +182,7 @@ public class CounselorPortalService {
         List<String> reminders = new ArrayList<>();
         for (AdministrativeClass ac : classes) {
             List<Student> students = studentsOfClass(ac.getId());
-            List<CounselorStudentVO> rows = studentVOs(students);
+            List<CounselorStudentVO> rows = studentVOs(students, useTerm);
             allStudents.addAll(rows);
             CounselorClassSummaryVO cv = classVO(ac, rows, week);
             classVOs.add(cv);
@@ -290,15 +290,17 @@ public class CounselorPortalService {
                 .orderByAsc(Student::getStudentNo));
     }
 
-    private List<CounselorStudentVO> studentVOs(List<Student> students) {
+    private List<CounselorStudentVO> studentVOs(List<Student> students, Long termId) {
         List<CounselorStudentVO> out = new ArrayList<>();
         if (students.isEmpty()) {
             return out;
         }
         List<Long> studentIds = students.stream().map(Student::getId).collect(Collectors.toList());
         Map<Long, List<Enrollment>> enrollmentByStudent = new LinkedHashMap<>();
+        // 只统计当前学期的选课与成绩：否则上学期/合成学期的挂科会串到本学期的风险人数里
         List<Enrollment> ens = enrollmentMapper.selectList(Wrappers.<Enrollment>lambdaQuery()
-                .in(Enrollment::getStudentId, studentIds));
+                .in(Enrollment::getStudentId, studentIds)
+                .eq(termId != null, Enrollment::getTermId, termId));
         for (Enrollment e : ens) {
             enrollmentByStudent.computeIfAbsent(e.getStudentId(), k -> new ArrayList<>()).add(e);
         }
@@ -400,7 +402,8 @@ public class CounselorPortalService {
 
     public List<CounselorStudentVO> students(Long counselorId, Long adminClassId, Long termId) {
         Counselor c = me(counselorId);
-        List<AdministrativeClass> mine = myClasses(c.getId(), termOf(termId) == null ? null : termOf(termId).getId());
+        Term term = termOf(termId);
+        List<AdministrativeClass> mine = myClasses(c.getId(), term == null ? null : term.getId());
         List<AdministrativeClass> target = new ArrayList<>();
         for (AdministrativeClass ac : mine) {
             if (adminClassId == null || adminClassId.equals(ac.getId())) {
@@ -414,7 +417,7 @@ public class CounselorPortalService {
         for (AdministrativeClass ac : target) {
             students.addAll(studentsOfClass(ac.getId()));
         }
-        return studentVOs(students);
+        return studentVOs(students, term == null ? null : term.getId());
     }
 
     // ============================================================ 单科详情
