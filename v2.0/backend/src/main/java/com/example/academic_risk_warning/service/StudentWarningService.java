@@ -322,11 +322,8 @@ public class StudentWarningService {
                 + (config == null || config.getLeaveFreeTimes() == null ? 3 : config.getLeaveFreeTimes())
                 + " 次的请假；加权分 T = 课程加权分 W − P，T 越高风险越低。");
         g.add("风险分级：风险分 ≥ " + num(config == null ? null : config.getThresholdRed(), 75)
-                + " 红色、" + num(config == null ? null : config.getThresholdOrange(), 60) + "–"
-                + num(config == null ? null : config.getThresholdRed(), 75) + " 橙色、"
-                + num(config == null ? null : config.getThresholdYellow(), 40) + "–"
-                + num(config == null ? null : config.getThresholdOrange(), 60) + " 黄色、低于 "
-                + num(config == null ? null : config.getThresholdYellow(), 40) + " 绿色；缺课超限直接红色。");
+                + " 红色、≥ " + num(config == null ? null : config.getThresholdOrange(), 60) + " 橙色、≥ "
+                + num(config == null ? null : config.getThresholdYellow(), 40) + " 黄色，其余绿色；缺课超限直接红色。");
         g.add("期末需考：按当前平时成绩测算的及格所需期末分数；若超过期末满分，说明按现状已不可达。");
         g.add("置信度：由考勤覆盖率、成绩完整性与样本量共同决定；数据不足时只提示行为风险，不给分数结论。");
         g.add("学生端只展示结论与建议，教师的处置记录属于内部工作记录；如对结论有疑问可提交申诉。");

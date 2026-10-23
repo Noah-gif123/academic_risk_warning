@@ -81,7 +81,20 @@ node 工具\build_docx.js
 - [x] 2.2 系统架构（业务功能边界图、部署配置图）
 - [x] 2.3 业务模型（概念 ER + 7 张分域 ER + 2 张类图 + 数据表清单）
 - [x] 2.4 业务流程（4 张活动图 + 2 张状态图 + 2 张时序图）
-- [ ] 论文/报告后续章节（如需要可继续：3.x 系统设计、4.x 系统实现、5.x 测试）
+- [x] 第3章 子系统设计、第4章 数据设计（学情预警子系统 13 张表逐表结构）、第5章 技术选型与开发环境
+- [x] 第二阶段规划书（功能清单、口径、5 个实施步骤、里程碑、验收清单）
+
+## 四之一、第二阶段实现进度（代码）
+
+| 步骤 | 内容 | 关键产物 | 验收脚本 |
+|---|---|---|---|
+| M1 | 风险判定引擎 | `RiskMath`（纯函数可单测）、`RiskEngineService`、`risk_state` 回写、7 个 JUnit 用例 | `gradlew test` |
+| M2 | 预警事件与时间线 | `AlertEventService`（生成/升级/降级/自动关闭 + 幂等 + 7 天冷却）、`alert_flow_log`、站内通知联动 | — |
+| M3 | 教师端预警监控 | `pages/teacher/Monitor.vue`、`/api/teacher/alerts[...]`、xlsx 导出 | `tool/verify_m3.ps1` |
+| M4 | 学生端学情预警 | `pages/student/Warnings.vue`、`/api/student/warnings[...]`、申诉 | `tool/verify_m4.ps1` |
+| M5 | 规则配置与演示 | `pages/admin/Rules.vue`、`/api/admin/rules`、版本化 + 审计 | `tool/verify_m5.ps1` |
+
+端到端演示：`powershell -NoProfile -File tool\demo_stage2.ps1`（脚本说明见 `第二阶段功能演示脚本.md`）。
 
 ## 五、内容口径依据
 

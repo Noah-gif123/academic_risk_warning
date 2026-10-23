@@ -24,13 +24,14 @@ export const NAV = {
     { text: '通知', path: '/counselor/notices' }
   ],
   // 教务端：2026-10 精简——「覆盖率督办」并入「考勤归档」页签、「审计」并入「流程与问卷」页签；
-  // 「报表」「规则配置」属第二阶段能力，页面保留但暂不上导航
+  // 第二阶段补齐「规则配置」并上导航（判定口径的版本管理入口）
   ADMIN: [
     { text: '首页', path: '/admin/home' },
     { text: '基础数据', path: '/admin/base' },
     { text: '排课与教学班', path: '/admin/offerings' },
     { text: '成绩构成', path: '/admin/schemes' },
     { text: '考勤归档', path: '/admin/attendance' },
+    { text: '规则配置', path: '/admin/rules' },
     { text: '流程与问卷', path: '/admin/workflow' }
   ]
 }

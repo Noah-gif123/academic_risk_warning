@@ -59,7 +59,7 @@ const routes = [
     { path: 'attendance', component: () => import('../pages/admin/Attendance.vue'), meta: { title: '考勤归档' } },
     { path: 'coverage', component: () => import('../pages/admin/Coverage.vue'), meta: { title: '覆盖率督办' } },
     { path: 'reports', component: Placeholder, meta: { title: '报表' } },
-    { path: 'rules', component: Placeholder, meta: { title: '规则配置' } },
+    { path: 'rules', component: () => import('../pages/admin/Rules.vue'), meta: { title: '规则配置' } },
     { path: 'workflow', component: () => import('../pages/admin/Workflow.vue'), meta: { title: '流程与问卷' } },
     { path: 'audit', component: () => import('../pages/admin/Audit.vue'), meta: { title: '审计' } }
   ] },

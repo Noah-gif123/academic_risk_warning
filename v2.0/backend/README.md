@@ -86,6 +86,9 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 | GET | `/api/student/warnings?termId=` | **第 4 步**：学生端「我的学情预警」概览：每门课一条结论（红/橙/黄/绿）+ 缺课与综合分 + 期末需考 + 建议 + 判定口径；**只给结论，不给剩余可缺次数** |
 | GET | `/api/student/warnings/{enrollmentId}` | 单课详情：结论 + 学生可见时间线（只含生成/升级/降级/申诉/关闭等结论性节点，**不含教师处置记录**）+ 建议 + 口径 |
 | POST | `/api/student/warnings/{alertId}/appeal` | 学生申诉（每门课一次）：写 `alert_record.student_response`，留痕 `APPEAL`，并按预警通知任课教师与辅导员 |
+| GET | `/api/admin/rules` | **第 5 步**：规则配置——当前生效版本 + 历史版本列表（阈值、扣分系数、请假免扣、期末满分、覆盖率与置信度阈值） |
+| POST | `/api/admin/rules` | 新增规则版本并立即生效（未传字段沿用当前版本；版本号留空自动 +0.1.0，重名会拒绝）；每次修改写审计日志 |
+| POST | `/api/admin/rules/{id}/activate` | 切换生效版本（含回切历史版本），全库只保留一条 `is_active=1` |
 | GET/POST | `/api/admin/terms`、`/api/admin/terms/current`、`/api/admin/terms/{id}/calendar[/generate]` | 学期与教学周历 |
 | GET/POST | `/api/admin/majors`、`/api/admin/classes`、`/api/admin/counselor-assignments` | 专业、行政班、辅导员分配 |
 | GET/POST | `/api/admin/offerings`、`/api/admin/offerings/{id}/confirm-actual` | 开课实例与有效课次确认 |
@@ -205,6 +208,10 @@ B 通道 `S_B = clamp(0,100, 100 − T + 3×缺课)` 兜底并算班内排名；
 结论按 A 通道（缺课超限 / 期末不可达）优先，B 通道（加权分与扣分）兜底；时间线只保留生成 / 升级 / 降级 / 申诉 / 关闭等
 结论性节点。申诉每门课只能提交一次（写入 `alert_record.student_response` 与 `alert_flow_log.APPEAL`），
 提交后通知任课教师与辅导员，教师核实后在「预警监控」里记录处理或关闭，学生端结论随之更新。
+
+**规则版本（第二阶段 5）口径**：`risk_engine_config` 全库只有一条 `is_active=1`；改口径一律**新增版本并生效**，
+老版本保留可回切，`engine_version` 由判定引擎写入 `risk_state`，因此"哪一版规则造成等级变化"可回溯；
+阈值必须满足 红 > 橙 > 黄，扣分与次数不得为负；每次新增/切换都写 `audit_log`（`biz_type=RISK_ENGINE_CONFIG`）。
 
 ## 配置要点（`src/main/resources/application.yml`）
 

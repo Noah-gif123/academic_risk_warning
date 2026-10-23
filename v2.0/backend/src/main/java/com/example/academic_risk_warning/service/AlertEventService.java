@@ -681,7 +681,7 @@ public class AlertEventService {
     public Map<String, Object> detail(LoginUser user, Long alertId) {
         AlertRecord a = requireMyAlert(user, alertId);
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("alert", toRow(a));
+        map.put("alert", enrich(toRow(a)));
         map.put("timeline", flowMapper.selectList(Wrappers.<AlertFlowLog>lambdaQuery()
                 .eq(AlertFlowLog::getAlertId, alertId)
                 .orderByAsc(AlertFlowLog::getEventTime)
