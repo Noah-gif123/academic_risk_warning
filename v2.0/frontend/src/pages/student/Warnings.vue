@@ -202,7 +202,12 @@
                 <span class="text-xs text-slate-400">每门课只能提交一次</span>
               </div>
             </template>
-            <p v-else class="text-xs text-slate-400">该预警已结束，无需申诉；如仍有疑问请联系任课教师或辅导员。</p>
+            <p v-else-if="!detail.item.alertId" class="text-xs text-slate-400">
+              这门课目前没有预警，不需要申诉；如对成绩或考勤记录有疑问，可以直接联系任课教师{{ detail.item.teacherName ? '（' + detail.item.teacherName + '）' : '' }}核对。
+            </p>
+            <p v-else class="text-xs text-slate-400">
+              该预警已处理结束（老师已关闭或忽略），无需再申诉；如仍有疑问请联系任课教师或辅导员。
+            </p>
           </div>
 
           <!-- 时间线 -->
