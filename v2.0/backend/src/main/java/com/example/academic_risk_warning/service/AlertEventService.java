@@ -586,6 +586,97 @@ public class AlertEventService {
                 .stream().map(TeachingClass::getId).collect(Collectors.toList());
     }
 
+    /** 学生申诉：写回 student_response，通知任课教师与辅导员，并留痕（第 4 步） */
+    @Transactional
+    public AlertRowVO studentAppeal(LoginUser user, Long alertId, String reason) {
+        if (user == null || user.getRefId() == null) {
+            throw new BizException("当前账号没有学生档案");
+        }
+        AlertRecord a = alertMapper.selectById(alertId);
+        if (a == null || (a.getIsVoid() != null && a.getIsVoid() == 1)) {
+            throw new BizException("预警不存在");
+        }
+        if (!user.getRefId().equals(a.getStudentId())) {
+            throw new BizException("只能申诉自己的预警");
+        }
+        if ("CLOSED".equals(a.getStatus()) || "DISMISSED".equals(a.getStatus())) {
+            throw new BizException("该预警已结束，无需申诉；如仍有疑问请联系任课教师");
+        }
+        if (a.getStudentResponse() != null && !a.getStudentResponse().isEmpty()) {
+            throw new BizException("已提交过申诉，请等待任课教师核实");
+        }
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new BizException("请填写申诉说明");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        a.setStudentResponse(trim(reason));
+        a.setStudentResponseTime(now);
+        a.setUpdateTime(now);
+        alertMapper.updateById(a);
+        writeFlow(a, a.getStudentId(), a.getTermId(), "APPEAL", a.getAlertLevel(), a.getAlertLevel(),
+                a.getStatus(), a.getStatus(), "学生提交申诉：" + trim(reason), user.getRefId(), "STUDENT");
+        notifyAppeal(a, reason);
+        auditService.record("ALERT", a.getId(), "APPEAL", null, "{\"status\":\"APPEALED\"}",
+                "学生提交申诉");
+        return enrich(toRow(a));
+    }
+
+    /** 申诉通知：任课教师 + 辅导员（同一预警只聚合成一条） */
+    private void notifyAppeal(AlertRecord a, String reason) {
+        TeachingClass tc = classMapper.selectById(a.getTeachingClassId());
+        if (tc == null) {
+            return;
+        }
+        Teacher teacher = teacherMapper.selectById(tc.getTeacherId());
+        Set<Long> accounts = new LinkedHashSet<>();
+        Map<Long, String> roleOf = new LinkedHashMap<>();
+        if (teacher != null && teacher.getAccountId() != null) {
+            accounts.add(teacher.getAccountId());
+            roleOf.put(teacher.getAccountId(), "TEACHER");
+        }
+        for (Counselor c : counselorsOfClass(tc.getId(), a.getTermId())) {
+            if (c.getAccountId() != null) {
+                accounts.add(c.getAccountId());
+                roleOf.putIfAbsent(c.getAccountId(), "COUNSELOR");
+            }
+        }
+        if (accounts.isEmpty()) {
+            return;
+        }
+        Course course = a.getCourseId() == null ? null : courseMapper.selectById(a.getCourseId());
+        Student st = studentMapper.selectById(a.getStudentId());
+        String studentText = st == null ? "有学生" : (st.getStudentNo() + " " + st.getStudentName());
+        LocalDateTime now = LocalDateTime.now();
+        String key = "APPEAL:" + a.getTeachingClassId() + ":" + a.getId();
+        Notification n = notificationMapper.selectOne(Wrappers.<Notification>lambdaQuery()
+                .eq(Notification::getAggregateKey, key).last("limit 1"));
+        if (n == null) {
+            n = new Notification();
+            n.setBizType("ALERT_APPEAL");
+            n.setBizId(a.getId());
+            n.setTitle("学生申诉：" + tc.getClassCode() + "（" + nvl(course == null ? "" : course.getCourseName())
+                    + "）" + a.getAlertLevel());
+            n.setContent(studentText + " 对" + a.getAlertLevel() + "预警结论提出申诉：" + trim(reason)
+                    + "。请在「预警监控」中核实并记录处理。");
+            n.setPayloadJson("{\"route\":\"/teacher/monitor\",\"alertId\":" + a.getId()
+                    + ",\"teachingClassId\":" + a.getTeachingClassId() + "}");
+            n.setAggregateKey(key);
+            n.setAggregateCount(1);
+            n.setAudienceDesc("任课教师 + 辅导员");
+            n.setPriority("HIGH");
+            n.setExpireTime(now.plusDays(7));
+            n.setCreateTime(now);
+            n.setUpdateTime(now);
+            notificationMapper.insert(n);
+        } else {
+            n.setAggregateCount((n.getAggregateCount() == null ? 1 : n.getAggregateCount()) + 1);
+            n.setContent(studentText + " 再次申诉：" + trim(reason));
+            n.setUpdateTime(now);
+            notificationMapper.updateById(n);
+        }
+        sendReceipts(n.getId(), accounts, roleOf, now);
+    }
+
     /** 单条预警及其时间线（教师端详情用） */
     public Map<String, Object> detail(LoginUser user, Long alertId) {
         AlertRecord a = requireMyAlert(user, alertId);
@@ -922,6 +1013,8 @@ public class AlertEventService {
         v.setHandleNote(a.getHandleNote());
         v.setCloseTime(a.getCloseTime());
         v.setCloseNote(a.getCloseNote());
+        v.setStudentResponse(a.getStudentResponse());
+        v.setStudentResponseTime(a.getStudentResponseTime());
         v.setEngineVersion(a.getEngineVersion());
         v.setCreateTime(a.getCreateTime());
         return v;

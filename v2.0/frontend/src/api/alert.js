@@ -30,3 +30,13 @@ export const teacherAlertApi = {
 export const riskEngineApi = {
   evaluate: (params) => http.post('/engine/evaluate' + query(params))
 }
+
+/** 预警 · 学生端（只读结论 + 申诉） */
+export const studentWarningApi = {
+  /** 概览：每门课一条结论 + 建议 + 判定口径（termId 不传为当前学期） */
+  overview: (termId) => http.get('/student/warnings' + query({ termId })),
+  /** 单课详情：结论 + 学生可见时间线 + 建议 */
+  detail: (enrollmentId) => http.get(`/student/warnings/${enrollmentId}`),
+  /** 提交申诉（每门课一次） */
+  appeal: (alertId, reason) => http.post(`/student/warnings/${alertId}/appeal`, { reason })
+}

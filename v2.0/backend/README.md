@@ -83,6 +83,9 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 | GET | `/api/teacher/alerts/{id}` | 预警详情：预警本体 + 时间线（alert_flow_log）+ 处置记录（intervention_record）+ 当前风险状态 |
 | POST | `/api/teacher/alerts/{id}/claim`、`/handle`、`/close`、`/dismiss`、`/remind` | 认领 → 记录处理（写干预记录）→ 关闭（填结论）/ 忽略（必填原因）/ 提醒学生（站内消息，已结束的预警不可再提醒） |
 | GET | `/api/teacher/alerts/export?teachingClassId=&level=&status=` | **第 3 步**：教师端预警名单导出（xlsx，字段与列表一致：学号/姓名/教学班/课程/等级/通道/规则/风险分/置信度/缺课额度/期末需考/状态/处置/依据/生成时间） |
+| GET | `/api/student/warnings?termId=` | **第 4 步**：学生端「我的学情预警」概览：每门课一条结论（红/橙/黄/绿）+ 缺课与综合分 + 期末需考 + 建议 + 判定口径；**只给结论，不给剩余可缺次数** |
+| GET | `/api/student/warnings/{enrollmentId}` | 单课详情：结论 + 学生可见时间线（只含生成/升级/降级/申诉/关闭等结论性节点，**不含教师处置记录**）+ 建议 + 口径 |
+| POST | `/api/student/warnings/{alertId}/appeal` | 学生申诉（每门课一次）：写 `alert_record.student_response`，留痕 `APPEAL`，并按预警通知任课教师与辅导员 |
 | GET/POST | `/api/admin/terms`、`/api/admin/terms/current`、`/api/admin/terms/{id}/calendar[/generate]` | 学期与教学周历 |
 | GET/POST | `/api/admin/majors`、`/api/admin/classes`、`/api/admin/counselor-assignments` | 专业、行政班、辅导员分配 |
 | GET/POST | `/api/admin/offerings`、`/api/admin/offerings/{id}/confirm-actual` | 开课实例与有效课次确认 |
@@ -197,6 +200,11 @@ B 通道 `S_B = clamp(0,100, 100 − T + 3×缺课)` 兜底并算班内排名；
 判定结果一人一课一行写入 `risk_state`（覆盖刷新、幂等、记录 `engine_version`）。事件层按「判定前等级 → 判定后等级」
 生成 / 升级 / 降级 / 自动关闭 `alert_record`，同等级只刷新分数与证据不刷时间线；一人一课只保留一条 `is_current=1`；
 **人工关闭或忽略后，同等级风险在 7 天冷却期内不再重复生成预警**，避免反复判定刷出重复告警。
+
+**学生端结论（第二阶段 4）口径**：学生只看「结论 + 建议 + 口径」，**不暴露剩余可缺次数与教师处置记录**；
+结论按 A 通道（缺课超限 / 期末不可达）优先，B 通道（加权分与扣分）兜底；时间线只保留生成 / 升级 / 降级 / 申诉 / 关闭等
+结论性节点。申诉每门课只能提交一次（写入 `alert_record.student_response` 与 `alert_flow_log.APPEAL`），
+提交后通知任课教师与辅导员，教师核实后在「预警监控」里记录处理或关闭，学生端结论随之更新。
 
 ## 配置要点（`src/main/resources/application.yml`）
 

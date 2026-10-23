@@ -43,6 +43,10 @@ public class AlertRowVO {
     private LocalDateTime closeTime;
     private String closeNote;
 
+    /** 学生申诉说明（学生端提交、教师端核实） */
+    private String studentResponse;
+    private LocalDateTime studentResponseTime;
+
     private String engineVersion;
     private LocalDateTime createTime;
 

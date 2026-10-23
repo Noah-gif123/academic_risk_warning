@@ -108,6 +108,7 @@
               <td class="py-1.5 text-xs" :title="r.alertReason">{{ triggerRuleLabel(r.triggerRule) }}</td>
               <td class="py-1.5">
                 <span class="tag" :class="statusBadge(r.status)">{{ alertStatusLabel(r.status) }}</span>
+                <span v-if="r.studentResponse" class="tag bg-amber-50 text-amber-700 border border-amber-200 ml-1">申诉</span>
               </td>
               <td class="py-1.5 pr-2 text-right whitespace-nowrap">
                 <button class="text-brand-600 hover:underline" @click="openDetail(r)">详情</button>
@@ -226,6 +227,18 @@
                 </span>
               </p>
             </div>
+          </div>
+
+          <!-- 学生申诉 -->
+          <div v-if="detail.alert.studentResponse"
+               class="border border-amber-200 bg-amber-50/50 rounded-lg p-3">
+            <p class="font-medium text-amber-800">
+              学生申诉（{{ fmt(detail.alert.studentResponseTime) }}）
+            </p>
+            <p class="text-sm text-slate-700 mt-1">{{ detail.alert.studentResponse }}</p>
+            <p class="text-xs text-slate-500 mt-1">
+              核实后可在「本次处理」里记录结论，或关闭 / 忽略该预警；学生端会看到处理结果。
+            </p>
           </div>
 
           <!-- 处置 -->
