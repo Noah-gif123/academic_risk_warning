@@ -147,7 +147,19 @@ public class StudentPortalService {
         return vo;
     }
 
+    private Long currentTermId() {
+        Term current = termMapper.selectOne(Wrappers.<Term>lambdaQuery()
+                .eq(Term::getIsCurrent, 1)
+                .orderByDesc(Term::getId)
+                .last("limit 1"));
+        return current == null ? null : current.getId();
+    }
+
     private List<CourseCardVO> allCards(Long studentId, Long termId) {
+        // 不指定学期时只看当前学期：历史/合成学期仍保留数据，但不再混进"我的课程"
+        if (termId == null) {
+            termId = currentTermId();
+        }
         List<Enrollment> ens = enrollmentMapper.selectList(Wrappers.<Enrollment>lambdaQuery()
                 .eq(Enrollment::getStudentId, studentId));
         List<CourseCardVO> out = new ArrayList<>();

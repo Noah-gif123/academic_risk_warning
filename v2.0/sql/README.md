@@ -42,9 +42,12 @@
 | `17_dict_align.sql` | 数据字典口径对齐 | 只改列注释（`enrollment.status`、`password_hash`） |
 | `18_notification_seed.sql` | 四端消息演示数据 | **已被 `20_rebuild_demo.sql` 覆盖，勿与 20 一起执行**（会重复） |
 | **`19_cleanup_demo.sql`** | **清理脏数据** | 删测试卷、空壳学期；修枚举值；清内部标记；`teacher_style` 中的合成真值 |
-| **`20_rebuild_demo.sql`** | **重建主线演示数据**（由 `tool/seed_demo.js` 生成） | 3 班 × 45 人、5 门课（计基 12 周 / 高数 16 周 / 四史概述 12 周 / 数据结构(Java) 16 周 / 计网 12 周）、12 教学班、540 选课、164 课次、5535 考勤、6930 分项得分、540 成绩单、10+2 张试卷、问卷四环节；term 4 历史 + term 8 合成样本。**风险状态与预警不在此脚本内**，重建后由 `POST /api/engine/evaluate` 真实生成 |
+| **`20_rebuild_demo.sql`** | **重建主线演示数据**（由 `tool/seed_demo.js` 生成） | 3 班 × 45 人、5 门课（计基 12 周 / 高数 16 周 / 四史概述 12 周 / 数据结构(Java) 16 周 / 计网 12 周）、12 教学班、540 选课、164 课次、5535 考勤、试卷 126（124 份随堂测验/作业 + 2 张进行中）、提交 5580、项目 12 个（团队贡献表 81 份）、手工分项 810、540 成绩单、问卷四环节；term 4 历史 + term 8 合成样本。**课堂测试/作业来自试卷、三级/四级项目与大作业来自项目模块（都按 scheme_item_id 自动汇总）**；风险状态与预警不在此脚本内，重建后由 `POST /api/engine/evaluate` 真实生成 |
 | **`21_tidy_after_rebuild.sql`** | 重建后收尾 | 清孤儿教学班/选课，合成学期改由 6~9 号教师带班 |
 | `22_tidy_after_m3.sql` / `23_tidy_after_m4.sql` / `24_tidy_after_m5.sql` | 第二阶段各步验收后的演示库整理 | 教师端验收残留 / 申诉文案 / 规则阈值测试产生的预警与规则版本 |
+| **`25_alert_reply.sql`** | 申诉闭环 | `alert_record` 增加 `teacher_reply` / `teacher_reply_time`（幂等，可重复执行） |
+
+> **一键重建**：`powershell -NoProfile -File ../tool/rebuild_demo.ps1`（内含 19→20→21→25、判定、演示痕迹与导学发布）。
 
 > 重建顺序：`19 → 20 → 21` → 起后端跑一次判定（`tool/run_engine_after_seed.ps1`）→ 需要演示痕迹时跑 `tool/stage2_demo_data.ps1`（认领处理 / 提醒 / 申诉，走真实接口）。
 

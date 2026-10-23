@@ -82,6 +82,8 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 | GET | `/api/teacher/alerts/stats?teachingClassId=` | 预警总览计数（红橙黄、待处理/处理中/已关闭、已升级、今日新增、已判定人数、最近判定时间、引擎版本） |
 | GET | `/api/teacher/alerts/{id}` | 预警详情：预警本体 + 时间线（alert_flow_log）+ 处置记录（intervention_record）+ 当前风险状态 |
 | POST | `/api/teacher/alerts/{id}/claim`、`/handle`、`/close`、`/dismiss`、`/remind` | 认领 → 记录处理（写干预记录）→ 关闭（填结论）/ 忽略（必填原因）/ 提醒学生（站内消息，已结束的预警不可再提醒） |
+| POST | `/api/teacher/alerts/{id}/reply` | **申诉闭环**：教师回复学生申诉，写 `alert_record.teacher_reply`，留痕 `REPLIED`，并给学生发一条 `ALERT_REPLY` 站内消息（学生端「学情预警」直接可见） |
+| GET | `/api/teacher/alerts?appealPending=true` | 只看「学生已申诉、教师还没回复」的预警；`/alerts/stats` 同时返回 `appealPending` 计数，供教师端待办卡使用 |
 | GET | `/api/teacher/alerts/export?teachingClassId=&level=&status=` | **第 3 步**：教师端预警名单导出（xlsx，字段与列表一致：学号/姓名/教学班/课程/等级/通道/规则/风险分/置信度/缺课额度/期末需考/状态/处置/依据/生成时间） |
 | GET | `/api/student/warnings?termId=` | **第 4 步**：学生端「我的学情预警」概览：每门课一条结论（红/橙/黄/绿）+ 缺课与综合分 + 期末需考 + 建议 + 判定口径；**只给结论，不给剩余可缺次数** |
 | GET | `/api/student/warnings/{enrollmentId}` | 单课详情：结论 + 学生可见时间线（只含生成/升级/降级/申诉/关闭等结论性节点，**不含教师处置记录**）+ 建议 + 口径 |
@@ -181,8 +183,9 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 
 **项目与贡献度（1-8）口径**：项目只收文件（Word/PDF/代码/PPT/压缩包/仓库链接），逾期不允许补交；
 团队项目由**组长提交一份贡献表**，合计必须 100%，提交即 `is_locked=1`，**教师也没有修改接口**；
-个人得分 = 教师给的项目总分 × 贡献占比（个人项目占比视为 100%）；已批阅的提交不允许再改，
-允许的提交形式按 `allow_formats` 校验扩展名。
+个人得分 = 教师给的项目总分 × 个人占比 × 组员数（**等分时等于团队总分**，高于均值按比例上浮、封顶 100；个人项目占比视为 100%）；
+已批阅的提交不允许再改，允许的提交形式按 `allow_formats` 校验扩展名。项目可按 `scheme_item_id` 绑定评分项，
+成绩侧按「该项目所有提交的个人得分均分」自动汇总（与试卷的自动汇总同一套口径）。
 
 **考勤与归档（1-9）口径**：一节课一张点名单，**默认全班出勤只勾异常**，一次提交一个 `batch_key`；
 每一行的 before/after 都写 `attendance_record_log`；扣分不落库，`P = 2×缺课 + 1×迟到 + 1×max(0, 请假−3)`（无上限）；

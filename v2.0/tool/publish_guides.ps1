@@ -1,7 +1,8 @@
 ﻿# 为 5 门课（12 个教学班）发布课程导学：成绩构成 + 各小项说明 + 纪律与提示
 # 走真实接口 POST /api/teacher/guide（由各任课教师本人发布，publish=true）
+param([string]$Base = 'http://127.0.0.1:18080')
 $ErrorActionPreference = 'Stop'
-$base = 'http://127.0.0.1:18080/api'
+$base = $Base.TrimEnd('/') + '/api'
 
 function Post-Json($url, $obj, $token) {
   $bytes = [Text.Encoding]::UTF8.GetBytes(($obj | ConvertTo-Json -Depth 6 -Compress))

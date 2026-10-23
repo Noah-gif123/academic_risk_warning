@@ -77,6 +77,9 @@ Write-Host ("  判定依据：{0}" -f $d.alert.alertReason)
 Write-Host ("  三通道：A={0}｜B={1}（班内 {2}/{3}）｜C 未启用" -f $d.alert.channelALevel, $d.alert.channelBScore, $d.alert.channelBRank, $d.alert.channelBClassSize)
 Write-Host ("  时间线：{0}" -f (($d.timeline | ForEach-Object { $_.eventType }) -join ' → '))
 Write-Host ("  学生申诉：{0}" -f ($(if ($d.alert.studentResponse) { $d.alert.studentResponse } else { '（无）' })))
+Write-Host ("  教师回复：{0}" -f ($(if ($d.alert.teacherReply) { $d.alert.teacherReply } else { '（待回复）' })))
+$pendingAppeal = (Get-Json "$Base/api/teacher/alerts?teachingClassId=$TeachingClassId&appealPending=true").data
+Write-Host ("  待核实申诉：{0} 条" -f $pendingAppeal.Count)
 
 Section "5. 学生端：我的学情预警（结论 + 建议 + 申诉）"
 Login $StudentNo
@@ -95,9 +98,22 @@ if ($withAlert) {
   Write-Host ("  详情（{0}）：时间线 {1} 个节点，建议 {2} 条" -f $sd.item.courseName, $sd.timeline.Count, $sd.advice.Count)
   $sd.advice | ForEach-Object { Write-Host ("    - " + $_) }
   Write-Host ("  申诉状态：{0}" -f ($(if ($sd.item.studentResponse) { "已提交（$($sd.item.studentResponse)）" } else { '未申诉（可提交一次）' })))
+  if ($sd.item.teacherReply) {
+    Write-Host ("  老师回复：{0}" -f $sd.item.teacherReply)
+  }
 }
 
-Section "6. 口径说明（学生端可见）"
+Section "6. 课程导学（成绩构成 + 各小项说明）"
+$cards = (Get-Json "$Base/api/student/course-cards").data.items
+foreach ($c in $cards) {
+  $cd = (Get-Json "$Base/api/student/course/$($c.teachingClassId)").data
+  $len = if ($cd.guideContent) { $cd.guideContent.Length } else { 0 }
+  $plain = if ($len -gt 0) { ($cd.guideContent -replace '<[^>]+>', ' ' -replace '\s+', ' ').Trim() } else { '' }
+  if ($len -gt 0) { $plain = $plain.Substring(0, [Math]::Min(40, $plain.Length)) }
+  Write-Host ("  {0}（{1}）：导学 {2} 字｜{3}" -f $c.courseName, $c.className, $len, $plain)
+}
+
+Section "7. 口径说明（学生端可见）"
 $ov.guidelines | ForEach-Object { Write-Host ("  · " + $_) }
 
 Write-Host ""

@@ -1,6 +1,7 @@
 ﻿# 重建演示库后：按新成绩构成跑一次判定（admin 全学期）
+param([string]$Base = 'http://127.0.0.1:18080')
 $ErrorActionPreference = 'Stop'
-$base = 'http://127.0.0.1:18080/api'
+$base = $Base.TrimEnd('/') + '/api'
 function Post-Json($url, $obj, $token) {
   $bytes = [Text.Encoding]::UTF8.GetBytes(($obj | ConvertTo-Json -Depth 6 -Compress))
   $headers = @{}

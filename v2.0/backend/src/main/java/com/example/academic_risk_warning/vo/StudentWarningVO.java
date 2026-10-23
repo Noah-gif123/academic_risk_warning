@@ -87,6 +87,9 @@ public class StudentWarningVO {
         private String status;
         private String studentResponse;
         private LocalDateTime studentResponseTime;
+        /** 教师对申诉的回复（学生端可见） */
+        private String teacherReply;
+        private LocalDateTime teacherReplyTime;
         private LocalDateTime lastEvalTime;
 
         /** 这门课的具体建议 */

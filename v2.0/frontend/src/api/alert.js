@@ -12,7 +12,7 @@ function query(params = {}) {
 
 /** 预警 · 教师端（仅本人教学班） */
 export const teacherAlertApi = {
-  /** 名单：teachingClassId / offeringId / level / status */
+  /** 名单：teachingClassId / offeringId / level / status / appealPending */
   list: (params) => http.get('/teacher/alerts' + query(params)),
   /** 总览：红橙黄、待处理/处理中/已关闭、今日新增、最近判定、引擎版本 */
   stats: (teachingClassId) => http.get('/teacher/alerts/stats' + query({ teachingClassId })),
@@ -23,6 +23,8 @@ export const teacherAlertApi = {
   close: (id, note) => http.post(`/teacher/alerts/${id}/close`, { note }),
   dismiss: (id, reason) => http.post(`/teacher/alerts/${id}/dismiss`, { reason }),
   remind: (id, note) => http.post(`/teacher/alerts/${id}/remind`, { note }),
+  /** 回复学生申诉（学生端可见） */
+  reply: (id, reply) => http.post(`/teacher/alerts/${id}/reply`, { reply }),
   exportFile: (params) => http.download('/teacher/alerts/export' + query(params), '预警名单.xlsx')
 }
 

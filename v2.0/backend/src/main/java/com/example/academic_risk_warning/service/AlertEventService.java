@@ -412,6 +412,16 @@ public class AlertEventService {
     /** 教师端预警列表（仅本人教学班），按风险分倒序 */
     public List<AlertRowVO> listForTeacher(LoginUser user, Long offeringId, Long teachingClassId,
                                            String level, String status) {
+        return listForTeacher(user, offeringId, teachingClassId, level, status, null);
+    }
+
+    /**
+     * 教师端预警列表。
+     *
+     * @param appealPending true=只看「学生已申诉、教师还没回复」；false=只看已回复；null=全部
+     */
+    public List<AlertRowVO> listForTeacher(LoginUser user, Long offeringId, Long teachingClassId,
+                                           String level, String status, Boolean appealPending) {
         if (user == null) {
             throw new BizException("请先登录");
         }
@@ -430,6 +440,10 @@ public class AlertEventService {
                 .eq(offeringId != null, AlertRecord::getOfferingId, offeringId)
                 .eq(level != null && !level.isEmpty(), AlertRecord::getAlertLevel, level)
                 .eq(status != null && !status.isEmpty(), AlertRecord::getStatus, status)
+                .isNotNull(Boolean.TRUE.equals(appealPending), AlertRecord::getStudentResponse)
+                .isNull(Boolean.TRUE.equals(appealPending), AlertRecord::getTeacherReply)
+                .isNotNull(Boolean.FALSE.equals(appealPending), AlertRecord::getStudentResponse)
+                .isNotNull(Boolean.FALSE.equals(appealPending), AlertRecord::getTeacherReply)
                 .eq(AlertRecord::getIsVoid, 0)
                 .orderByDesc(AlertRecord::getRiskScore)
                 .orderByDesc(AlertRecord::getId));
@@ -454,6 +468,9 @@ public class AlertEventService {
                 .count());
         map.put("pending", rows.stream().filter((r) -> "ACTIVE".equals(r.getStatus())
                 || "HANDLING".equals(r.getStatus()) || "ESCALATED".equals(r.getStatus())).count());
+        // 待核实申诉：学生已申诉、教师还没回复
+        map.put("appealPending", rows.stream()
+                .filter((r) -> r.getStudentResponse() != null && r.getTeacherReply() == null).count());
 
         // 判定侧：最近判定时间 + 引擎版本 + 已判定学生数
         List<Long> classIds = myClassIds(user);
@@ -619,6 +636,71 @@ public class AlertEventService {
         auditService.record("ALERT", a.getId(), "APPEAL", null, "{\"status\":\"APPEALED\"}",
                 "学生提交申诉");
         return enrich(toRow(a));
+    }
+
+    /**
+     * 教师回复申诉：写回 teacher_reply，留痕 REPLIED，并给学生发一条站内消息。
+     *
+     * <p>回复不改变预警等级与状态；如需收尾由教师另行「记录处理 / 关闭」。</p>
+     */
+    @Transactional
+    public AlertRowVO replyToAppeal(LoginUser user, Long alertId, String reply) {
+        AlertRecord a = requireMyAlert(user, alertId);
+        if (a.getStudentResponse() == null || a.getStudentResponse().isEmpty()) {
+            throw new BizException("该预警还没有学生申诉，无需回复");
+        }
+        if (reply == null || reply.trim().isEmpty()) {
+            throw new BizException("请填写回复内容");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        a.setTeacherReply(trim(reply));
+        a.setTeacherReplyTime(now);
+        a.setUpdateTime(now);
+        alertMapper.updateById(a);
+        writeFlow(a, a.getStudentId(), a.getTermId(), "REPLIED", a.getAlertLevel(), a.getAlertLevel(),
+                a.getStatus(), a.getStatus(), "教师回复申诉：" + trim(reply), user.getRefId(), "TEACHER");
+        notifyStudentReply(a, reply);
+        auditService.record("ALERT", a.getId(), "REPLY", null, "{\"status\":\"REPLIED\"}",
+                "教师回复申诉");
+        return enrich(toRow(a));
+    }
+
+    /** 回复通知：只发给学生本人（同一预警只留一条） */
+    private void notifyStudentReply(AlertRecord a, String reply) {
+        Student st = studentMapper.selectById(a.getStudentId());
+        if (st == null || st.getAccountId() == null) {
+            return;
+        }
+        Course course = a.getCourseId() == null ? null : courseMapper.selectById(a.getCourseId());
+        LocalDateTime now = LocalDateTime.now();
+        String key = "ALERT_REPLY:" + a.getId();
+        Notification n = notificationMapper.selectOne(Wrappers.<Notification>lambdaQuery()
+                .eq(Notification::getAggregateKey, key).last("limit 1"));
+        String courseName = course == null ? "" : course.getCourseName();
+        if (n == null) {
+            n = new Notification();
+            n.setBizType("ALERT_REPLY");
+            n.setBizId(a.getId());
+            n.setTitle("老师回复了你的申诉：" + courseName);
+            n.setContent("你的申诉已核实：" + trim(reply));
+            n.setPayloadJson("{\"route\":\"/student/warnings\",\"alertId\":" + a.getId() + "}");
+            n.setAggregateKey(key);
+            n.setAggregateCount(1);
+            n.setAudienceDesc("学生本人");
+            n.setPriority("NORMAL");
+            n.setExpireTime(now.plusDays(7));
+            n.setCreateTime(now);
+            n.setUpdateTime(now);
+            notificationMapper.insert(n);
+        } else {
+            n.setContent("你的申诉已核实：" + trim(reply));
+            n.setAggregateCount((n.getAggregateCount() == null ? 1 : n.getAggregateCount()) + 1);
+            n.setUpdateTime(now);
+            notificationMapper.updateById(n);
+        }
+        Map<Long, String> roleOf = new LinkedHashMap<>();
+        roleOf.put(st.getAccountId(), "STUDENT");
+        sendReceipts(n.getId(), java.util.Set.of(st.getAccountId()), roleOf, now);
     }
 
     /** 申诉通知：任课教师 + 辅导员（同一预警只聚合成一条） */
@@ -1015,6 +1097,8 @@ public class AlertEventService {
         v.setCloseNote(a.getCloseNote());
         v.setStudentResponse(a.getStudentResponse());
         v.setStudentResponseTime(a.getStudentResponseTime());
+        v.setTeacherReply(a.getTeacherReply());
+        v.setTeacherReplyTime(a.getTeacherReplyTime());
         v.setEngineVersion(a.getEngineVersion());
         v.setCreateTime(a.getCreateTime());
         return v;

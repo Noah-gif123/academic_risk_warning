@@ -52,6 +52,11 @@
           <option value="CLOSED">已关闭</option>
           <option value="DISMISSED">已忽略</option>
         </select>
+        <button class="px-3 py-1.5 rounded-lg text-sm"
+                :class="filters.appealPending ? 'bg-amber-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+                @click="filters.appealPending = !filters.appealPending">
+          待核实申诉{{ stats.appealPending ? '（' + stats.appealPending + '）' : '' }}
+        </button>
         <input v-model="filters.keyword" class="input w-48" placeholder="学号 / 姓名" />
         <div class="ml-auto flex items-center gap-2">
           <span v-if="selectedIds.length" class="text-xs text-slate-500">已选 {{ selectedIds.length }} 人</span>
@@ -108,7 +113,9 @@
               <td class="py-1.5 text-xs" :title="r.alertReason">{{ triggerRuleLabel(r.triggerRule) }}</td>
               <td class="py-1.5">
                 <span class="tag" :class="statusBadge(r.status)">{{ alertStatusLabel(r.status) }}</span>
-                <span v-if="r.studentResponse" class="tag bg-amber-50 text-amber-700 border border-amber-200 ml-1">申诉</span>
+                <span v-if="r.studentResponse" class="tag bg-amber-50 text-amber-700 border border-amber-200 ml-1">
+                  {{ r.teacherReply ? '已回复' : '申诉待回' }}
+                </span>
               </td>
               <td class="py-1.5 pr-2 text-right whitespace-nowrap">
                 <button class="text-brand-600 hover:underline" @click="openDetail(r)">详情</button>
@@ -231,14 +238,24 @@
 
           <!-- 学生申诉 -->
           <div v-if="detail.alert.studentResponse"
-               class="border border-amber-200 bg-amber-50/50 rounded-lg p-3">
+               class="border border-amber-200 bg-amber-50/50 rounded-lg p-3 space-y-2">
             <p class="font-medium text-amber-800">
               学生申诉（{{ fmt(detail.alert.studentResponseTime) }}）
             </p>
-            <p class="text-sm text-slate-700 mt-1">{{ detail.alert.studentResponse }}</p>
-            <p class="text-xs text-slate-500 mt-1">
-              核实后可在「本次处理」里记录结论，或关闭 / 忽略该预警；学生端会看到处理结果。
-            </p>
+            <p class="text-sm text-slate-700">{{ detail.alert.studentResponse }}</p>
+
+            <div v-if="detail.alert.teacherReply" class="text-xs text-slate-600 border-t border-amber-200 pt-2">
+              <p class="text-emerald-700 font-medium">已回复（{{ fmt(detail.alert.teacherReplyTime) }}）</p>
+              <p class="text-slate-700 mt-0.5">{{ detail.alert.teacherReply }}</p>
+            </div>
+            <div v-else class="space-y-1.5">
+              <textarea v-model="replyText" class="input w-full h-16" maxlength="300"
+                        placeholder="回复学生（如：已核实为竞赛公假，按公假处理，缺课不再计入）"></textarea>
+              <div class="flex items-center gap-2">
+                <button class="btn-primary text-sm" :disabled="acting" @click="sendReply">回复学生</button>
+                <span class="text-xs text-slate-500">回复会推送到学生端「学情预警」与消息中心</span>
+              </div>
+            </div>
           </div>
 
           <!-- 处置 -->
@@ -330,17 +347,18 @@ const rows = ref([])
 const stats = reactive({
   total: 0, red: 0, orange: 0, yellow: 0,
   active: 0, handling: 0, closed: 0, escalated: 0,
-  todayNew: 0, pending: 0, evaluated: 0, lastEvalTime: null, engineVersion: null
+  todayNew: 0, pending: 0, appealPending: 0, evaluated: 0, lastEvalTime: null, engineVersion: null
 })
 
 const classOptions = ref([])
-const filters = reactive({ teachingClassId: '', level: '', status: '', keyword: '' })
+const filters = reactive({ teachingClassId: '', level: '', status: '', keyword: '', appealPending: false })
 const page = ref(1)
 const pageSize = ref(10)
 const selectedIds = ref([])
 
 const detail = ref(null)
 const closing = ref(null)
+const replyText = ref('')
 const form = reactive({ actionType: 'TALK', content: '', result: '' })
 
 const levelTabs = [
@@ -355,7 +373,7 @@ const cards = computed(() => [
   { key: 'orange', label: '橙色预警', value: stats.orange, color: 'text-orange-500', hint: '风险分 60–74' },
   { key: 'yellow', label: '黄色预警', value: stats.yellow, color: 'text-amber-600', hint: '风险分 40–59' },
   { key: 'pending', label: '待处理', value: stats.pending, color: 'text-brand-600', hint: '含处理中与已升级' },
-  { key: 'todayNew', label: '今日新增', value: stats.todayNew, color: 'text-slate-800', hint: '今天新生成的预警' },
+  { key: 'appealPending', label: '待核实申诉', value: stats.appealPending, color: 'text-amber-600', hint: '学生已申诉、待回复' },
   { key: 'evaluated', label: '已判定学生', value: stats.evaluated, color: 'text-slate-800', hint: stats.lastEvalTime ? '最近 ' + fmt(stats.lastEvalTime) : '尚未判定' }
 ])
 
@@ -364,6 +382,7 @@ const filteredRows = computed(() => {
   return rows.value.filter((r) => {
     if (filters.level && r.alertLevel !== filters.level) return false
     if (filters.status && r.status !== filters.status) return false
+    if (filters.appealPending && !(r.studentResponse && !r.teacherReply)) return false
     if (kw && !(String(r.studentNo || '').includes(kw) || String(r.studentName || '').includes(kw))) return false
     return true
   })
@@ -494,9 +513,32 @@ async function openDetail(r) {
     form.actionType = 'TALK'
     form.content = ''
     form.result = ''
+    replyText.value = ''
     closing.value = null
   } catch (e) {
     flash(e.message, false)
+  }
+}
+
+/** 回复学生申诉 */
+async function sendReply() {
+  const d = detail.value
+  if (!d) return
+  const text = replyText.value.trim()
+  if (text.length < 2) {
+    flash('请填写回复内容', false)
+    return
+  }
+  acting.value = true
+  try {
+    await teacherAlertApi.reply(d.alert.id, text)
+    await openDetail({ id: d.alert.id })
+    await reload()
+    flash('已回复学生，学生端与消息中心可见')
+  } catch (e) {
+    flash(e.message, false)
+  } finally {
+    acting.value = false
   }
 }
 
@@ -637,7 +679,7 @@ async function exportFile() {
 }
 
 watch(
-  () => [filters.level, filters.status, filters.keyword],
+  () => [filters.level, filters.status, filters.keyword, filters.appealPending],
   () => {
     page.value = 1
     selectedIds.value = []

@@ -249,41 +249,46 @@ out.push('-- 5) 成绩构成（两级：平时成绩 + 终结性考核，合计 
 const SCHEMES = {
   A: { usual: 40, finalW: 60, finalName: '终结性考核',
     items: [
-      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7 },
-      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 20, times: 1 },
-      { code: 'PERF', name: '课堂表现', cat: 'PERFORMANCE', w: 5, times: 1 },
-      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 40, times: 4 }
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7, src: 'paper' },
+      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 20, times: 1, src: 'project',
+        desc: '个人项目（Office 基础）：Excel 数据处理、函数、透视表；提交以「学号 + 姓名」命名的 Excel 文件，选题不可重复' },
+      { code: 'PERF', name: '课堂表现', cat: 'PERFORMANCE', w: 5, times: 1, src: 'manual' },
+      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 40, times: 4, src: 'paper' }
     ],
-    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1 } },
+    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1, src: 'manual' } },
   B: { usual: 40, finalW: 60, finalName: '终结性考核',
     items: [
-      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 30, times: 6 },
-      { code: 'MID', name: '期中考试', cat: 'MIDTERM', w: 20, times: 1 },
-      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 50, times: 5 }
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 30, times: 6, src: 'paper' },
+      { code: 'MID', name: '期中考试', cat: 'MIDTERM', w: 20, times: 1, src: 'manual' },
+      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 50, times: 5, src: 'paper' }
     ],
-    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1 } },
+    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1, src: 'manual' } },
   C: { usual: 60, finalW: 40, finalName: '终结性考核',
     items: [
-      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7 },
-      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 20, times: 1 },
-      { code: 'P4', name: '四级项目', cat: 'PROJECT', w: 40, times: 1 },
-      { code: 'PERF', name: '课堂表现', cat: 'PERFORMANCE', w: 5, times: 1 }
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7, src: 'paper' },
+      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 20, times: 1, src: 'project', team: true, teamSize: 5,
+        desc: '团队项目（4–6 人）：参观或走访历史遗址 / 相关场馆，收集口述、影像与文献材料，完成选题与资料整理并做阶段汇报' },
+      { code: 'P4', name: '四级项目', cat: 'PROJECT', w: 40, times: 1, src: 'project', team: true, teamSize: 5,
+        desc: '团队项目（同一小组）：在三级项目材料基础上完成 PPT 制作与课堂答辩，按内容、逻辑与表达打分' },
+      { code: 'PERF', name: '课堂表现', cat: 'PERFORMANCE', w: 5, times: 1, src: 'manual' }
     ],
-    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1 } },
+    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1, src: 'manual' } },
   D: { usual: 40, finalW: 60, finalName: '终结性考核',
     items: [
-      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7 },
-      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 25, times: 1 },
-      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 40, times: 4 }
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7, src: 'paper' },
+      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 25, times: 1, src: 'project',
+        desc: '个人项目：课上一节课完成，按教师给定的数据库表结构与任务要求编写对应需求的代码结构' },
+      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 40, times: 4, src: 'paper' }
     ],
-    final:  { code: 'ASSIGN', name: '大作业', cat: 'FINAL', times: 1 } },
+    final:  { code: 'ASSIGN', name: '大作业', cat: 'FINAL', times: 1, src: 'project', team: true, teamSize: 3,
+      desc: '团队项目（2–3 人）：从教师给定题目中选题自主开发，按完成度打分' } },
   E: { usual: 50, finalW: 50, finalName: '终结性考核',
     items: [
-      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 30, times: 6 },
-      { code: 'MID', name: '期中考试', cat: 'MIDTERM', w: 20, times: 1 },
-      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 50, times: 5 }
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 30, times: 6, src: 'paper' },
+      { code: 'MID', name: '期中考试', cat: 'MIDTERM', w: 20, times: 1, src: 'manual' },
+      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 50, times: 5, src: 'paper' }
     ],
-    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1 } }
+    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1, src: 'manual' } }
 };
 
 ins('score_scheme', COURSES.map((c) => ({
@@ -311,10 +316,11 @@ COURSES.forEach((c) => {
   sc.items.forEach((it, i) => {
     const id = siid++;
     ITEM_ID[c.schemeId][it.code] = id;
-    LEAVES[c.key].push({ code: it.code, name: it.name, times: it.times, w: it.w, cat: it.cat, isFinal: false });
+    LEAVES[c.key].push({ ...it, isFinal: false });
     SI.push({
       id, scheme_id: c.schemeId, parent_id: usualRootId, item_level: 2, item_code: it.code, item_name: it.name,
-      category: it.cat, weight: it.w, full_score: 100, data_source: 'MANUAL', score_type: 'NUMERIC',
+      category: it.cat, weight: it.w, full_score: 100,
+      data_source: it.src === 'manual' ? 'MANUAL' : 'AUTO', score_type: 'NUMERIC',
       expected_times: it.times, aggregate_mode: 'AVG', is_anchor: 0,
       is_subjective: it.cat === 'PROJECT' || it.cat === 'PERFORMANCE' ? 1 : 0,
       scorer_role: 'TEACHER', sort_no: (i + 1) * 10, status: 'ACTIVE',
@@ -331,10 +337,11 @@ COURSES.forEach((c) => {
   });
   const fid = siid++;
   ITEM_ID[c.schemeId][sc.final.code] = fid;
-  LEAVES[c.key].push({ code: sc.final.code, name: sc.final.name, times: sc.final.times, w: 100, cat: sc.final.cat, isFinal: true });
+  LEAVES[c.key].push({ ...sc.final, w: 100, isFinal: true });
   SI.push({
     id: fid, scheme_id: c.schemeId, parent_id: finalRootId, item_level: 2, item_code: sc.final.code,
-    item_name: sc.final.name, category: sc.final.cat, weight: 100, full_score: 100, data_source: 'MANUAL',
+    item_name: sc.final.name, category: sc.final.cat, weight: 100, full_score: 100,
+    data_source: sc.final.src === 'manual' ? 'MANUAL' : 'AUTO',
     score_type: 'NUMERIC', expected_times: sc.final.times, aggregate_mode: 'AVG', is_anchor: 0,
     is_subjective: 0, scorer_role: 'TEACHER', sort_no: 10, status: 'ACTIVE',
     create_by: 1431, create_time: T8, update_time: T8
@@ -448,52 +455,194 @@ ins('attendance_archive', [{
   remind_count: 0, is_void: 0, create_time: '2026-10-12 08:00:00', update_time: '2026-10-16 09:00:00'
 }]);
 
-// ---------- 8) 分项得分 + 成绩单 ----------
-out.push('-- 8) 分项得分与成绩单（两级构成算 W，扣分 P 后得 T；缺课 > 1/3 判硬门槛）');
+// ---------- 8) 分项得分（试卷/项目自动 + 手工项）+ 成绩单 ----------
+// 课堂测试、课后作业 ← 试卷（每份卷绑定 scheme_item_id，按次均分）
+// 三级/四级项目、大作业 ← 项目模块（个人提交 / 团队提交 + 贡献表）
+// 课堂表现、期中考试、期末考试 ← 教师手工录入（score_item）
+out.push('-- 8) 分项得分：课堂测试/作业来自试卷、项目类来自项目模块、课堂表现/期中/期末手工录入');
 // 3 名“多门不及格”学生：让导员端「重点关注（≥3 门风险课程）」有数据
 const WEAK = new Set(studentsOf(1).slice(10, 13).map((s) => s.id));
-// 各评分项的相对松紧：课堂测试略严、作业偏松、期末最严（sd = 标准差）
+// 各评分项的相对松紧（add 偏移、sd 标准差）：课堂测试略严、作业偏松、期末最严
 const ITEM_TUNE = {
-  QUIZ: { add: -6, sd: 11 },
-  HW: { add: 12, sd: 8 },
-  P3: { add: 5, sd: 10 },
-  P4: { add: 4, sd: 10 },
-  PERF: { add: 10, sd: 7 },
-  MID: { add: -4, sd: 13 },
-  FINAL_EXAM: { add: -8, sd: 15 },
-  ASSIGN: { add: 3, sd: 11 }
+  QUIZ: { add: -4, sd: 9 },
+  HW: { add: 11, sd: 7 },
+  P3: { add: 5, sd: 8 },
+  P4: { add: 4, sd: 8 },
+  PERF: { add: 9, sd: 6 },
+  MID: { add: -3, sd: 10 },
+  FINAL_EXAM: { add: -2, sd: 10 },
+  ASSIGN: { add: 3, sd: 8 }
 };
+const clampScore = (v) => Math.max(0, Math.min(100, v));
+// ---- 生成规则 ----
+// ① 课堂测试 / 课后作业：每个班每项生成 N 份试卷，卷面绑定 scheme_item_id；分项得分 = 各次均分
+// ② 三级/四级项目、大作业：项目模块落任务 + 个人/团队提交 + 贡献表；个人得分 = 团队分 × 占比 × 人数
+// ③ 课堂表现 / 期中 / 期末考试：教师手工录入（score_item）
+const PAPERS = [], QS = [], SUBS = [], SUB_ANS = [];
+const TASKS = [], TEAMS = [], TSUBS = [], TCONTRIS = [];
 const SCORE_ITEMS = [];
+const ITEM_SCORE = {};
 const RESULTS = [];
+let pid = 20001, qid = 21001, subId = 800001, ansId = 900001;
+let taskId = 3001, teamId = 3501, tsubId = 36001, contriId = 37001;
 let sciId = 600001, resId = 700001;
+
+const ABILITY = {};
 ENROLL.forEach((e) => {
-  const scheme = SCHEMES[e.key];
-  const course = COURSES.find((c) => c.key === e.key);
-  const allowed = allowedOf(course.weeks);
-  // 学生能力值：大多数 65~95，少数掉队
-  let ability = 62 + rnd() * 34;
-  if (WEAK.has(e.studentId)) ability -= 15;
-  if (rnd() < 0.06) ability -= 8;
-  let usualPct = 0, finalPct = 0;
-  LEAVES[e.key].forEach((it) => {
-    const tune = ITEM_TUNE[it.code] || { add: 0, sd: 10 };
-    let sum = 0;
+  let a = 66 + rnd() * 30;
+  if (WEAK.has(e.studentId)) a -= 12;
+  if (rnd() < 0.04) a -= 6;
+  ABILITY[e.id] = a;
+});
+const scoreOf = (e, code) => {
+  const t = ITEM_TUNE[code] || { add: 0, sd: 10 };
+  return clampScore(ABILITY[e.id] + t.add + (rnd() - 0.5) * 2 * t.sd);
+};
+const paperWeek = (weeks, idx, total) => {
+  const step = Math.max(1, Math.floor((weeks - 2) / total));
+  const w = 2 + idx * step;
+  return Math.min(w, Math.max(2, weeks - 1));
+};
+
+CLASSES.forEach((c) => {
+  const course = COURSES.find((x) => x.key === c.key);
+  const sc = SCHEMES[c.key];
+  const list = studentsOf(c.acId).map((st) => ENROLL.find((x) => x.studentId === st.id && x.tcId === c.id));
+  list.forEach((e) => { ITEM_SCORE[e.id] = {}; });
+
+  // ① 试卷类分项
+  sc.items.filter((it) => it.src === 'paper').forEach((it) => {
+    const isQuiz = it.code === 'QUIZ';
+    const perTime = [];
     for (let t = 1; t <= it.times; t++) {
-      const sc = Math.max(0, Math.min(100, r1(ability + tune.add + (rnd() - 0.5) * 2 * tune.sd)));
-      sum += sc;
-      SCORE_ITEMS.push({
-        id: sciId++, enrollment_id: e.id, student_id: e.studentId,
-        scheme_item_id: ITEM_ID[course.schemeId][it.code], term_id: 5, times_no: t, score: sc,
-        full_score: 100, is_absent: 0, source: 'MANUAL', scorer_id: 1431, scorer_role: 'TEACHER',
-        scored_at: '2026-10-10 10:00:00', is_void: 0,
-        create_by: 1431, create_time: '2026-10-10 10:00:00', update_time: '2026-10-10 10:00:00'
+      const day = weekDate(TERM5_START, paperWeek(course.weeks, t, it.times));
+      const p = {
+        id: pid++, tcId: c.id, offeringId: c.offeringId, type: isQuiz ? 'QUIZ' : 'HOMEWORK',
+        itemId: ITEM_ID[course.schemeId][it.code], day,
+        name: course.name + (isQuiz ? ' · 第' + t + '次随堂测验' : ' · 第' + t + '次课后作业')
+      };
+      PAPERS.push(p);
+      const q1 = { id: qid++, paperId: p.id, no: 1, full: 50, stem: p.name + '：简答题（一）' };
+      const q2 = { id: qid++, paperId: p.id, no: 2, full: 50, stem: p.name + '：简答题（二）' };
+      QS.push(q1, q2);
+      // 演示数据：计基 01 班最后一次作业留 3 人待批；计网 01 班第一次随堂测验留 4 人缺考
+      const pendingSet = (c.id === 201 && !isQuiz && t === it.times)
+        ? new Set(list.slice(0, 3).map((e) => e.studentId)) : new Set();
+      const absentSet = (c.id === 210 && isQuiz && t === 1)
+        ? new Set(list.slice(0, 4).map((e) => e.studentId)) : new Set();
+      perTime[t] = {};
+      list.forEach((e) => {
+        const sid = e.studentId;
+        const isAbsent = absentSet.has(sid);
+        const isPending = pendingSet.has(sid);
+        const target = isAbsent || isPending ? 0 : r1(scoreOf(e, it.code));
+        perTime[t][e.id] = target;
+        const marked = !isAbsent && !isPending;
+        const subIdVal = subId++;
+        const a1 = marked ? Math.round(target / 2) : null;
+        const a2 = marked ? Math.round(target) - a1 : null;
+        SUBS.push({
+          id: subIdVal, paperId: p.id, tcId: c.id, studentId: sid, enrollmentId: e.id, day: p.day,
+          status: isAbsent ? 'ABSENT' : (marked ? 'MARKED' : 'SUBMITTED'),
+          markedStatus: marked ? 'ALL_MARKED' : 'SYSTEM_MARKED',
+          obj: 0, subj: marked ? target : 0, total: marked ? target : null,
+          absent: isAbsent ? 1 : 0, duration: isAbsent ? 0 : between(600, 1180)
+        });
+        SUB_ANS.push({
+          id: ansId++, subId: subIdVal, qId: q1.id,
+          text: isAbsent ? null : (isQuiz ? '答：要点见课堂讲解。' : '答：作业按要求完成。'),
+          score: isAbsent ? 0 : a1, byType: isAbsent ? 'SYSTEM' : (marked ? 'TEACHER' : null)
+        });
+        SUB_ANS.push({
+          id: ansId++, subId: subIdVal, qId: q2.id,
+          text: isAbsent ? null : (isQuiz ? '答：补充说明。' : '答：推导过程略。'),
+          score: isAbsent ? 0 : a2, byType: isAbsent ? 'SYSTEM' : (marked ? 'TEACHER' : null)
+        });
       });
     }
-    const avg = sum / it.times;
-    if (it.isFinal) finalPct = avg;
-    else usualPct += avg * (it.w / 100);
+    list.forEach((e) => {
+      let sum = 0;
+      for (let t = 1; t <= it.times; t++) sum += perTime[t][e.id];
+      ITEM_SCORE[e.id][it.code] = r2(sum / it.times);
+    });
   });
-  const weighted = usualPct * scheme.usual / 100 + finalPct * scheme.finalW / 100;
+
+  // ② 项目类分项（三级/四级项目、大作业）
+  sc.items.filter((it) => it.src === 'project')
+    .concat(sc.final.src === 'project' ? [sc.final] : []).forEach((it) => {
+      const task = {
+        id: taskId++, tcId: c.id, offeringId: c.offeringId, itemId: ITEM_ID[course.schemeId][it.code],
+        name: course.name + ' · ' + it.name, isTeam: it.team ? 1 : 0, full: 100, desc: it.desc
+      };
+      TASKS.push(task);
+      const add = (ITEM_TUNE[it.code] || { add: 0 }).add;
+      if (it.team) {
+        const size = it.teamSize || 5;
+        for (let i = 0; i < list.length; i += size) {
+          const members = list.slice(i, i + size);
+          const tid = teamId++;
+          const teamScore = r1(clampScore(ABILITY[members[0].id] + add + (rnd() - 0.5) * 8));
+          const ratios = members.map(() => 1 / members.length);
+          if (members.length > 2) {
+            ratios[0] += 0.02;
+            for (let k = 1; k < ratios.length; k++) ratios[k] -= 0.02 / (ratios.length - 1);
+          }
+          TEAMS.push({
+            id: tid, taskId: task.id, name: '第' + (Math.floor(i / size) + 1) + '组',
+            leader: members[0].studentId, members, ratios
+          });
+          TSUBS.push({
+            id: tsubId++, taskId: task.id, teamId: tid, studentId: members[0].studentId,
+            score: teamScore, files: '[{"name":"汇报PPT.pdf","size":2048000}]'
+          });
+          TCONTRIS.push({
+            id: contriId++, taskId: task.id, teamId: tid, leader: members[0].studentId, members, ratios
+          });
+          members.forEach((e, k) => {
+            ITEM_SCORE[e.id][it.code] = r2(clampScore(teamScore * ratios[k] * members.length));
+          });
+        }
+      } else {
+        list.forEach((e) => {
+          const s = r1(scoreOf(e, it.code));
+          TSUBS.push({
+            id: tsubId++, taskId: task.id, teamId: null, studentId: e.studentId,
+            score: s, files: '[{"name":"项目提交.zip","size":1048576}]'
+          });
+          ITEM_SCORE[e.id][it.code] = s;
+        });
+      }
+    });
+
+  // ③ 手工项
+  sc.items.filter((it) => it.src === 'manual')
+    .concat(sc.final.src === 'manual' ? [sc.final] : []).forEach((it) => {
+      list.forEach((e) => {
+        const s = r1(scoreOf(e, it.code));
+        ITEM_SCORE[e.id][it.code] = s;
+        SCORE_ITEMS.push({
+          id: sciId++, enrollment_id: e.id, student_id: e.studentId,
+          scheme_item_id: ITEM_ID[course.schemeId][it.code], term_id: 5, times_no: 1, score: s,
+          full_score: 100, is_absent: 0, source: 'MANUAL', scorer_id: 1431, scorer_role: 'TEACHER',
+          scored_at: '2026-10-10 10:00:00', is_void: 0,
+          create_by: 1431, create_time: '2026-10-10 10:00:00', update_time: '2026-10-10 10:00:00'
+        });
+      });
+    });
+});
+
+// ④ 成绩单：两级折算 W，扣分 P，T = W − P
+const COURSE_BY_KEY = {};
+COURSES.forEach((c) => { COURSE_BY_KEY[c.key] = c; });
+ENROLL.forEach((e) => {
+  const sc = SCHEMES[e.key];
+  const course = COURSE_BY_KEY[e.key];
+  const allowed = allowedOf(course.weeks);
+  const items = ITEM_SCORE[e.id] || {};
+  let usualPct = 0;
+  sc.items.forEach((it) => { usualPct += (items[it.code] == null ? 0 : items[it.code]) * (it.w / 100); });
+  const finalPct = items[sc.final.code] == null ? 0 : items[sc.final.code];
+  const weighted = usualPct * sc.usual / 100 + finalPct * sc.finalW / 100;
   const absent = absentCount[e.id] || 0;
   const late = lateCount[e.id] || 0;
   const leave = leaveCount[e.id] || 0;
@@ -507,107 +656,20 @@ ENROLL.forEach((e) => {
     reason: isHard ? 'HARD_LINE' : (T < 60 ? 'SCORE' : null)
   });
 });
-ins('score_item', SCORE_ITEMS);
-ins('score_result', RESULTS.map((r) => ({
-  id: r.id, enrollment_id: r.enrollmentId, student_id: r.studentId, offering_id: r.offeringId, term_id: 5,
-  weighted_score: r.W, deduction_points: r.P, total_score: r.T, pass_score: 60, absent_count: r.absent,
-  late_count: r.late, leave_count: r.leave, allowed_absent: r.allowed, effective_sessions: r.weeks,
-  hard_fail: r.hard, is_fail: r.fail, fail_reason: r.reason, score_status: 'FINAL', retake_times: 0,
-  engine_version: 'V2026.1', calculated_at: '2026-10-15 18:00:00', is_void: 0,
-  create_time: '2026-10-15 18:00:00', update_time: '2026-10-15 18:00:00'
-})));
 
-// ---------- 9) 试卷 / 题目 / 提交 ----------
-out.push('-- 9) 试卷 10 张（8 已批 / 1 张 3 人待批 / 1 张 4 人缺考）');
-const PAPERS = [];
-let pid = 2001;
-COURSES.forEach((c) => {
-  [['QUIZ', '随堂测验', '2026-09-22'], ['HOMEWORK', '课后作业', '2026-10-06']].forEach(([type, label, day]) => {
-    const tc = CLASSES.find((x) => x.key === c.key && x.acId === 1);
-    PAPERS.push({
-      id: pid++, key: c.key, offeringId: c.offeringId, tcId: tc.id, type, day,
-      name: c.name + ' · 第1次' + label,
-      pending: c.key === 'A' && type === 'HOMEWORK',
-      absent: c.key === 'E' && type === 'QUIZ'
-    });
-  });
-});
+// ---- 落库（按外键依赖顺序）----
 ins('paper', PAPERS.map((p) => ({
   id: p.id, teaching_class_id: p.tcId, offering_id: p.offeringId, term_id: 5, paper_type: p.type,
   paper_name: p.name, start_time: p.day + ' 08:00:00', end_time: p.day + ' 23:59:00', duration_minutes: 20,
-  full_score: 100, publisher_role: 'TEACHER', publisher_id: 1431,
+  full_score: 100, scheme_item_id: p.itemId, publisher_role: 'TEACHER', publisher_id: 1431,
   allow_view_paper: 1, show_score: 1, show_answer: 'AFTER_MARK', status: 'CLOSED',
   create_by: 1431, create_time: p.day + ' 07:00:00', update_time: p.day + ' 23:59:00'
 })));
-
-const Q_DEFS = [
-  { t: 'SINGLE', s: 10, stem: '下列哪一项属于输入设备？', opt: [{ key: 'A', text: '显示器' }, { key: 'B', text: '键盘' }, { key: 'C', text: '打印机' }, { key: 'D', text: '音箱' }], ans: { keys: ['B'] } },
-  { t: 'SINGLE', s: 10, stem: '1 KB 等于多少字节？', opt: [{ key: 'A', text: '1000' }, { key: 'B', text: '1024' }, { key: 'C', text: '512' }, { key: 'D', text: '2048' }], ans: { keys: ['B'] } },
-  { t: 'MULTI', s: 15, stem: '下列属于操作系统的有？', opt: [{ key: 'A', text: 'Linux' }, { key: 'B', text: 'Windows' }, { key: 'C', text: 'Word' }, { key: 'D', text: 'macOS' }], ans: { keys: ['A', 'B', 'D'] } },
-  { t: 'JUDGE', s: 15, stem: '断电后内存中的数据不会丢失。', ans: { value: false } },
-  { t: 'BLANK', s: 20, stem: '计算机的运算器和控制器合称为＿＿＿＿；内存储器断电后数据会＿＿＿＿。', ans: { answers: ['中央处理器', '丢失'], ignoreCase: true, trim: true } },
-  { t: 'SHORT', s: 30, stem: '简述结构化程序设计的基本思想。', ans: { ref: '自顶向下、逐步细化、模块化，限制使用 goto。' } }
-];
-const QS = [];
-let qid = 2101;
-PAPERS.forEach((p) => Q_DEFS.forEach((d, i) => QS.push({
-  id: qid++, paperId: p.id, no: i + 1, type: d.t, full: d.s,
-  stem: p.name + '：' + d.stem,
-  options: d.opt ? JSON.stringify(d.opt) : null,
-  answer: JSON.stringify(d.ans)
-})));
 ins('question', QS.map((q) => ({
-  id: q.id, paper_id: q.paperId, q_no: q.no, q_type: q.type, stem: q.stem, options_json: q.options,
-  answer_json: q.answer, full_score: q.full, group_name: '一、基础题', sort_no: q.no,
-  create_time: '2026-09-20 10:00:00', update_time: '2026-09-20 10:00:00'
+  id: q.id, paper_id: q.paperId, q_no: q.no, q_type: 'SHORT', stem: q.stem,
+  answer_json: JSON.stringify({ ref: '按课堂讲解要点给分。' }), full_score: q.full,
+  group_name: '简答题', sort_no: q.no, create_time: '2026-09-20 10:00:00', update_time: '2026-09-20 10:00:00'
 })));
-
-const SUBS = [];
-const SUB_ANS = [];
-let subId = 800001, ansId = 900001;
-PAPERS.forEach((p) => {
-  const tc = CLASSES.find((x) => x.id === p.tcId);
-  const list = studentsOf(tc.acId);
-  const pendingSet = new Set(p.pending ? list.slice(0, 3).map((s) => s.id) : []);
-  const absentSet = new Set(p.absent ? list.slice(0, 4).map((s) => s.id) : []);
-  list.forEach((st) => {
-    const e = ENROLL.find((x) => x.studentId === st.id && x.tcId === tc.id);
-    const isAbsent = absentSet.has(st.id);
-    const isPending = pendingSet.has(st.id);
-    const marked = !isAbsent && !isPending;
-    let obj = 0, subj = 0;
-    QS.filter((q) => q.paperId === p.id).forEach((q) => {
-      const right = rnd() < 0.75;
-      let given = null, score = 0, correct = null, byType = 'SYSTEM';
-      if (isAbsent) { given = null; score = 0; correct = 0; byType = 'SYSTEM'; }
-      else if (q.type === 'SINGLE') { given = { keys: [right ? 'B' : pick(['A', 'C', 'D'])] }; score = right ? q.full : 0; correct = right ? 1 : 0; }
-      else if (q.type === 'MULTI') { given = { keys: right ? ['A', 'B', 'D'] : ['A', 'B'] }; score = right ? q.full : 0; correct = right ? 1 : 0; }
-      else if (q.type === 'JUDGE') { given = { value: right ? false : true }; score = right ? q.full : 0; correct = right ? 1 : 0; }
-      else if (q.type === 'BLANK') { given = { answers: [right ? '中央处理器' : '控制器', right ? '丢失' : '保留'] }; }
-      else { given = { text: '答：自顶向下、逐步细化、模块化，限制使用 goto。' }; }
-      const manual = q.type === 'BLANK' || q.type === 'SHORT';
-      if (!isAbsent && manual) {
-        if (marked) { score = Math.max(0, q.full - between(0, 4)); correct = score >= q.full * 0.6 ? 1 : 0; byType = 'TEACHER'; subj += score; }
-        else { score = null; correct = null; byType = null; }
-      } else if (!isAbsent && !manual) { obj += score; }
-      SUB_ANS.push({
-        id: ansId++, submission_id: null, question_id: q.id,
-        answer_json: given ? JSON.stringify(given) : null, score, is_correct: correct,
-        marked_by_type: byType, marked_by: byType ? 1431 : null, marked_at: byType ? p.day + ' 23:59:00' : null,
-        create_time: p.day + ' 08:02:00', update_time: p.day + ' 08:02:00'
-      });
-    });
-    SUBS.push({
-      id: subId++, paperId: p.id, tcId: tc.id, studentId: st.id, enrollmentId: e.id, day: p.day,
-      status: isAbsent ? 'ABSENT' : (marked ? 'MARKED' : 'SUBMITTED'),
-      markedStatus: (isAbsent || marked) ? 'ALL_MARKED' : 'SYSTEM_MARKED',
-      obj: r1(obj), subj: r1(subj), total: isAbsent ? 0 : (marked ? r1(obj + subj) : null),
-      absent: isAbsent ? 1 : 0, duration: isAbsent ? 0 : between(600, 1180)
-    });
-  });
-});
-let cur = 0;
-SUBS.forEach((s) => Q_DEFS.forEach(() => { SUB_ANS[cur].submission_id = s.id; cur++; }));
 ins('submission', SUBS.map((s) => ({
   id: s.id, paper_id: s.paperId, teaching_class_id: s.tcId, term_id: 5, student_id: s.studentId,
   enrollment_id: s.enrollmentId, submit_status: s.status,
@@ -617,7 +679,65 @@ ins('submission', SUBS.map((s) => ({
   marked_at: s.markedStatus === 'ALL_MARKED' ? s.day + ' 23:59:00' : null, is_absent: s.absent,
   create_time: s.day + ' 08:02:00', update_time: s.day + ' 23:59:00'
 })));
-ins('submission_answer', SUB_ANS);
+ins('submission_answer', SUB_ANS.map((a) => ({
+  id: a.id, submission_id: a.subId, question_id: a.qId,
+  answer_json: a.text == null ? null : JSON.stringify({ text: a.text }),
+  score: a.score, is_correct: null, marked_by_type: a.byType,
+  marked_by: a.byType === 'TEACHER' ? 1431 : null,
+  marked_at: a.byType ? '2026-10-10 23:59:00' : null,
+  create_time: '2026-10-10 08:02:00', update_time: '2026-10-10 23:59:00'
+})));
+ins('project_task', TASKS.map((t) => ({
+  id: t.id, teaching_class_id: t.tcId, offering_id: t.offeringId, term_id: 5,
+  project_name: t.name, description: t.desc, start_time: '2026-09-15 08:00:00', end_time: '2026-12-20 23:59:00',
+  is_team: t.isTeam, full_score: t.full, allow_formats: '.zip,.pdf,.pptx,.docx,.java',
+  scheme_item_id: t.itemId, publisher_id: 1431, status: 'CLOSED',
+  create_by: 1431, create_time: '2026-09-10 09:00:00', update_time: '2026-12-20 23:59:00'
+})));
+ins('project_team', TEAMS.map((t) => ({
+  id: t.id, project_id: t.taskId, team_name: t.name, leader_student_id: t.leader,
+  member_json: JSON.stringify(t.members.map((e, i) => ({
+    studentId: e.studentId, studentNo: e.no, studentName: e.name, isLeader: i === 0
+  }))),
+  member_count: t.members.length,
+  create_time: '2026-09-20 10:00:00', update_time: '2026-09-20 10:00:00'
+})));
+ins('project_submission', TSUBS.map((s) => ({
+  id: s.id, project_id: s.taskId, team_id: s.teamId, student_id: s.studentId,
+  submit_time: '2026-12-15 20:00:00', files_json: s.files, submit_status: 'SUBMITTED',
+  project_score: s.score, comment: '完成度良好',
+  marked_by: 1431, marked_at: '2026-12-20 18:00:00',
+  create_time: '2026-12-15 20:00:00', update_time: '2026-12-20 18:00:00'
+})));
+ins('project_contribution', TCONTRIS.map((c) => ({
+  id: c.id, project_id: c.taskId, team_id: c.teamId, leader_student_id: c.leader,
+  contribution_json: JSON.stringify(c.members.map((e, i) => ({
+    studentId: e.studentId, studentNo: e.no, studentName: e.name,
+    ratio: c.ratios[i].toFixed(4), note: i === 0 ? '组长，负责统筹与答辩' : '按分工完成'
+  }))),
+  total_ratio: 1.0, submit_time: '2026-12-16 21:00:00', is_locked: 1,
+  create_time: '2026-12-16 21:00:00'
+})));
+ins('score_item', SCORE_ITEMS);
+ins('score_result', RESULTS.map((r) => ({
+  id: r.id, enrollment_id: r.enrollmentId, student_id: r.studentId, offering_id: r.offeringId, term_id: 5,
+  weighted_score: r.W, deduction_points: r.P, total_score: r.T, pass_score: 60, absent_count: r.absent,
+  late_count: r.late, leave_count: r.leave, allowed_absent: r.allowed, effective_sessions: r.weeks,
+  hard_fail: r.hard, is_fail: r.fail, fail_reason: r.reason, score_status: 'FINAL', retake_times: 0,
+  engine_version: '1-10.v1', calculated_at: '2026-10-15 18:00:00', is_void: 0,
+  create_time: '2026-10-15 18:00:00', update_time: '2026-10-15 18:00:00'
+})));
+
+// ---------- 9) 题目模板（供 14.5 两张「进行中」的试卷使用） ----------
+out.push('-- 9) 题目模板：进行中的试卷沿用同一套 6 道题');
+const Q_DEFS = [
+  { t: 'SINGLE', s: 10, stem: '下列哪一项属于输入设备？', opt: [{ key: 'A', text: '显示器' }, { key: 'B', text: '键盘' }, { key: 'C', text: '打印机' }, { key: 'D', text: '音箱' }], ans: { keys: ['B'] } },
+  { t: 'SINGLE', s: 10, stem: '1 KB 等于多少字节？', opt: [{ key: 'A', text: '1000' }, { key: 'B', text: '1024' }, { key: 'C', text: '512' }, { key: 'D', text: '2048' }], ans: { keys: ['B'] } },
+  { t: 'MULTI', s: 15, stem: '下列属于操作系统的有？', opt: [{ key: 'A', text: 'Linux' }, { key: 'B', text: 'Windows' }, { key: 'C', text: 'Word' }, { key: 'D', text: 'macOS' }], ans: { keys: ['A', 'B', 'D'] } },
+  { t: 'JUDGE', s: 15, stem: '断电后内存中的数据不会丢失。', ans: { value: false } },
+  { t: 'BLANK', s: 20, stem: '计算机的运算器和控制器合称为＿＿＿＿；内存储器断电后数据会＿＿＿＿。', ans: { answers: ['中央处理器', '丢失'], ignoreCase: true, trim: true } },
+  { t: 'SHORT', s: 30, stem: '简述结构化程序设计的基本思想。', ans: { ref: '自顶向下、逐步细化、模块化，限制使用 goto。' } }
+];
 
 // ---------- 10) 风险状态 / 预警 / 时间线 / 干预 ----------
 // 不再手写：重建后调用 POST /api/engine/evaluate（admin）由风险引擎按冻结口径真实生成
@@ -634,7 +754,7 @@ ins('course_fail_rate_history', COURSES.map((c, i) => {
     id: 2001 + i, course_id: c.courseId, term_id: 5, examinee_count: rows.length, fail_count: fail,
     fail_rate: r2(fail * 100 / rows.length), hard_fail_count: rows.filter((r) => r.hard).length,
     teaching_class_count: CLASSES.filter((x) => x.key === c.key).length, is_initialized: 0,
-    engine_version: 'V2026.1', calc_time: '2026-10-20 09:00:00',
+    engine_version: '1-10.v1', calc_time: '2026-10-20 09:00:00',
     create_time: '2026-10-20 09:00:00', update_time: '2026-10-20 09:00:00'
   };
 }));
@@ -645,7 +765,7 @@ ins('teaching_class_fail_rate', CLASSES.map((c, i) => {
     id: 4001 + i, teaching_class_id: c.id, offering_id: c.offeringId, teacher_id: c.teacherId, term_id: 5,
     examinee_count: rows.length, fail_count: fail, fail_rate: r2(fail * 100 / rows.length),
     hard_fail_count: rows.filter((r) => r.hard).length, is_retake_class: c.retake,
-    engine_version: 'V2026.1', calc_time: '2026-10-20 09:00:00',
+    engine_version: '1-10.v1', calc_time: '2026-10-20 09:00:00',
     create_time: '2026-10-20 09:00:00', update_time: '2026-10-20 09:00:00'
   };
 }));
@@ -655,7 +775,7 @@ ins('admin_class_fail_rate', ADMIN_CLASSES.map((ac, i) => {
   return {
     id: 5001 + i, admin_class_id: ac.id, offering_id: 101, course_id: 1, term_id: 5,
     examinee_count: rows.length, fail_count: fail, fail_rate: r2(fail * 100 / rows.length),
-    hard_fail_count: rows.filter((r) => r.hard).length, engine_version: 'V2026.1',
+    hard_fail_count: rows.filter((r) => r.hard).length, engine_version: '1-10.v1',
     calc_time: '2026-10-20 09:00:00', create_time: '2026-10-20 09:00:00', update_time: '2026-10-20 09:00:00'
   };
 }));
@@ -667,7 +787,7 @@ COURSES.forEach((c) => {
     STYLE.push({
       id: styId++, teacher_id: t, offering_id: c.offeringId, course_id: c.courseId, term_id: 5,
       item_code: 'OVERALL', raw_delta: raw, delta: r2(raw * 0.62), shrink_lambda: 0.62, sample_size: 45,
-      std_dev: r2(8 + rnd() * 4), fused: 0, status: 'ACTIVE', engine_version: 'V2026.1',
+      std_dev: r2(8 + rnd() * 4), fused: 0, status: 'ACTIVE', engine_version: '1-10.v1',
       calc_time: '2026-10-18 10:00:00', create_time: '2026-10-18 10:00:00', update_time: '2026-10-18 10:00:00'
     });
   });
@@ -909,7 +1029,7 @@ ins('score_result', SYN_RES.map((r) => ({
   weighted_score: r.T, deduction_points: r.absent * 2, total_score: r.T, pass_score: 60,
   absent_count: r.absent, late_count: 0, leave_count: 0, allowed_absent: 5, effective_sessions: 16,
   hard_fail: 0, is_fail: r.fail, fail_reason: r.fail ? 'SCORE' : null, score_status: 'FINAL',
-  retake_times: 0, engine_version: 'V2026.1', calculated_at: '2028-01-10 18:00:00', is_void: 0,
+  retake_times: 0, engine_version: 'SYN.v1', calculated_at: '2028-01-10 18:00:00', is_void: 0,
   create_time: '2028-01-10 18:00:00', update_time: '2028-01-10 18:00:00'
 })));
 
@@ -939,7 +1059,18 @@ SELECT id, term_code, term_name, is_current, status FROM term ORDER BY id;`);
 fs.writeFileSync(path.join(__dirname, '20_rebuild_demo.sql'), out.join('\n'), 'utf8');
 console.log('生成 20_rebuild_demo.sql：块=' + out.length
   + ' 学生=' + STUDENTS.length + ' 教学班=' + CLASSES.length + ' 选课=' + ENROLL.length
-  + ' 课次=' + SESS.length + ' 考勤=' + ATT.length + ' 分项=' + SCORE_ITEMS.length
+  + ' 课次=' + SESS.length + ' 考勤=' + ATT.length + ' 分项(手工)=' + SCORE_ITEMS.length
   + ' 成绩单=' + RESULTS.length + ' 试卷=' + PAPERS.length + ' 题=' + QS.length
   + ' 提交=' + SUBS.length + ' 逐题=' + SUB_ANS.length
+  + ' 项目任务=' + TASKS.length + ' 团队=' + TEAMS.length + ' 项目提交=' + TSUBS.length
   + ' 历史成绩=' + H_RESULT.length + '（风险状态与预警由引擎重建后生成）');
+// 生成质量自检：每门课挂科率、综合分区间（用于把数据调到"像真的"）
+COURSES.forEach((c) => {
+  const rows = RESULTS.filter((r) => r.key === c.key);
+  const fail = rows.filter((r) => r.fail).length;
+  const hard = rows.filter((r) => r.hard).length;
+  const ts = rows.map((r) => r.T).sort((a, b) => a - b);
+  const pct = (q) => ts[Math.min(ts.length - 1, Math.floor(ts.length * q))];
+  console.log('  ' + c.name + '：' + rows.length + ' 人，挂科 ' + fail + '（' + (fail * 100 / rows.length).toFixed(1)
+    + '%），缺课硬线 ' + hard + '，综合分 P10=' + pct(0.1) + ' 中位=' + pct(0.5) + ' P90=' + pct(0.9));
+});

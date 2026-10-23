@@ -46,6 +46,9 @@ public class AlertRowVO {
     /** 学生申诉说明（学生端提交、教师端核实） */
     private String studentResponse;
     private LocalDateTime studentResponseTime;
+    /** 教师回复（学生端可见）；为空表示申诉待核实 */
+    private String teacherReply;
+    private LocalDateTime teacherReplyTime;
 
     private String engineVersion;
     private LocalDateTime createTime;

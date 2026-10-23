@@ -826,10 +826,17 @@ public class ProjectService {
                 ProjectTeamVO tv = teamVO(team, c);
                 if (withMembers) {
                     BigDecimal total = s.getProjectScore();
+                    int size = Math.max(1, tv.getMembers().size());
                     for (ProjectMemberVO m : tv.getMembers()) {
                         if (total != null && m.getRatio() != null) {
-                            m.setPersonalScore(total.multiply(m.getRatio())
-                                    .setScale(2, RoundingMode.HALF_UP));
+                            // 个人得分 = 团队得分 × 个人占比 × 组员数（等分时等于团队分，上限 100）
+                            BigDecimal personal = total.multiply(m.getRatio())
+                                    .multiply(BigDecimal.valueOf(size))
+                                    .setScale(2, RoundingMode.HALF_UP);
+                            if (personal.compareTo(new BigDecimal("100")) > 0) {
+                                personal = new BigDecimal("100.00");
+                            }
+                            m.setPersonalScore(personal);
                         }
                     }
                     v.setMembers(tv.getMembers());

@@ -77,7 +77,8 @@
           <button v-if="canAppeal(it)" class="text-sm text-amber-600 hover:underline" @click="openDetail(it, true)">
             申诉
           </button>
-          <span v-if="it.studentResponse" class="tag bg-slate-100 text-slate-500">已申诉·待核实</span>
+          <span v-if="it.teacherReply" class="tag bg-emerald-50 text-emerald-700 border border-emerald-200">老师已回复</span>
+          <span v-else-if="it.studentResponse" class="tag bg-slate-100 text-slate-500">已申诉·待核实</span>
           <span v-else-if="it.status === 'CLOSED'" class="tag bg-slate-100 text-slate-500">老师已处理</span>
         </div>
       </div>
@@ -106,7 +107,10 @@
           <div class="flex items-center gap-2 flex-wrap">
             <h2 class="font-semibold text-slate-800">{{ detail.item.courseName }}</h2>
             <span class="tag" :class="riskLevelBadge(detail.item.level)">{{ riskLevelLabel(detail.item.level) }}</span>
-            <span v-if="detail.item.studentResponse" class="tag bg-amber-50 text-amber-700 border border-amber-200">
+            <span v-if="detail.item.teacherReply" class="tag bg-emerald-50 text-emerald-700 border border-emerald-200">
+              老师已回复
+            </span>
+            <span v-else-if="detail.item.studentResponse" class="tag bg-amber-50 text-amber-700 border border-amber-200">
               已申诉·待核实
             </span>
           </div>
@@ -190,7 +194,10 @@
                 已于 {{ fmt(detail.item.studentResponseTime) }} 提交：
                 <span class="text-slate-700">{{ detail.item.studentResponse }}</span>
               </p>
-              <p class="text-xs text-slate-400">任课教师核实后会更新结论，结果会出现在消息中心。</p>
+              <p v-if="detail.item.teacherReply" class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2">
+                老师回复（{{ fmt(detail.item.teacherReplyTime) }}）：{{ detail.item.teacherReply }}
+              </p>
+              <p v-else class="text-xs text-slate-400">任课教师核实后会在这里给出回复，结果也会出现在消息中心。</p>
             </template>
             <template v-else-if="canAppeal(detail.item)">
               <textarea v-model="appealReason" class="input w-full h-20" maxlength="300"

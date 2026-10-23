@@ -538,8 +538,15 @@ public class ScoreMatrixService {
 
     // ============================================================ 学生端
     public List<StudentScoreVO> studentScores(Long studentId) {
+        // 我的成绩只看当前学期：历史学期与合成样本学期不再混排
+        Term current = termMapper.selectOne(Wrappers.<Term>lambdaQuery()
+                .eq(Term::getIsCurrent, 1)
+                .orderByDesc(Term::getId)
+                .last("limit 1"));
+        Long currentTermId = current == null ? null : current.getId();
         List<Enrollment> ens = enrollmentMapper.selectList(Wrappers.<Enrollment>lambdaQuery()
-                .eq(Enrollment::getStudentId, studentId));
+                .eq(Enrollment::getStudentId, studentId)
+                .eq(currentTermId != null, Enrollment::getTermId, currentTermId));
         List<StudentScoreVO> out = new ArrayList<>();
         for (Enrollment e : ens) {
             TeachingClass tc = classMapper.selectById(e.getTeachingClassId());
@@ -735,6 +742,7 @@ public class ScoreMatrixService {
                 for (Long sid : studentIds) {
                     ProjectSubmission mine = null;
                     BigDecimal ratio = BigDecimal.ONE;
+                    BigDecimal teamSize = BigDecimal.ONE;
                     for (ProjectSubmission s : subs) {
                         if (s.getTeamId() == null && sid.equals(s.getStudentId())) {
                             mine = s;
@@ -748,7 +756,8 @@ public class ScoreMatrixService {
                             if (pc == null) {
                                 continue;
                             }
-                            for (Map<String, String> mem : JsonObjects.arrayObjects(pc.getContributionJson())) {
+                            List<Map<String, String>> mems = JsonObjects.arrayObjects(pc.getContributionJson());
+                            for (Map<String, String> mem : mems) {
                                 if (String.valueOf(sid).equals(mem.get("studentId"))) {
                                     mine = s;
                                     try {
@@ -756,6 +765,8 @@ public class ScoreMatrixService {
                                     } catch (RuntimeException ignored) {
                                         ratio = BigDecimal.ONE;
                                     }
+                                    // 个人得分 = 团队得分 × 个人占比 × 组员数：等分时等于团队分，超出均值按比例上浮（上限 100）
+                                    teamSize = BigDecimal.valueOf(Math.max(1, mems.size()));
                                     break;
                                 }
                             }
@@ -771,8 +782,11 @@ public class ScoreMatrixService {
                     } else {
                         BigDecimal full = t.getFullScore() == null || t.getFullScore().signum() == 0
                                 ? HUNDRED : t.getFullScore();
-                        pct = mine.getProjectScore().multiply(ratio).multiply(HUNDRED)
+                        pct = mine.getProjectScore().multiply(ratio).multiply(teamSize).multiply(HUNDRED)
                                 .divide(full, 2, RoundingMode.HALF_UP);
+                        if (pct.compareTo(HUNDRED) > 0) {
+                            pct = HUNDRED;
+                        }
                     }
                     acc.computeIfAbsent(sid, k -> new ArrayList<>()).add(pct);
                 }

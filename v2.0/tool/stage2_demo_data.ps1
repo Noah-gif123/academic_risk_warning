@@ -1,8 +1,9 @@
 ﻿# 重建演示库后的第二阶段演示数据（走真实接口，不手改表）
 #   1) 教师 1001：认领 + 记录处理一条红色预警 → 处理中 + 干预记录 + 时间线
 #   2) 学生 20250001：对一条红色预警提交申诉 → 教师端出现「申诉」
+param([string]$Base = 'http://127.0.0.1:18080')
 $ErrorActionPreference = 'Stop'
-$base = 'http://127.0.0.1:18080/api'
+$base = $Base.TrimEnd('/') + '/api'
 function Post-Json($url, $obj, $token) {
   $bytes = [Text.Encoding]::UTF8.GetBytes(($obj | ConvertTo-Json -Depth 6 -Compress))
   $headers = @{}
@@ -60,4 +61,25 @@ if ($target) {
     reason = '第六次缺课当天在校外参加学科竞赛，带队老师可证明，申请按公假处理'
   } $stu
   "申诉 #{0} {1} → code={2} 申诉时间={3}" -f $target.alertId, $target.courseName, $ap.code, $ap.data.studentResponseTime
+}
+
+# 3) 教师端回复申诉（学生端可见 + 站内消息）；按申诉所属教学班找对应任课教师
+$TEACHER_OF_CLASS = @{ 201 = '1001'; 202 = '1001'; 203 = '1002'; 204 = '1002'; 205 = '1003'; 206 = '1003'
+                       207 = '1004'; 208 = '1004'; 209 = '1004'; 210 = '1005'; 211 = '1005'; 212 = '1005' }
+if ($target) {
+  $tcId = $target.teachingClassId
+  $tNo = $TEACHER_OF_CLASS[[int]$tcId]
+  $tToken = Login $tNo
+  $pending = (Get-Json "$base/teacher/alerts?teachingClassId=$tcId&appealPending=true" $tToken).data
+  "任课教师 $tNo 的待核实申诉：$($pending.Count) 条"
+  if ($pending.Count -gt 0) {
+    $p0 = $pending[0]
+    $rep = Post-Json "$base/teacher/alerts/$($p0.id)/reply" @{
+      reply = '已核实：当天为学科竞赛集训，按公假处理；缺课记录已更正，本次预警可关闭'
+    } $tToken
+    "回复 #{0} {1} → code={2} 回复时间={3}" -f $p0.id, $p0.studentName, $rep.code, $rep.data.teacherReplyTime
+    $after = (Get-Json "$base/student/warnings" $stu).data
+    $mine = $after.items | Where-Object { $_.alertId -eq $p0.id } | Select-Object -First 1
+    if ($mine) { "学生端看到回复：{0}" -f $mine.teacherReply }
+  }
 }

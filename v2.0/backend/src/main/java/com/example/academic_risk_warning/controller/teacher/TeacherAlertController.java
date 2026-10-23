@@ -25,13 +25,15 @@ public class TeacherAlertController {
 
     private final AlertEventService alertEventService;
 
-    /** 预警列表：可按开课/教学班/等级/状态过滤 */
+    /** 预警列表：可按开课/教学班/等级/状态过滤；appealPending=true 只看待核实申诉 */
     @GetMapping
     public Result<List<AlertRowVO>> list(@RequestParam(required = false) Long offeringId,
                                          @RequestParam(required = false) Long teachingClassId,
                                          @RequestParam(required = false) String level,
-                                         @RequestParam(required = false) String status) {
-        return Result.ok(alertEventService.listForTeacher(UserContext.require(), offeringId, teachingClassId, level, status));
+                                         @RequestParam(required = false) String status,
+                                         @RequestParam(required = false) Boolean appealPending) {
+        return Result.ok(alertEventService.listForTeacher(UserContext.require(), offeringId, teachingClassId,
+                level, status, appealPending));
     }
 
     /** 预警总览计数：总数、红橙黄、待处理/处理中/已关闭、已升级、今日新增、最近判定 */
@@ -102,6 +104,13 @@ public class TeacherAlertController {
                 request == null ? null : request.getNote()));
     }
 
+    /** 回复申诉（学生端可见，并发一条站内消息） */
+    @PostMapping("/{id}/reply")
+    public Result<AlertRowVO> reply(@PathVariable Long id, @RequestBody NoteRequest request) {
+        return Result.ok(alertEventService.replyToAppeal(UserContext.require(), id,
+                request == null ? null : request.getReply()));
+    }
+
     /** 处理请求体 */
     @lombok.Data
     public static class HandleRequest {
@@ -110,10 +119,11 @@ public class TeacherAlertController {
         private String result;
     }
 
-    /** 备注/原因请求体（关闭用 note，忽略用 reason，提醒用 note） */
+    /** 备注/原因请求体（关闭用 note，忽略用 reason，提醒用 note，回复用 reply） */
     @lombok.Data
     public static class NoteRequest {
         private String note;
         private String reason;
+        private String reply;
     }
 }

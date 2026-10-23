@@ -75,6 +75,10 @@ public final class RiskMath {
         BigDecimal rest = nz(weightedTotal).subtract(nz(finalWeighted));
         BigDecimal numerator = nz(passScore).add(nz(deduction)).subtract(rest);
         BigDecimal needed = numerator.divide(finalRatio, 1, RoundingMode.HALF_UP);
+        // 平时分已过线时算出来会是负数，对外统一按 0 分展示（期末考 0 分也能及格）
+        if (needed.signum() < 0) {
+            needed = BigDecimal.ZERO;
+        }
         boolean reachable = finalFullScore == null || needed.compareTo(finalFullScore) <= 0;
         return new BigDecimal[] { needed, reachable ? BigDecimal.ZERO : BigDecimal.ONE };
     }

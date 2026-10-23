@@ -118,6 +118,12 @@ public class AlertRecord {
     /** 学生回应时间 */
     private LocalDateTime studentResponseTime;
 
+    /** 教师对申诉的回复（学生端可见） */
+    private String teacherReply;
+
+    /** 教师回复时间 */
+    private LocalDateTime teacherReplyTime;
+
     /** 产生该预警的引擎版本 */
     private String engineVersion;
 

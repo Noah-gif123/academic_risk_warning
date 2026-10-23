@@ -220,6 +220,8 @@ public class StudentWarningService {
         i.setStatus(a == null ? "NONE" : a.getStatus());
         i.setStudentResponse(a == null ? null : a.getStudentResponse());
         i.setStudentResponseTime(a == null ? null : a.getStudentResponseTime());
+        i.setTeacherReply(a == null ? null : a.getTeacherReply());
+        i.setTeacherReplyTime(a == null ? null : a.getTeacherReplyTime());
 
         i.setConclusion(conclusionOf(i));
         i.setAdvice(adviceOf(i, config));
@@ -341,6 +343,7 @@ public class StudentWarningService {
         labelOf.put("LEVEL_UP", "风险等级升高");
         labelOf.put("LEVEL_DOWN", "风险等级降低");
         labelOf.put("APPEAL", "你提交了申诉");
+        labelOf.put("REPLIED", "老师回复了你的申诉");
         labelOf.put("CLOSED", "老师已处理并关闭");
         labelOf.put("DISMISSED", "老师核实后忽略该预警");
         labelOf.put("NOTIFIED", "已通知任课教师、辅导员和你");
