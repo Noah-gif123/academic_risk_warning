@@ -42,8 +42,11 @@
 | `17_dict_align.sql` | 数据字典口径对齐 | 只改列注释（`enrollment.status`、`password_hash`） |
 | `18_notification_seed.sql` | 四端消息演示数据 | **已被 `20_rebuild_demo.sql` 覆盖，勿与 20 一起执行**（会重复） |
 | **`19_cleanup_demo.sql`** | **清理脏数据** | 删测试卷、空壳学期；修枚举值；清内部标记；`teacher_style` 中的合成真值 |
-| **`20_rebuild_demo.sql`** | **重建主线演示数据**（由 `tool/seed_demo.js` 生成） | 3 班 × 45 人、5 门课、12 教学班、540 选课、192 课次、6480 考勤、540 成绩单、10+2 张试卷、540 风险、30 预警、问卷四环节；term 4 历史 + term 8 合成样本 |
+| **`20_rebuild_demo.sql`** | **重建主线演示数据**（由 `tool/seed_demo.js` 生成） | 3 班 × 45 人、5 门课（计基 12 周 / 高数 16 周 / 四史概述 12 周 / 数据结构(Java) 16 周 / 计网 12 周）、12 教学班、540 选课、164 课次、5535 考勤、6930 分项得分、540 成绩单、10+2 张试卷、问卷四环节；term 4 历史 + term 8 合成样本。**风险状态与预警不在此脚本内**，重建后由 `POST /api/engine/evaluate` 真实生成 |
 | **`21_tidy_after_rebuild.sql`** | 重建后收尾 | 清孤儿教学班/选课，合成学期改由 6~9 号教师带班 |
+| `22_tidy_after_m3.sql` / `23_tidy_after_m4.sql` / `24_tidy_after_m5.sql` | 第二阶段各步验收后的演示库整理 | 教师端验收残留 / 申诉文案 / 规则阈值测试产生的预警与规则版本 |
+
+> 重建顺序：`19 → 20 → 21` → 起后端跑一次判定（`tool/run_engine_after_seed.ps1`）→ 需要演示痕迹时跑 `tool/stage2_demo_data.ps1`（认领处理 / 提醒 / 申诉，走真实接口）。
 
 ```bash
 # 建表（01→15）
@@ -51,10 +54,11 @@ mysql -uroot -p study_warning_system_v2 < 01_base_layer.sql
 # … 依次 02 → 14，再 15
 mysql -uroot -p study_warning_system_v2 < 15_alter_2026_09.sql
 
-# 演示数据（一条主线 + 历史 + 合成样本）
+# 演示数据（一条主线 + 历史 + 合成样本）；20 由 tool/seed_demo.js 生成在 tool/ 目录下
 mysql -uroot -p study_warning_system_v2 < 19_cleanup_demo.sql
-mysql -uroot -p study_warning_system_v2 < 20_rebuild_demo.sql
+mysql -uroot -p study_warning_system_v2 < ../tool/20_rebuild_demo.sql
 mysql -uroot -p study_warning_system_v2 < 21_tidy_after_rebuild.sql
+# 然后起后端并跑一次判定（写入 risk_state / alert_record），需要演示痕迹再跑 stage2_demo_data.ps1
 ```
 
 > 基线（01–10）保持原样、修订集中在 15 号脚本，便于审计“哪些是后来改的”。

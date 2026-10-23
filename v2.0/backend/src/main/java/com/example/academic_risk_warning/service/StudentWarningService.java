@@ -265,9 +265,9 @@ public class StudentWarningService {
         } else if (i.getLevel() != null && !"GREEN".equals(i.getLevel()) && allowed > 0 && absent >= allowed - 1) {
             out.add("缺课已达 " + absent + " 次、上限 " + allowed + " 次，再缺课就会触及硬线，请保证后面的每次课都到。");
         }
-        if (i.getChannelBScore() != null && i.getChannelBScore().compareTo(BigDecimal.valueOf(60)) < 0) {
-            out.add("加权分偏低（约 " + i.getChannelBScore().stripTrailingZeros().toPlainString()
-                    + " 分），优先补齐欠交作业与测验，把平时分提上来。");
+        if (i.getTotalScore() != null && i.getTotalScore().compareTo(BigDecimal.valueOf(60)) < 0) {
+            out.add("综合分偏低（" + i.getTotalScore().stripTrailingZeros().toPlainString()
+                    + " 分，及格线 60），优先补齐欠交作业与测验，把平时分提上来。");
         }
         if (i.getLateCount() != null && i.getLateCount() > 0) {
             out.add("已有 " + i.getLateCount() + " 次迟到，迟到同样会扣分，请按时到课。");
@@ -317,7 +317,8 @@ public class StudentWarningService {
     /** 判定口径（学生可见版本） */
     private List<String> guidelines(RiskEngineConfig config) {
         List<String> g = new ArrayList<>();
-        g.add("缺课上限：有效课次 ÷ 3 向下取整（例如 16 次课允许缺 5 次），缺课超过上限即按学校规定认定硬性不合格。");
+        g.add("缺课上限：有效课次 ÷ 3 向下取整（16 周课程 16 次课允许缺 5 次，12 周课程 12 次课允许缺 4 次），"
+                + "缺课超过上限即按学校规定认定硬性不合格。");
         g.add("扣分规则：P = 2 × 缺课 + 1 × 迟到 + 1 × 超出 "
                 + (config == null || config.getLeaveFreeTimes() == null ? 3 : config.getLeaveFreeTimes())
                 + " 次的请假；加权分 T = 课程加权分 W − P，T 越高风险越低。");

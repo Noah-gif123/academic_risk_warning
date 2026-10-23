@@ -1,11 +1,13 @@
 /* seed_demo.js — 生成 20_rebuild_demo.sql（演示库「一条主线 + 一段历史」重建）
  *
  * 主线 term 5（2026-2027-1 · current · ACTIVE）
- *   3 个行政班 × 45 人 = 135 学生（CS-2025-1 / CS-2025-2 / CS-2024-1）
- *   5 门课 · 12 个教学班 · 选课 540 · 课次 192（点名 12/16）· 考勤 6480
- *   分项得分 4320 · 成绩单 540（挂科含 1/3 硬门槛）
+ *   3 个行政班 × 45 人 = 135 学生
+ *   5 门课 · 12 个教学班 · 选课 540（含 2 个重修班）
+ *   课次按课程周次生成（12 周 / 16 周），点名 75%；考勤逐人一条
+ *   成绩构成：每门课「平时 + 终结性」两级构成（各课权重不同，见 SCHEMES）
+ *   分项得分按能力分布生成 · 成绩单 540（含 1/3 缺课硬门槛，每班 0~2 人）
  *   试卷 10 张（8 已批 / 1 张 3 人待批 / 1 张 4 人缺考）· 提交 450 · 逐题 2700
- *   风险状态 540 · 预警 40 · 时间线 80 · 干预 12 · 三维挂科率 · 问卷 + 四环节
+ *   风险状态 / 预警 / 时间线 / 干预由风险引擎在重建后真实生成（本脚本不手写）
  * 历史 term 4（2025-2026-2 · CLOSED）
  *   2024 级 45 人 × 2 门课 = 90 成绩，12 人挂科 → 学生挂科历史
  * 合成 term 8：不触碰（由 19_cleanup_demo.sql 规整）
@@ -79,12 +81,14 @@ ADMIN_CLASSES.forEach((ac) => {
 });
 const studentsOf = (acId) => STUDENTS.filter((s) => s.acId === acId);
 
+// 课程与周次/学分：A 大学计算机基础 12 周 · B 高等数学 16 周 · C 四史概述 12 周 · D 数据结构(Java) 16 周 · E 计算机网络 12 周
+// 重修班挂在高数之外的核心课上：数据结构（D）与计算机网络（E）各一个重修班
 const COURSES = [
-  { key: 'A', courseId: 1, name: '大学计算机基础', offeringId: 101, schemeId: 601 },
-  { key: 'B', courseId: 4, name: '高等数学', offeringId: 102, schemeId: 602 },
-  { key: 'C', courseId: 6, name: '程序设计基础', offeringId: 103, schemeId: 603 },
-  { key: 'D', courseId: 7, name: '数据结构', offeringId: 104, schemeId: 604 },
-  { key: 'E', courseId: 8, name: '计算机网络', offeringId: 105, schemeId: 605 }
+  { key: 'A', courseId: 1, name: '大学计算机基础（一）', offeringId: 101, schemeId: 601, weeks: 12, credit: 2.0, type: 'EXAM' },
+  { key: 'B', courseId: 4, name: '高等数学（一）', offeringId: 102, schemeId: 602, weeks: 16, credit: 4.0, type: 'EXAM' },
+  { key: 'C', courseId: 10, name: '四史概述', offeringId: 103, schemeId: 603, weeks: 12, credit: 1.0, type: 'EXAM' },
+  { key: 'D', courseId: 7, name: '数据结构（Java）', offeringId: 104, schemeId: 604, weeks: 16, credit: 2.0, type: 'ASSESS' },
+  { key: 'E', courseId: 8, name: '计算机网络', offeringId: 105, schemeId: 605, weeks: 12, credit: 2.0, type: 'EXAM' }
 ];
 
 let tcid = 201;
@@ -96,7 +100,7 @@ COURSES.forEach((c) => {
     code: (acId === 1 ? 'CS-01-' : 'CS-02-') + c.key,
     name: c.name + (acId === 1 ? ' 01班' : ' 02班')
   }));
-  if (c.key === 'C' || c.key === 'D') CLASSES.push({
+  if (c.key === 'D' || c.key === 'E') CLASSES.push({
     id: tcid++, offeringId: c.offeringId, key: c.key, acId: 3, retake: 1, teacherId: teacherBase,
     code: 'CS-RT-' + c.key, name: c.name + ' 重修班'
   });
@@ -180,6 +184,19 @@ out.push("INSERT INTO sys_account (id, login_no, password_hash, role, real_name,
   + " WHERE s.id <> 1;");
 del('UPDATE student SET account_id = 631 WHERE id = 1');
 
+// ---------- 2.1) 课程口径（考核方式 / 学分 / 周次） ----------
+out.push('-- 2.1) 课程口径：考核方式、学分、总学时（12 周 = 24 学时，16 周 = 32 学时）');
+del("UPDATE course SET course_name='大学计算机基础（一）', course_type='EXAM', credit=2.0, total_hours=24, update_time=NOW() WHERE id=1");
+del("UPDATE course SET course_name='高等数学（一）', course_type='EXAM', credit=4.0, total_hours=32, update_time=NOW() WHERE id=4");
+del("UPDATE course SET course_name='数据结构（Java）', course_type='ASSESS', credit=2.0, total_hours=32, update_time=NOW() WHERE id=7");
+del("UPDATE course SET course_name='计算机网络', course_type='EXAM', credit=2.0, total_hours=24, update_time=NOW() WHERE id=8");
+del('DELETE FROM course WHERE id = 10');
+ins('course', [{
+  id: 10, course_name: '四史概述', course_type: 'EXAM', credit: 1.0, total_hours: 24,
+  college_name: '计算机学院', status: 'ACTIVE',
+  create_time: '2026-08-20 09:00:00', update_time: '2026-08-20 09:00:00'
+}]);
+
 // ---------- 3) 课程组 / 开课 / 教学班 ----------
 out.push('-- 3) 课程组、开课实例、教学班、导员带班');
 ins('course_group', COURSES.map((c) => ({
@@ -188,10 +205,10 @@ ins('course_group', COURSES.map((c) => ({
 })));
 ins('course_offering', COURSES.map((c) => ({
   id: c.offeringId, course_id: c.courseId, term_id: 5, group_id: c.offeringId,
-  planned_weeks: 16, planned_times_per_week: 1, planned_sessions: 16,
-  actual_weeks: 16, actual_sessions: 16, actual_submit_status: 'SUBMITTED',
+  planned_weeks: c.weeks, planned_times_per_week: 1, planned_sessions: c.weeks,
+  actual_weeks: c.weeks, actual_sessions: c.weeks, actual_submit_status: 'SUBMITTED',
   actual_submit_by: 1442, actual_submit_time: '2026-12-18 09:00:00', actual_confirm_by: 1442,
-  actual_confirm_time: '2026-12-19 09:00:00', effective_sessions: 16, effective_source: 'ACTUAL',
+  actual_confirm_time: '2026-12-19 09:00:00', effective_sessions: c.weeks, effective_source: 'ACTUAL',
   pass_score: 60, status: 'ACTIVE', create_by: 1442,
   create_time: '2026-08-20 09:10:00', update_time: '2026-12-19 09:00:00'
 })));
@@ -221,47 +238,120 @@ ins('enrollment', ENROLL.map((e) => ({
   create_by: 1, create_time: '2026-08-25 14:00:00', update_time: '2026-08-25 14:00:00'
 })));
 
-// ---------- 5) 成绩构成 ----------
-out.push('-- 5) 成绩构成（5 项合计 100%，已锁定；考勤不计入评分项）');
-const IT = [
-  { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 20, times: 3, auto: 'AUTO', subj: 0 },
-  { code: 'LAB', name: '实验', cat: 'EXPERIMENT', w: 15, times: 2, auto: 'MANUAL', subj: 1 },
-  { code: 'PERF', name: '课堂表现', cat: 'PERFORMANCE', w: 10, times: 1, auto: 'MANUAL', subj: 1 },
-  { code: 'MID', name: '期中测验', cat: 'MIDTERM', w: 20, times: 1, auto: 'AUTO', subj: 0 },
-  { code: 'FINAL', name: '期末考核', cat: 'FINAL', w: 35, times: 1, auto: 'AUTO', subj: 0 }
-];
+// ---------- 5) 成绩构成（两级：平时 + 终结性；各课权重按培养方案） ----------
+// 口径来源：培养方案讨论稿（2026-10）——
+//   A 大学计算机基础：平时 40（课堂测试 35 / 三级项目 20 / 课堂表现 5 / 课后作业 40）+ 期末 60
+//   B 高等数学：      平时 40（课堂测试 30 / 期中考试 20 / 课后作业 50）+ 期末 60
+//   C 四史概述：      平时 60（课堂测试 35 / 三级项目 20 / 四级项目 40 / 课堂表现 5）+ 期末 40
+//   D 数据结构(Java)：平时 40（课堂测试 35 / 三级项目 25 / 课后作业 40）+ 大作业 60
+//   E 计算机网络：    平时 50（课堂测试 30 / 期中考试 20 / 课后作业 50）+ 期末 50
+out.push('-- 5) 成绩构成（两级：平时成绩 + 终结性考核，合计 100；考勤不计入评分项）');
+const SCHEMES = {
+  A: { usual: 40, finalW: 60, finalName: '终结性考核',
+    items: [
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7 },
+      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 20, times: 1 },
+      { code: 'PERF', name: '课堂表现', cat: 'PERFORMANCE', w: 5, times: 1 },
+      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 40, times: 4 }
+    ],
+    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1 } },
+  B: { usual: 40, finalW: 60, finalName: '终结性考核',
+    items: [
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 30, times: 6 },
+      { code: 'MID', name: '期中考试', cat: 'MIDTERM', w: 20, times: 1 },
+      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 50, times: 5 }
+    ],
+    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1 } },
+  C: { usual: 60, finalW: 40, finalName: '终结性考核',
+    items: [
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7 },
+      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 20, times: 1 },
+      { code: 'P4', name: '四级项目', cat: 'PROJECT', w: 40, times: 1 },
+      { code: 'PERF', name: '课堂表现', cat: 'PERFORMANCE', w: 5, times: 1 }
+    ],
+    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1 } },
+  D: { usual: 40, finalW: 60, finalName: '终结性考核',
+    items: [
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 35, times: 7 },
+      { code: 'P3', name: '三级项目', cat: 'PROJECT', w: 25, times: 1 },
+      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 40, times: 4 }
+    ],
+    final:  { code: 'ASSIGN', name: '大作业', cat: 'FINAL', times: 1 } },
+  E: { usual: 50, finalW: 50, finalName: '终结性考核',
+    items: [
+      { code: 'QUIZ', name: '课堂测试', cat: 'QUIZ', w: 30, times: 6 },
+      { code: 'MID', name: '期中考试', cat: 'MIDTERM', w: 20, times: 1 },
+      { code: 'HW', name: '课后作业', cat: 'HOMEWORK', w: 50, times: 5 }
+    ],
+    final:  { code: 'FINAL_EXAM', name: '期末考试', cat: 'FINAL', times: 1 } }
+};
+
 ins('score_scheme', COURSES.map((c) => ({
-  id: c.schemeId, group_id: c.offeringId, term_id: 5, version: 1, level: 'COLLEGE',
+  id: c.schemeId, group_id: c.offeringId, term_id: 5, version: 2, level: 'COLLEGE',
   total_weight: 100, confirm_status: 'LOCKED', confirm_total: 100, confirm_done: 1,
   locked: 1, locked_by: 1431, locked_at: '2026-08-28 10:00:00', lock_type: 'COLLEGE',
   create_by: 1431, create_time: '2026-08-28 09:00:00', update_time: '2026-08-28 10:00:00'
 })));
 const ITEM_ID = {};
+const LEAVES = {};
 let siid = 701;
 const SI = [];
+const T8 = '2026-08-28 09:00:00';
 COURSES.forEach((c) => {
+  const sc = SCHEMES[c.key];
   ITEM_ID[c.schemeId] = {};
-  IT.forEach((it, i) => {
-    ITEM_ID[c.schemeId][it.code] = siid;
+  LEAVES[c.key] = [];
+  const usualRootId = siid++;
+  SI.push({
+    id: usualRootId, scheme_id: c.schemeId, parent_id: null, item_level: 1, item_code: 'USUAL',
+    item_name: '平时成绩', category: 'USUAL', weight: sc.usual, full_score: 100, data_source: 'MANUAL',
+    score_type: 'NUMERIC', expected_times: 0, aggregate_mode: 'WEIGHTED', is_anchor: 0, is_subjective: 0,
+    scorer_role: 'TEACHER', sort_no: 10, status: 'ACTIVE', create_by: 1431, create_time: T8, update_time: T8
+  });
+  sc.items.forEach((it, i) => {
+    const id = siid++;
+    ITEM_ID[c.schemeId][it.code] = id;
+    LEAVES[c.key].push({ code: it.code, name: it.name, times: it.times, w: it.w, cat: it.cat, isFinal: false });
     SI.push({
-      id: siid++, scheme_id: c.schemeId, parent_id: null, item_level: 1, item_code: it.code, item_name: it.name,
-      category: it.cat, weight: it.w, full_score: 100, data_source: it.auto, score_type: 'NUMERIC',
-      expected_times: it.times, aggregate_mode: 'AVG', is_anchor: 0, is_subjective: it.subj,
+      id, scheme_id: c.schemeId, parent_id: usualRootId, item_level: 2, item_code: it.code, item_name: it.name,
+      category: it.cat, weight: it.w, full_score: 100, data_source: 'MANUAL', score_type: 'NUMERIC',
+      expected_times: it.times, aggregate_mode: 'AVG', is_anchor: 0,
+      is_subjective: it.cat === 'PROJECT' || it.cat === 'PERFORMANCE' ? 1 : 0,
       scorer_role: 'TEACHER', sort_no: (i + 1) * 10, status: 'ACTIVE',
-      create_by: 1431, create_time: '2026-08-28 09:00:00', update_time: '2026-08-28 09:00:00'
+      create_by: 1431, create_time: T8, update_time: T8
     });
+  });
+  const finalRootId = siid++;
+  SI.push({
+    id: finalRootId, scheme_id: c.schemeId, parent_id: null, item_level: 1, item_code: 'FINAL_ROOT',
+    item_name: sc.finalName, category: 'FINAL', weight: sc.finalW === undefined ? 60 : sc.finalW,
+    full_score: 100, data_source: 'MANUAL', score_type: 'NUMERIC', expected_times: 0,
+    aggregate_mode: 'WEIGHTED', is_anchor: 0, is_subjective: 0, scorer_role: 'TEACHER', sort_no: 20,
+    status: 'ACTIVE', create_by: 1431, create_time: T8, update_time: T8
+  });
+  const fid = siid++;
+  ITEM_ID[c.schemeId][sc.final.code] = fid;
+  LEAVES[c.key].push({ code: sc.final.code, name: sc.final.name, times: sc.final.times, w: 100, cat: sc.final.cat, isFinal: true });
+  SI.push({
+    id: fid, scheme_id: c.schemeId, parent_id: finalRootId, item_level: 2, item_code: sc.final.code,
+    item_name: sc.final.name, category: sc.final.cat, weight: 100, full_score: 100, data_source: 'MANUAL',
+    score_type: 'NUMERIC', expected_times: sc.final.times, aggregate_mode: 'AVG', is_anchor: 0,
+    is_subjective: 0, scorer_role: 'TEACHER', sort_no: 10, status: 'ACTIVE',
+    create_by: 1431, create_time: T8, update_time: T8
   });
 });
 ins('score_scheme_item', SI);
 
 // ---------- 6) 课次 ----------
-out.push('-- 6) 课次（每班 16 周；第 13~16 周未点名 → 覆盖率 75%）');
+out.push('-- 6) 课次（按课程周次：12 周或 16 周；点名到 75%，其余未点名 → 覆盖率 75%）');
 const SESS = [];
 let sessId = 40001;
 CLASSES.forEach((c) => {
-  for (let w = 1; w <= 16; w++) SESS.push({
-    id: sessId++, tcId: c.id, offeringId: c.offeringId, week: w,
-    date: weekDate(TERM5_START, w), called: w <= 12
+  const course = COURSES.find((x) => x.key === c.key);
+  const calledWeeks = Math.round(course.weeks * 0.75); // 12 周 → 9 次，16 周 → 12 次
+  for (let w = 1; w <= course.weeks; w++) SESS.push({
+    id: sessId++, tcId: c.id, offeringId: c.offeringId, week: w, weeks: course.weeks,
+    date: weekDate(TERM5_START, w), called: w <= calledWeeks
   });
 });
 ins('course_session', SESS.map((s) => ({
@@ -274,28 +364,75 @@ ins('course_session', SESS.map((s) => ({
 })));
 
 // ---------- 7) 考勤 ----------
-out.push('-- 7) 考勤（已点名课次逐人一条；CS-01 前 9 人预留 1/3 硬门槛）');
-const HARD = new Set(studentsOf(1).slice(0, 9).map((s) => s.id));
+// 现实分布：绝大多数学生缺课 0~2 次；每班只留 0~2 人越过 1/3 硬线（12 周允许 4 次、16 周允许 5 次）
+out.push('-- 7) 考勤（已点名课次逐人一条；每班 0~2 人超缺课硬线）');
+const allowedOf = (weeks) => Math.floor(weeks / 3); // 12 周 → 4，16 周 → 5
+const hardOfClass = {};
+CLASSES.forEach((c) => {
+  // 演示学生 20250001 在四史概述里占一个「超限」名额，其余班保持 1~2 人
+  const list = studentsOf(c.acId).filter((s) => s.id !== 1);
+  const course = COURSES.find((x) => x.key === c.key);
+  const allowed = allowedOf(course.weeks);
+  let cnt = c.retake ? 1 : (c.id % 3 === 1 ? 2 : 1); // 每班 1~2 人越过硬线
+  if (c.key === 'C' && c.acId === 1) cnt = Math.max(0, cnt - 1);
+  const offset = (c.id % 5) * 3;
+  const set = new Set();
+  for (let k = 0; k < cnt && k < list.length; k++) set.add(list[(offset + k) % list.length].id);
+  // 目标缺课次数：超上限 1~2 次
+  hardOfClass[c.id] = { set, target: allowed + 1 + Math.floor(rnd() * 2) };
+});
 const ATT = [];
 const absentCount = {};
+const lateCount = {};
+const leaveCount = {};
 let attId = 500001;
-SESS.filter((s) => s.called).forEach((s) => {
-  const c = CLASSES.find((x) => x.id === s.tcId);
+const byTc = {};
+SESS.filter((s) => s.called).forEach((s) => { (byTc[s.tcId] = byTc[s.tcId] || []).push(s); });
+Object.entries(byTc).forEach(([tcIdStr, sessions]) => {
+  const c = CLASSES.find((x) => x.id === Number(tcIdStr));
+  const course = COURSES.find((x) => x.key === c.key);
+  const allowed = allowedOf(course.weeks);
+  const hardInfo = hardOfClass[c.id];
   studentsOf(c.acId).forEach((st) => {
     const e = ENROLL.find((x) => x.studentId === st.id && x.tcId === c.id);
-    const hard = HARD.has(st.id) && c.key === 'A';
+    if (!e) return;
+    const isHard = hardInfo.set.has(st.id);
+    const isDemoStudent = st.id === 1;
+    // 目标次数：硬线学生超上限；普通学生 0~3 次（不超过上限）
     const r = rnd();
-    let status = 'PRESENT';
-    if (r < (hard ? 0.55 : 0.02)) status = 'ABSENT';
-    else if (r < (hard ? 0.60 : 0.06)) status = 'LATE';
-    else if (r < (hard ? 0.63 : 0.09)) status = 'LEAVE';
-    if (status === 'ABSENT') absentCount[e.id] = (absentCount[e.id] || 0) + 1;
-    ATT.push({
-      id: attId++, enrollment_id: e.id, student_id: st.id, session_id: s.id, term_id: 5, status,
-      leave_type: status === 'LEAVE' ? pick(['PERSONAL', 'SICK', 'OFFICIAL']) : null,
-      phase: 'NORMAL', source: 'TEACHER', recorded_by: 1431, recorded_role: 'TEACHER',
-      recorded_at: s.date + ' 09:45:00', batch_key: 'RC-' + s.id, is_void: 0,
-      create_time: '2026-09-01 10:00:00', update_time: '2026-09-01 10:00:00'
+    let targetAbsent;
+    if (isDemoStudent) {
+      // 演示学生：计基刚好到上限（再缺一次就挂）、四史已超限、其余正常出勤
+      targetAbsent = c.key === 'A' ? allowed : (c.key === 'C' ? allowed + 1 : 0);
+    } else if (isHard) targetAbsent = hardInfo.target;
+    else if (r < 0.58) targetAbsent = 0;
+    else if (r < 0.82) targetAbsent = 1;
+    else if (r < 0.93) targetAbsent = 2;
+    else targetAbsent = Math.min(allowed, 3);
+    let targetLate = isDemoStudent ? 1 : (rnd() < 0.55 ? 0 : (rnd() < 0.8 ? 1 : 2));
+    let targetLeave = isDemoStudent ? 2 : (rnd() < 0.7 ? 0 : (rnd() < 0.85 ? 1 : 2));
+    let leftAbsent = targetAbsent, leftLate = targetLate, leftLeave = targetLeave;
+    const n = sessions.length;
+    sessions.forEach((sess, idx) => {
+      const remaining = n - idx;
+      let status = 'PRESENT';
+      if (leftAbsent > 0 && rnd() < leftAbsent / remaining) {
+        status = 'ABSENT'; leftAbsent--;
+      } else if (leftLate > 0 && rnd() < leftLate / remaining) {
+        status = 'LATE'; leftLate--;
+      } else if (leftLeave > 0 && rnd() < leftLeave / remaining) {
+        status = 'LEAVE'; leftLeave--;
+      }
+      if (status === 'ABSENT') absentCount[e.id] = (absentCount[e.id] || 0) + 1;
+      if (status === 'LATE') lateCount[e.id] = (lateCount[e.id] || 0) + 1;
+      if (status === 'LEAVE') leaveCount[e.id] = (leaveCount[e.id] || 0) + 1;
+      ATT.push({
+        id: attId++, enrollment_id: e.id, student_id: st.id, session_id: sess.id, term_id: 5, status,
+        leave_type: status === 'LEAVE' ? pick(['PERSONAL', 'SICK', 'OFFICIAL']) : null,
+        phase: 'NORMAL', source: 'TEACHER', recorded_by: 1431, recorded_role: 'TEACHER',
+        recorded_at: sess.date + ' 09:45:00', batch_key: 'RC-' + sess.id, is_void: 0,
+        create_time: '2026-09-01 10:00:00', update_time: '2026-09-01 10:00:00'
+      });
     });
   });
 });
@@ -312,41 +449,61 @@ ins('attendance_archive', [{
 }]);
 
 // ---------- 8) 分项得分 + 成绩单 ----------
-out.push('-- 8) 分项得分与成绩单（W − P；缺课 > 1/3 判硬门槛）');
-const ALLOWED = 5; // floor(16/3)
+out.push('-- 8) 分项得分与成绩单（两级构成算 W，扣分 P 后得 T；缺课 > 1/3 判硬门槛）');
 // 3 名“多门不及格”学生：让导员端「重点关注（≥3 门风险课程）」有数据
 const WEAK = new Set(studentsOf(1).slice(10, 13).map((s) => s.id));
+// 各评分项的相对松紧：课堂测试略严、作业偏松、期末最严（sd = 标准差）
+const ITEM_TUNE = {
+  QUIZ: { add: -6, sd: 11 },
+  HW: { add: 12, sd: 8 },
+  P3: { add: 5, sd: 10 },
+  P4: { add: 4, sd: 10 },
+  PERF: { add: 10, sd: 7 },
+  MID: { add: -4, sd: 13 },
+  FINAL_EXAM: { add: -8, sd: 15 },
+  ASSIGN: { add: 3, sd: 11 }
+};
 const SCORE_ITEMS = [];
 const RESULTS = [];
 let sciId = 600001, resId = 700001;
 ENROLL.forEach((e) => {
-  const schemeId = COURSES.find((c) => c.key === e.key).schemeId;
-  const hard = HARD.has(e.studentId) && e.key === 'A';
-  const weak = WEAK.has(e.studentId);
-  const ability = hard || weak ? 45 + rnd() * 8 : 64 + rnd() * 34;
-  let weighted = 0;
-  IT.forEach((it) => {
+  const scheme = SCHEMES[e.key];
+  const course = COURSES.find((c) => c.key === e.key);
+  const allowed = allowedOf(course.weeks);
+  // 学生能力值：大多数 65~95，少数掉队
+  let ability = 62 + rnd() * 34;
+  if (WEAK.has(e.studentId)) ability -= 15;
+  if (rnd() < 0.06) ability -= 8;
+  let usualPct = 0, finalPct = 0;
+  LEAVES[e.key].forEach((it) => {
+    const tune = ITEM_TUNE[it.code] || { add: 0, sd: 10 };
     let sum = 0;
     for (let t = 1; t <= it.times; t++) {
-      const sc = Math.max(0, Math.min(100, r1(ability + (rnd() - 0.5) * 18)));
+      const sc = Math.max(0, Math.min(100, r1(ability + tune.add + (rnd() - 0.5) * 2 * tune.sd)));
       sum += sc;
       SCORE_ITEMS.push({
-        id: sciId++, enrollment_id: e.id, student_id: e.studentId, scheme_item_id: ITEM_ID[schemeId][it.code],
-        term_id: 5, times_no: t, score: sc, full_score: 100, is_absent: 0, source: it.auto,
-        scorer_id: 1431, scorer_role: 'TEACHER', scored_at: '2026-10-10 10:00:00', is_void: 0,
+        id: sciId++, enrollment_id: e.id, student_id: e.studentId,
+        scheme_item_id: ITEM_ID[course.schemeId][it.code], term_id: 5, times_no: t, score: sc,
+        full_score: 100, is_absent: 0, source: 'MANUAL', scorer_id: 1431, scorer_role: 'TEACHER',
+        scored_at: '2026-10-10 10:00:00', is_void: 0,
         create_by: 1431, create_time: '2026-10-10 10:00:00', update_time: '2026-10-10 10:00:00'
       });
     }
-    weighted += (sum / it.times) * (it.w / 100);
+    const avg = sum / it.times;
+    if (it.isFinal) finalPct = avg;
+    else usualPct += avg * (it.w / 100);
   });
+  const weighted = usualPct * scheme.usual / 100 + finalPct * scheme.finalW / 100;
   const absent = absentCount[e.id] || 0;
-  const P = absent * 2;
+  const late = lateCount[e.id] || 0;
+  const leave = leaveCount[e.id] || 0;
+  const P = 2 * absent + late + Math.max(0, leave - 3);
   const T = r2(weighted - P);
-  const isHard = absent > ALLOWED;
+  const isHard = absent > allowed;
   RESULTS.push({
     id: resId++, enrollmentId: e.id, studentId: e.studentId, no: e.no, offeringId: e.offeringId,
-    tcId: e.tcId, acId: e.acId, key: e.key, W: r1(weighted), P: r1(P), T, absent,
-    hard: isHard ? 1 : 0, fail: isHard || T < 60 ? 1 : 0,
+    tcId: e.tcId, acId: e.acId, key: e.key, W: r1(weighted), P: r1(P), T, absent, late, leave,
+    allowed, weeks: course.weeks, hard: isHard ? 1 : 0, fail: isHard || T < 60 ? 1 : 0,
     reason: isHard ? 'HARD_LINE' : (T < 60 ? 'SCORE' : null)
   });
 });
@@ -354,7 +511,7 @@ ins('score_item', SCORE_ITEMS);
 ins('score_result', RESULTS.map((r) => ({
   id: r.id, enrollment_id: r.enrollmentId, student_id: r.studentId, offering_id: r.offeringId, term_id: 5,
   weighted_score: r.W, deduction_points: r.P, total_score: r.T, pass_score: 60, absent_count: r.absent,
-  late_count: 0, leave_count: 0, allowed_absent: ALLOWED, effective_sessions: 16,
+  late_count: r.late, leave_count: r.leave, allowed_absent: r.allowed, effective_sessions: r.weeks,
   hard_fail: r.hard, is_fail: r.fail, fail_reason: r.reason, score_status: 'FINAL', retake_times: 0,
   engine_version: 'V2026.1', calculated_at: '2026-10-15 18:00:00', is_void: 0,
   create_time: '2026-10-15 18:00:00', update_time: '2026-10-15 18:00:00'
@@ -463,100 +620,10 @@ ins('submission', SUBS.map((s) => ({
 ins('submission_answer', SUB_ANS);
 
 // ---------- 10) 风险状态 / 预警 / 时间线 / 干预 ----------
-out.push('-- 10) 风险状态 540、预警 40、时间线 80、干预 12');
-const BY_TC = {};
-RESULTS.forEach((r) => { (BY_TC[r.tcId] = BY_TC[r.tcId] || []).push(r); });
-Object.values(BY_TC).forEach((a) => a.sort((x, y) => x.T - y.T));
-const RISK = [];
-let riskId = 6001;
-RESULTS.forEach((r) => {
-  const arr = BY_TC[r.tcId];
-  const rank = arr.findIndex((x) => x.id === r.id) + 1;
-  const remaining = ALLOWED - r.absent;
-  const aLevel = r.hard ? 'FAIL' : (remaining <= 1 ? 'DANGER' : (remaining <= 2 ? 'WATCH' : 'SAFE'));
-  // 风险分口径：以总评为主（T 越低越危险），缺课次数加重；排名只作为 B 通道展示字段
-  const bScore = r2(Math.min(100, Math.max(0, 100 - r.T) + r.absent * 3));
-  const score = r.hard ? 95 : bScore;
-  const level = score >= 75 ? 'RED' : score >= 60 ? 'ORANGE' : score >= 40 ? 'YELLOW' : 'GREEN';
-  RISK.push({
-    id: riskId++, enrollmentId: r.enrollmentId, studentId: r.studentId, offeringId: r.offeringId,
-    tcId: r.tcId, absent: r.absent, remaining, hard: r.hard, aLevel, bScore, rank, size: arr.length,
-    score, level
-  });
-});
-ins('risk_state', RISK.map((k) => ({
-  id: k.id, enrollment_id: k.enrollmentId, student_id: k.studentId, offering_id: k.offeringId,
-  teaching_class_id: k.tcId, term_id: 5, absent_count: k.absent, late_count: 0, leave_count: 0,
-  allowed_absent: ALLOWED, remaining_absent: k.remaining, hard_fail: k.hard, near_fail: k.remaining <= 1 ? 1 : 0,
-  final_exam_needed: null, final_unreachable: 0, channel_a_level: k.aLevel,
-  channel_b_score: k.bScore, channel_b_rank: k.rank, channel_b_class_size: k.size, channel_b_level: 'SAME_AS_A',
-  channel_c_score: null, delta_used: null, course_factor_used: null, channel_c_level: null,
-  risk_score: k.score, risk_level: k.level, active_channel: 'B', confidence: 0.86, confidence_level: 'HIGH',
-  output_mode: 'FULL_SCORE', trigger_source: 'EVALUATION', last_eval_time: T_NOW,
-  engine_version: 'V2026.1', is_void: 0, create_time: T_NOW, update_time: T_NOW
-})));
-
-const sorted = RISK.slice().sort((a, b) => b.score - a.score);
-const ALERT_PICK = [
-  ...sorted.filter((x) => x.level === 'RED').slice(0, 8),
-  ...sorted.filter((x) => x.level === 'ORANGE').slice(0, 12),
-  ...sorted.filter((x) => x.level === 'YELLOW').slice(0, 20)
-];
-const ALERTS = [], FLOWS = [], INTERV = [];
-let aid = 3101, fid = 3201, iid = 3301;
-ALERT_PICK.forEach((k, i) => {
-  const rule = k.hard ? 'A_HARD_LINE' : (k.remaining <= 1 ? 'A_NEAR_LINE' : 'B_RANK');
-  const reason = k.hard ? '缺课已达 6 次、超过允许上限 5 次，按缺课超 1/3 硬门槛判定挂科'
-    : (k.remaining <= 1 ? '剩余可缺次数不足，再缺一次即触发硬门槛' : '班内相对风险排名靠前');
-  const st = i < 8 ? 'ACTIVE' : (i < 14 ? 'HANDLING' : 'ACKNOWLEDGED');
-  const handled = st !== 'ACTIVE';
-  ALERTS.push({
-    id: aid++, student_id: k.studentId, enrollment_id: k.enrollmentId, offering_id: k.offeringId,
-    teaching_class_id: k.tcId, course_id: COURSES.find((c) => c.offeringId === k.offeringId).courseId, term_id: 5, alert_level: k.level,
-    trigger_channel: k.hard ? 'A' : 'B', trigger_rule: rule, risk_score: k.score, confidence: 0.86,
-    output_mode: 'FULL_SCORE', alert_reason: reason,
-    evidence_json: JSON.stringify({ absent: k.absent, allowed: ALLOWED, remaining: k.remaining, rank: k.rank, classSize: k.size }),
-    channel_snapshot_json: JSON.stringify({ a: k.aLevel, b: k.bScore, c: null }),
-    status: st, is_current: 1, escalated: 0, escalated_at: null, previous_level: null, notified: 1,
-    first_notify_time: '2026-10-20 08:05:00', expire_time: '2026-10-25 08:00:00',
-    handle_by: handled ? 1431 : null, handle_role: handled ? 'TEACHER' : null,
-    handle_time: handled ? '2026-10-20 15:00:00' : null,
-    handle_note: handled ? '已联系学生，约定课后谈话' : null,
-    close_by: null, close_time: null, close_note: null, dismiss_reason: null,
-    student_response: null, student_response_time: null, engine_version: 'V2026.1', is_void: 0,
-    create_time: T_NOW, update_time: T_NOW
-  });
-  FLOWS.push({
-    id: fid++, alert_id: aid - 1, student_id: k.studentId, term_id: 5, event_type: 'CREATED',
-    from_level: null, to_level: k.level, from_status: null, to_status: 'ACTIVE',
-    detail: '生成预警：' + reason, operator_role: 'SYSTEM',
-    event_time: '2026-10-20 08:00:00', create_time: '2026-10-20 08:00:00'
-  });
-  FLOWS.push({
-    id: fid++, alert_id: aid - 1, student_id: k.studentId, term_id: 5, event_type: 'NOTIFIED',
-    from_level: k.level, to_level: k.level, from_status: 'ACTIVE', to_status: 'ACTIVE',
-    detail: '已推送给任课教师与辅导员', operator_id: 1431, operator_role: 'SYSTEM',
-    event_time: '2026-10-20 08:05:00', create_time: '2026-10-20 08:05:00'
-  });
-});
-ALERT_PICK.slice(0, 12).forEach((k, i) => {
-  const effective = i < 4 ? 'EFFECTIVE' : (i < 8 ? 'PENDING' : 'INEFFECTIVE');
-  INTERV.push({
-    id: iid++, student_id: k.studentId, term_id: 5, alert_id: ALERTS[i].id, related_alert_ids: null,
-    stage: i < 6 ? 'TEACHER' : 'COUNSELOR_1', operator_id: 1431, operator_role: i < 6 ? 'TEACHER' : 'COUNSELOR',
-    action_type: pick(['TALK', 'CLASS_MEETING', 'PLAN', 'SUPPLEMENT']),
-    content: '课后个别谈话，了解缺课原因并约定补交计划',
-    result: '学生承诺按时出勤，作业已补交', effective,
-    effect_check_time: '2026-11-03 10:00:00', risk_score_before: k.score,
-    risk_score_after: effective === 'EFFECTIVE' ? r1(k.score - 12) : null,
-    risk_score_change: effective === 'EFFECTIVE' ? -12 : null,
-    refer_status: 'NONE', is_void: 0, create_by: 1431,
-    create_time: '2026-10-21 10:00:00', update_by: 1431, update_time: '2026-10-21 10:00:00'
-  });
-});
-ins('alert_record', ALERTS);
-ins('alert_flow_log', FLOWS);
-ins('intervention_record', INTERV);
+// 不再手写：重建后调用 POST /api/engine/evaluate（admin）由风险引擎按冻结口径真实生成
+//   risk_state（一人一课一行）+ alert_record（绿→黄/橙/红生成、升级、自动关闭）+ alert_flow_log
+//   演示用的「处理中 / 已申诉」由 tool/stage2_demo_data.ps1 通过真实接口补造
+out.push('-- 10) 风险状态与预警：由风险引擎在重建后生成（本脚本不手写）');
 
 // ---------- 11) 三维挂科率 / 教师尺度 ----------
 out.push('-- 11) 三维挂科率与教师尺度（真实口径，无合成标记）');
@@ -699,11 +766,11 @@ ins('student_fail_history', H_ENROLL.map((e, i) => {
 // ---------- 14) 四端消息 ----------
 out.push('-- 14) 四端消息（学生 2 / 教师 2 / 导员 1 / 教务 1，含未读）');
 const NTF = [
-  { id: 9001, biz_type: 'ALERT_NEW', title: '课程学情预警：缺课次数已超允许上限', content: '你在《大学计算机基础》的缺课次数已达 6 次，超过允许上限 5 次，按缺课超 1/3 硬门槛判定挂科。', audience_desc: '学生 20250001', priority: 'HIGH' },
-  { id: 9002, biz_type: 'SCORE_TASK', title: '《大学计算机基础》期末成绩已发布', content: '总评已发布，可到「我的成绩」查看分项构成。', audience_desc: '学生 20250001', priority: 'NORMAL' },
-  { id: 9003, biz_type: 'SCORE_TASK', title: '程序设计基础·第1次课后作业：3 份待批阅', content: '还有 3 名学生的填空/简答题未给分。', audience_desc: '教师 1001', priority: 'HIGH' },
-  { id: 9004, biz_type: 'COVERAGE_REMIND', title: '点名覆盖率提醒：CS-01-A 第 13~16 周未点名', content: '最近 4 次课未点名，点名覆盖率 75%，请在课后补录。', audience_desc: '教师 1001', priority: 'NORMAL' },
-  { id: 9005, biz_type: 'CLASS_ALERT', title: '班集体提醒：计算机1班 9 人缺课超限', content: '本周风险学生 9 人、占比 20%，建议召开班会。', audience_desc: '导员 马思国', priority: 'NORMAL' },
+  { id: 9001, biz_type: 'ALERT_NEW', title: '课程学情预警：缺课次数已接近允许上限', content: '你在《大学计算机基础（一）》的缺课次数已接近允许上限，按缺课超 1/3 硬门槛会直接挂科。', audience_desc: '学生 20250001', priority: 'HIGH' },
+  { id: 9002, biz_type: 'SCORE_TASK', title: '《大学计算机基础（一）》平时成绩已更新', content: '课堂测试、课后作业与三级项目均已录入，可到「我的成绩」查看分项构成。', audience_desc: '学生 20250001', priority: 'NORMAL' },
+  { id: 9003, biz_type: 'SCORE_TASK', title: '四史概述·第1次课后作业：3 份待批阅', content: '还有 3 名学生的填空/简答题未给分。', audience_desc: '教师 1001', priority: 'HIGH' },
+  { id: 9004, biz_type: 'COVERAGE_REMIND', title: '点名覆盖率提醒：CS-01-A 后 3 周未点名', content: '最近 3 次课未点名，点名覆盖率 75%，请在课后补录。', audience_desc: '教师 1001', priority: 'NORMAL' },
+  { id: 9005, biz_type: 'CLASS_ALERT', title: '班集体提醒：计算机1班本周有 2 人缺课超限', content: '本周风险学生 2 人、占比 4%，建议课后个别谈话。', audience_desc: '导员 马思国', priority: 'NORMAL' },
   { id: 9006, biz_type: 'ARCHIVE_TASK', title: '归档待审：CS-01-A 期中考勤待审核', content: '覆盖 8 次课、360 条记录，覆盖率 75%。', audience_desc: '教务处', priority: 'HIGH' }
 ];
 ins('notification', NTF.map((n) => ({
@@ -875,4 +942,4 @@ console.log('生成 20_rebuild_demo.sql：块=' + out.length
   + ' 课次=' + SESS.length + ' 考勤=' + ATT.length + ' 分项=' + SCORE_ITEMS.length
   + ' 成绩单=' + RESULTS.length + ' 试卷=' + PAPERS.length + ' 题=' + QS.length
   + ' 提交=' + SUBS.length + ' 逐题=' + SUB_ANS.length
-  + ' 风险=' + RISK.length + ' 预警=' + ALERTS.length + ' 历史成绩=' + H_RESULT.length);
+  + ' 历史成绩=' + H_RESULT.length + '（风险状态与预警由引擎重建后生成）');

@@ -501,7 +501,15 @@ public class RiskEngineService {
         }
         ScoreSchemeItem finalItem = schemeItemMapper.selectOne(Wrappers.<ScoreSchemeItem>lambdaQuery()
                 .eq(ScoreSchemeItem::getSchemeId, scheme.getId())
-                .eq(ScoreSchemeItem::getItemCode, "FINAL").last("limit 1"));
+                .eq(ScoreSchemeItem::getCategory, "FINAL")
+                .isNotNull(ScoreSchemeItem::getParentId)
+                .orderByDesc(ScoreSchemeItem::getId).last("limit 1"));
+        if (finalItem == null) {
+            // 兼容旧构成：终结性项直接挂在根层、code 为 FINAL
+            finalItem = schemeItemMapper.selectOne(Wrappers.<ScoreSchemeItem>lambdaQuery()
+                    .eq(ScoreSchemeItem::getSchemeId, scheme.getId())
+                    .eq(ScoreSchemeItem::getItemCode, "FINAL").last("limit 1"));
+        }
         if (finalItem == null || finalItem.getWeight() == null || finalItem.getWeight().signum() <= 0) {
             return null;
         }
