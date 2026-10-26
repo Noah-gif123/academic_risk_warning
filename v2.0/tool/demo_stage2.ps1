@@ -113,7 +113,22 @@ foreach ($c in $cards) {
   Write-Host ("  {0}（{1}）：导学 {2} 字｜{3}" -f $c.courseName, $c.className, $len, $plain)
 }
 
-Section "7. 口径说明（学生端可见）"
+Section "7. 待办与问卷（学生端）"
+$papersAll = (Get-Json "$Base/api/student/papers").data
+$openPapers = @($papersAll | Where-Object { $_.canAnswer })
+Write-Host ("  待作答的测验 / 作业：{0} 条" -f $openPapers.Count)
+$openPapers | Select-Object -First 3 | ForEach-Object {
+  Write-Host ("    [{0}] {1}｜{2}" -f $_.paperType, $_.courseName, $_.paperName)
+}
+$projectsAll = (Get-Json "$Base/api/student/projects").data
+$pendingProj = @($projectsAll | Where-Object { -not $_.mySubmission })
+Write-Host ("  待提交的项目：{0} 个（共 {1} 个，首页最多显示 2 个）" -f $pendingProj.Count, $projectsAll.Count)
+$pendingProj | ForEach-Object { Write-Host ("    {0}｜{1}" -f $_.courseName, $_.projectName) }
+$surveys = (Get-Json "$Base/api/student/questionnaires").data
+Write-Host ("  待作答的问卷：{0} 份（评教 / 满意度 / 心理健康 / 学情 / 去向）" -f $surveys.Count)
+$surveys | ForEach-Object { Write-Host ("    {0}｜{1}｜{2}" -f $_.questionnaireTypeText, $_.title, $_.statusText) }
+
+Section "8. 口径说明（学生端可见）"
 $ov.guidelines | ForEach-Object { Write-Host ("  · " + $_) }
 
 Write-Host ""

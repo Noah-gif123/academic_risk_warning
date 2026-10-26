@@ -62,15 +62,28 @@
         <button class="btn-ghost text-xs" :disabled="page >= pages" @click="page++">下一页</button>
       </div>
     </div>
+
+    <!-- 作答 / 看结果：独立弹窗（不再跳转页面） -->
+    <Teleport to="body">
+      <div v-if="takingId" class="fixed inset-0 z-50 bg-slate-900/45 overflow-y-auto p-4" @click.self="closeTake">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-auto my-6 relative">
+          <button class="absolute right-4 top-4 z-10 text-slate-400 hover:text-slate-600 text-xl leading-none"
+                  title="关闭（Esc）" @click="closeTake">✕</button>
+          <div class="p-5">
+            <TakePaper :paper-id="takingId" embedded @close="closeTake" @submitted="afterSubmit" />
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watchEffect } from 'vue'
 import { myPaperApi } from '../../api/paper'
+import TakePaper from './TakePaper.vue'
 
-const router = useRouter()
+const takingId = ref(0)
 const items = ref([])
 const error = ref('')
 const tab = ref('open')
@@ -124,7 +137,10 @@ function statusClass(p) {
   if (p.myStatus === 'SUBMITTED') return 'text-amber-600'
   return p.canAnswer ? 'text-brand-600' : 'text-slate-400'
 }
-function go(id) { router.push({ path: '/student/take', query: { paperId: id } }) }
+function go(id) { takingId.value = id }
+function closeTake() { takingId.value = 0; load() }
+function afterSubmit() { load() }
+function onTakeKey(e) { if (e.key === 'Escape' && takingId.value) closeTake() }
 
 async function load() {
   error.value = ''
@@ -132,5 +148,14 @@ async function load() {
   catch (e) { error.value = e.message }
 }
 
-onMounted(load)
+onMounted(() => {
+  window.addEventListener('keydown', onTakeKey)
+  load()
+})
+onBeforeUnmount(() => window.removeEventListener('keydown', onTakeKey))
+
+// 答题弹窗打开时锁背景滚动
+watchEffect(() => {
+  document.body.style.overflow = takingId.value ? 'hidden' : ''
+})
 </script>

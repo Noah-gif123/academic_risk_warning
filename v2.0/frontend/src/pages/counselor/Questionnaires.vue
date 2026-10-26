@@ -6,19 +6,19 @@
     </div>
 
     <p class="text-xs text-slate-400">
-      当前只有「教师风格判定」一种问卷，按行政班发布、**匿名**作答，结果交教务分发给课程组教师，用于教师尺度（Δ）标定。
+      支持评教、学生满意度、心理健康普查、毕业生去向调研、全国本科生学情调查；按行政班发布、**匿名**作答，结果由教务汇总分发。
     </p>
 
     <div class="card p-4 space-y-3">
       <h2 class="font-medium text-slate-700">发布新问卷</h2>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
         <label class="text-sm">行政班
           <select v-model="form.adminClassId" class="input mt-1">
             <option :value="''">请选择</option>
             <option v-for="c in classes" :key="c.adminClassId" :value="c.adminClassId">{{ c.className }}（{{ c.gradeYear }}级）</option>
           </select>
         </label>
-        <label class="text-sm">评价的课程（开课）
+        <label class="text-sm">关联课程（开课）
           <select v-model="form.offeringId" class="input mt-1">
             <option :value="''">请选择</option>
             <option v-for="o in offerings" :key="o.offeringId" :value="o.offeringId">
@@ -26,7 +26,16 @@
             </option>
           </select>
         </label>
-        <label class="text-sm md:col-span-2">标题
+        <label class="text-sm">问卷类型
+          <select v-model="form.questionnaireType" class="input mt-1">
+            <option value="TEACHER_STYLE">教师风格判定（评教）</option>
+            <option value="SATISFACTION">学生满意度调查</option>
+            <option value="MENTAL_HEALTH">心理健康普查</option>
+            <option value="GRADUATE_SURVEY">毕业生去向调研</option>
+            <option value="NATIONAL_SURVEY">全国本科生学情调查</option>
+          </select>
+        </label>
+        <label class="text-sm md:col-span-2">标题（可留空按类型自动取名）
           <input v-model="form.title" class="input mt-1" placeholder="如 2026-2027-1 教师风格判定" />
         </label>
       </div>
@@ -80,7 +89,7 @@ const list = ref([])
 const message = ref('')
 const ok = ref(true)
 
-const form = reactive({ adminClassId: '', offeringId: '', title: '' })
+const form = reactive({ adminClassId: '', offeringId: '', title: '', questionnaireType: 'TEACHER_STYLE' })
 
 function toast(msg, isOk = true) {
   message.value = msg
@@ -99,7 +108,8 @@ async function publish() {
     await counselorApi.publishQuestionnaire({
       adminClassId: Number(form.adminClassId),
       offeringId: Number(form.offeringId),
-      title: form.title || null
+      title: form.title || null,
+      questionnaireType: form.questionnaireType
     })
     toast('问卷已发布（匿名）')
     form.title = ''

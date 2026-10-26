@@ -28,6 +28,10 @@
           <p class="text-xl font-semibold text-amber-600">{{ pendingProjectCount }}</p>
         </div>
         <div>
+          <p class="text-xs text-slate-400">待交作业 / 测验</p>
+          <p class="text-xl font-semibold text-amber-600">{{ pendingPaperCount }}</p>
+        </div>
+        <div>
           <p class="text-xs text-slate-400">最近截止</p>
           <p class="text-sm text-slate-600 truncate" :title="nearestProject ? nearestProject.projectName : ''">
             {{ nearestProject ? nearestProject.projectName + '（' + fmt(nearestProject.endTime) + '）' : '暂无' }}
@@ -83,6 +87,35 @@
       </div>
     </section>
 
+    <!-- 待交作业 / 测验（最多展示 2 条，其余去「我的考试」） -->
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-base font-semibold text-slate-700">待交作业 / 测验（{{ pendingPaperCount }}）</h2>
+        <button class="text-xs text-brand-600 hover:underline" @click="$router.push('/student/exams')">全部（去作答）</button>
+      </div>
+      <div v-if="!pendingPapers.length" class="card p-6 text-center text-slate-400 text-sm">
+        没有需要提交的作业或测验。
+      </div>
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div v-for="p in pendingPapers.slice(0, 2)" :key="p.id" class="card p-4 space-y-2">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="font-medium text-slate-800">{{ p.courseName }} · {{ p.paperName }}</h3>
+            <span class="tag bg-slate-100 text-slate-500">{{ p.paperType === 'HOMEWORK' ? '作业' : '测验' }}</span>
+          </div>
+          <p class="text-xs text-slate-400">
+            截止 {{ fmt(p.endTime) }} ｜ 满分 {{ p.fullScore }} ｜ 时长 {{ p.durationMinutes ? p.durationMinutes + ' 分钟' : '不限' }}
+          </p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-brand-600">未交卷</span>
+            <button class="text-xs text-brand-600 hover:underline" @click="$router.push('/student/exams')">去作答</button>
+          </div>
+        </div>
+      </div>
+      <p v-if="pendingPapers.length > 2" class="text-xs text-slate-400 mt-2">
+        还有 {{ pendingPapers.length - 2 }} 条，去「我的考试」查看全部。
+      </p>
+    </section>
+
     <!-- 我的项目 -->
     <section>
       <div class="flex items-center justify-between mb-3">
@@ -91,8 +124,7 @@
       </div>
       <div v-if="!projects.length" class="card p-8 text-center text-slate-400 text-sm">暂无需要提交的项目。</div>
       <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div v-for="p in projects" :key="p.id" class="card p-4 space-y-2">
-          <div class="flex items-start justify-between gap-2">
+        <div v-for="p in projects.slice(0, 2)" :key="p.id" class="card p-4 space-y-2">          <div class="flex items-start justify-between gap-2">
             <h3 class="font-medium text-slate-800">{{ p.projectName }}</h3>
             <span class="tag" :class="p.isTeam === 1 ? 'bg-brand-50 text-brand-600' : 'bg-slate-100 text-slate-500'">
               {{ p.isTeam === 1 ? '团队' : '个人' }}
@@ -106,6 +138,9 @@
           </div>
         </div>
       </div>
+      <p v-if="projects.length > 2" class="text-xs text-slate-400 mt-2">
+        还有 {{ projects.length - 2 }} 个项目，去「全部项目」查看。
+      </p>
     </section>
   </div>
 </template>
@@ -114,6 +149,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { portalApi } from '../../api/portal'
 import { myProjectApi } from '../../api/project'
+import { myPaperApi } from '../../api/paper'
 import { session } from '../../session'
 import { courseTypeLabel } from '../../labels'
 
@@ -123,11 +159,14 @@ const termId = ref('')
 const cards = ref([])
 const total = ref(0)
 const projects = ref([])
+const papers = ref([])
 const error = ref('')
 
 const runningCount = computed(() => cards.value.filter((c) => c.status === '进行中').length)
 const notStartedCount = computed(() => cards.value.filter((c) => c.status === '未开课').length)
 const pendingProjectCount = computed(() => projects.value.filter((p) => !p.mySubmission).length)
+const pendingPapers = computed(() => papers.value.filter((p) => p.canAnswer))
+const pendingPaperCount = computed(() => pendingPapers.value.length)
 const nearestProject = computed(() => {
   const list = projects.value.filter((p) => !p.mySubmission && p.endTime)
   list.sort((a, b) => String(a.endTime).localeCompare(String(b.endTime)))
@@ -155,6 +194,7 @@ async function reload() {
     cards.value = page.items
     total.value = page.total
     projects.value = await myProjectApi.list()
+    papers.value = await myPaperApi.list().catch(() => [])
   } catch (e) { error.value = e.message }
 }
 

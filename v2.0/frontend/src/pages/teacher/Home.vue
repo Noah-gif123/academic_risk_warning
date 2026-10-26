@@ -74,13 +74,19 @@
             </span>
           </div>
           <div v-if="!g.items.length" class="text-xs text-slate-400 py-2">没有待批改</div>
-          <div v-for="it in g.items" :key="g.key + it.id" class="border border-slate-100 rounded-lg p-2 space-y-1">
+          <div v-for="it in g.items.slice(0, 2)" :key="g.key + it.id" class="border border-slate-100 rounded-lg p-2 space-y-1">
             <p class="text-sm text-slate-700">{{ it.title }}</p>
             <p class="text-xs text-slate-400">{{ it.courseName }} ｜ {{ it.className }} ｜ 截止 {{ fmt(it.endTime) }}</p>
             <div class="flex items-center justify-between">
               <span class="text-xs text-amber-600">{{ it.pendingCount }} 份待处理</span>
               <button class="text-xs text-brand-600 hover:underline" @click="goGrade(it, g.key)">去批改</button>
             </div>
+          </div>
+          <div v-if="g.items.length > 2" class="flex items-center justify-between pt-1 border-t border-slate-100">
+            <span class="text-xs text-slate-400">还有 {{ g.items.length - 2 }} 条未显示</span>
+            <button class="text-xs text-brand-600 hover:underline" @click="$router.push('/teacher/scores')">
+              查看全部（{{ g.items.length }}）
+            </button>
           </div>
         </div>
       </div>

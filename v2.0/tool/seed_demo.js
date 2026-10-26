@@ -799,25 +799,91 @@ COURSES.forEach((c) => {
 ins('teacher_style', STYLE);
 del("UPDATE term SET status='CLOSED' WHERE id=4");
 
-// ---------- 12) 问卷 + 四环节 ----------
-out.push('-- 12) 教师风格问卷：四环节齐全 + 5 份匿名作答');
-ins('questionnaire', [{
-  id: 1, offering_id: 101, course_id: 1, term_id: 5, questionnaire_type: 'TEACHER_STYLE',
-  title: '2026-2027-1 教师风格判定（大学计算机基础）',
-  question_json: JSON.stringify([
-    { itemCode: 'Q1', text: '老师讲课的进度对你来说', type: 'SCORE' },
-    { itemCode: 'Q2', text: '作业量与难度', type: 'SCORE' },
-    { itemCode: 'Q3', text: '老师给分总体偏', type: 'SCORE' },
-    { itemCode: 'Q4', text: '课后答疑是否及时', type: 'SCORE' },
-    { itemCode: 'Q5', text: '还有其他想说的', type: 'TEXT' }
-  ]),
-  is_anonymous: 1, collector_type: 'COUNSELOR', collector_id: 1440,
-  open_time: '2026-10-10 09:00:00', close_time: '2026-10-18 23:59:00',
-  status: 'PUBLISHED', answer_count: 5,
-  submit_to_admin_by: 1440, submit_to_admin_time: '2026-10-12 10:00:00',
-  distributed_by: 1442, distributed_time: '2026-10-14 09:00:00',
-  create_by: 1440, create_time: '2026-10-10 09:00:00', update_time: '2026-10-18 15:00:00'
-}]);
+// ---------- 12) 问卷（评教 + 满意度 + 心理健康 + 毕业生去向 + 学情调查） ----------
+out.push('-- 12) 问卷：5 类（评教 / 满意度 / 心理健康 / 毕业生去向 / 学情调查），全部匿名、收集中');
+const qJSON = (items) => JSON.stringify(items.map((it, i) => ({
+  itemCode: 'Q' + (i + 1), q: it[0], type: it[1]
+})));
+ins('questionnaire', [
+  {
+    id: 1, offering_id: 101, course_id: 1, term_id: 5, questionnaire_type: 'TEACHER_STYLE',
+    title: '2026-2027-1 教师风格判定（大学计算机基础）',
+    question_json: qJSON([
+      ['该教师讲课节奏是否合适', 'SCALE'],
+      ['作业量是否合理', 'SCALE'],
+      ['给分是否严格', 'SCALE'],
+      ['课堂互动是否充分', 'SCALE'],
+      ['整体评价', 'SCALE']
+    ]),
+    is_anonymous: 1, collector_type: 'COUNSELOR', collector_id: 1440, collector_class_ids_json: '[1,2]',
+    open_time: '2026-10-10 09:00:00', close_time: '2026-12-20 23:59:00',
+    status: 'COLLECTING', answer_count: 5,
+    submit_to_admin_by: 1440, submit_to_admin_time: '2026-10-12 10:00:00',
+    distributed_by: 1442, distributed_time: '2026-10-14 09:00:00',
+    create_by: 1440, create_time: '2026-10-10 09:00:00', update_time: '2026-10-18 15:00:00'
+  },
+  {
+    id: 2, offering_id: 101, course_id: 1, term_id: 5, questionnaire_type: 'SATISFACTION',
+    title: '2026-2027-1 校园学习生活满意度调查（食堂 / 图书馆 / 宿舍）',
+    question_json: qJSON([
+      ['食堂饭菜质量与价格', 'SCALE'],
+      ['图书馆座位、借阅与自习环境', 'SCALE'],
+      ['宿舍环境与生活设施', 'SCALE'],
+      ['校园安全与后勤服务', 'SCALE'],
+      ['对学校整体满意度', 'SCALE'],
+      ['最希望学校改进的一项（选填）', 'TEXT']
+    ]),
+    is_anonymous: 1, collector_type: 'ADMIN', collector_id: 1442, collector_class_ids_json: '[1,2]',
+    open_time: '2026-10-20 09:00:00', close_time: '2026-12-31 23:59:00',
+    status: 'COLLECTING', answer_count: 0,
+    create_by: 1442, create_time: '2026-10-20 09:00:00', update_time: '2026-10-20 09:00:00'
+  },
+  {
+    id: 3, offering_id: 101, course_id: 1, term_id: 5, questionnaire_type: 'MENTAL_HEALTH',
+    title: '2026 年秋季学生心理健康普查（匿名）',
+    question_json: qJSON([
+      ['最近两周整体情绪状态', 'SCALE'],
+      ['最近两周睡眠质量', 'SCALE'],
+      ['学业压力感受', 'SCALE'],
+      ['与同学、室友的人际关系', 'SCALE'],
+      ['其他想说明的情况（选填）', 'TEXT']
+    ]),
+    is_anonymous: 1, collector_type: 'COUNSELOR', collector_id: 1440, collector_class_ids_json: '[1,2]',
+    open_time: '2026-10-22 09:00:00', close_time: '2026-12-31 23:59:00',
+    status: 'COLLECTING', answer_count: 0,
+    create_by: 1440, create_time: '2026-10-22 09:00:00', update_time: '2026-10-22 09:00:00'
+  },
+  {
+    id: 4, offering_id: 101, course_id: 1, term_id: 5, questionnaire_type: 'NATIONAL_SURVEY',
+    title: '2026 年全国本科生学情调查（本校问卷）',
+    question_json: qJSON([
+      ['每周课外学习时间投入', 'SCALE'],
+      ['课程挑战度', 'SCALE'],
+      ['与教师的互动频率', 'SCALE'],
+      ['本学期学习收获自评', 'SCALE'],
+      ['对学校教学的建议（选填）', 'TEXT']
+    ]),
+    is_anonymous: 1, collector_type: 'ADMIN', collector_id: 1442, collector_class_ids_json: '[1,2]',
+    open_time: '2026-10-22 09:00:00', close_time: '2026-12-31 23:59:00',
+    status: 'COLLECTING', answer_count: 0,
+    create_by: 1442, create_time: '2026-10-22 09:00:00', update_time: '2026-10-22 09:00:00'
+  },
+  {
+    id: 5, offering_id: 104, course_id: 7, term_id: 5, questionnaire_type: 'GRADUATE_SURVEY',
+    title: '2027 届毕业生去向与就业调研（2024 级）',
+    question_json: qJSON([
+      ['毕业去向的明确程度', 'SCALE'],
+      ['目前落实去向的进展', 'SCALE'],
+      ['对学校就业指导的满意度', 'SCALE'],
+      ['专业课程对求职的帮助', 'SCALE'],
+      ['计划去向（升学 / 就业 / 考公 / 创业 / 其他，选填）', 'TEXT']
+    ]),
+    is_anonymous: 1, collector_type: 'COUNSELOR', collector_id: 1440, collector_class_ids_json: '[3]',
+    open_time: '2026-10-22 09:00:00', close_time: '2026-12-31 23:59:00',
+    status: 'COLLECTING', answer_count: 0,
+    create_by: 1440, create_time: '2026-10-22 09:00:00', update_time: '2026-10-22 09:00:00'
+  }
+]);
 ins('questionnaire_flow', [
   { questionnaire_id: 1, term_id: 5, stage: 'COUNSELOR_COLLECT', stage_order: 1, holder_id: 1440, holder_role: 'COUNSELOR', entered_at: '2026-10-10 09:00:00', deadline: '2026-10-12 23:59:00', status: 'DONE', done_at: '2026-10-12 10:00:00', note: '导员收集完成', create_time: '2026-10-10 09:00:00', update_time: '2026-10-12 10:00:00' },
   { questionnaire_id: 1, term_id: 5, stage: 'ADMIN_RECEIVE', stage_order: 2, holder_id: 1442, holder_role: 'ADMIN', entered_at: '2026-10-12 10:00:00', deadline: '2026-10-13 23:59:00', status: 'DONE', done_at: '2026-10-13 09:00:00', note: '教务已接收', create_time: '2026-10-12 10:00:00', update_time: '2026-10-13 09:00:00' },
@@ -913,16 +979,17 @@ ins('notification_receipt', NTF.map((n, i) => {
   };
 }));
 
-// ---------- 14.5) 两张「进行中」的试卷（无提交，供演示 学生答题 → 教师批改 全流程） ----------
-out.push('-- 14.5) 进行中的试卷 2 张（无提交，学生可直接作答）');
+// ---------- 14.5) 「进行中」的测验 / 作业（无提交，供演示 学生答题 → 教师批改 全流程） ----------
+out.push('-- 14.5) 进行中的测验 2 张 + 作业 1 份 + 待提交项目 1 个（无提交，学生可直接作答/提交）');
 const OPEN = [
-  { id: 2011, offeringId: 101, tcId: 201, name: '大学计算机基础 · 第2次随堂测验（进行中）' },
-  { id: 2012, offeringId: 102, tcId: 203, name: '高等数学 · 第2次随堂测验（进行中）' }
+  { id: 2011, offeringId: 101, tcId: 201, type: 'QUIZ', name: '大学计算机基础 · 第2次随堂测验（进行中）' },
+  { id: 2012, offeringId: 102, tcId: 203, type: 'QUIZ', name: '高等数学 · 第2次随堂测验（进行中）' },
+  { id: 2013, offeringId: 101, tcId: 201, type: 'HOMEWORK', name: '大学计算机基础 · 第5次课后作业（进行中）' }
 ];
 ins('paper', OPEN.map((p) => ({
-  id: p.id, teaching_class_id: p.tcId, offering_id: p.offeringId, term_id: 5, paper_type: 'QUIZ',
+  id: p.id, teaching_class_id: p.tcId, offering_id: p.offeringId, term_id: 5, paper_type: p.type,
   paper_name: p.name, start_time: '2026-10-20 08:00:00', end_time: '2026-12-10 23:59:00',
-  duration_minutes: 30, full_score: 100, publisher_role: 'TEACHER', publisher_id: 1431,
+  duration_minutes: p.type === 'HOMEWORK' ? 60 : 30, full_score: 100, publisher_role: 'TEACHER', publisher_id: 1431,
   allow_view_paper: 1, show_score: 1, show_answer: 'AFTER_MARK', status: 'PUBLISHED',
   create_by: 1431, create_time: '2026-10-20 07:00:00', update_time: '2026-10-20 07:10:00'
 })));
@@ -935,6 +1002,17 @@ OPEN.forEach((p) => Q_DEFS.forEach((d, i) => OQ.push({
   create_time: '2026-10-20 07:05:00', update_time: '2026-10-20 07:05:00'
 })));
 ins('question', OQ);
+
+// 待提交项目（不绑定成绩构成项，纯课外任务）：学生端「我的项目」显示未提交，教师端可收提交与评分
+ins('project_task', [{
+  id: 3999, teaching_class_id: 201, offering_id: 101, term_id: 5,
+  project_name: '大学计算机基础 · 课外实践：专业学习资源整理',
+  description: '找一个你感兴趣的专业方向，整理 10 条学习资源（网课 / 文档 / 社区），提交一份 Word 或 PDF 说明。个人项目，满分 100。',
+  start_time: '2026-10-20 08:00:00', end_time: '2026-12-10 23:59:00',
+  is_team: 0, full_score: 100, allow_formats: '.docx,.pdf,.zip',
+  scheme_item_id: null, publisher_id: 1431, status: 'PUBLISHED',
+  create_by: 1431, create_time: '2026-10-20 07:00:00', update_by: 1431, update_time: '2026-10-20 07:00:00'
+}]);
 
 // ---------- 15) 合成样本学期 term 8（与主线学生池对齐；只放过程数据，不放试卷） ----------
 out.push('-- 15) 合成学期 term 8：6 门课 × 135 人，仅过程数据（选课/课次/考勤/成绩），不放试卷');

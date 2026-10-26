@@ -679,8 +679,8 @@ public class CounselorPortalService {
             v.setId(q.getId());
             v.setTitle(q.getTitle());
             v.setQuestionnaireType(q.getQuestionnaireType());
-            v.setQuestionnaireTypeText("TEACHER_STYLE".equals(q.getQuestionnaireType())
-                    ? "教师风格判定" : q.getQuestionnaireType());
+            v.setQuestionnaireTypeText(com.example.academic_risk_warning.common.QuestionnaireTypes
+                    .label(q.getQuestionnaireType()));
             v.setAnonymous(q.getIsAnonymous() != null && q.getIsAnonymous() == 1);
             v.setStatus(q.getStatus());
             v.setStatusText(switch (q.getStatus() == null ? "" : q.getStatus()) {
@@ -745,13 +745,20 @@ public class CounselorPortalService {
             throw new BizException("开课实例不存在");
         }
         Questionnaire q = new Questionnaire();
+        String type = req.getQuestionnaireType() == null || req.getQuestionnaireType().isBlank()
+                ? com.example.academic_risk_warning.common.QuestionnaireTypes.TEACHER_STYLE
+                : req.getQuestionnaireType().trim().toUpperCase();
+        if (!com.example.academic_risk_warning.common.QuestionnaireTypes.valid(type)) {
+            throw new BizException("问卷类型不合法：" + req.getQuestionnaireType());
+        }
         q.setOfferingId(offering.getId());
         q.setCourseId(offering.getCourseId());
         q.setTermId(offering.getTermId());
-        q.setQuestionnaireType("TEACHER_STYLE");
+        q.setQuestionnaireType(type);
         q.setTitle(req.getTitle() == null || req.getTitle().isBlank()
-                ? "教师风格判定问卷" : req.getTitle());
-        q.setQuestionJson(questionJson());
+                ? com.example.academic_risk_warning.common.QuestionnaireTypes.defaultTitle(type)
+                : req.getTitle());
+        q.setQuestionJson(com.example.academic_risk_warning.common.QuestionnaireTypes.questionJson(type));
         q.setIsAnonymous(1);
         q.setCollectorType("COUNSELOR");
         q.setCollectorId(c.getId());
@@ -762,7 +769,8 @@ public class CounselorPortalService {
         q.setAnswerCount(0);
         questionnaireMapper.insert(q);
         auditService.record("QUESTIONNAIRE", q.getId(), "PUBLISH", null, null,
-                "导员发布教师风格判定问卷（匿名，行政班 " + req.getAdminClassId() + "）");
+                "导员发布" + com.example.academic_risk_warning.common.QuestionnaireTypes.label(type)
+                        + "（匿名，行政班 " + req.getAdminClassId() + "）");
         List<QuestionnaireVO> all = questionnaires(counselorId, null);
         return all.stream().filter(x -> x.getId().equals(q.getId())).findFirst().orElse(null);
     }

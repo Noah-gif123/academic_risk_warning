@@ -3,13 +3,13 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3">
         <h1 class="text-lg font-semibold text-slate-800">问卷调查</h1>
-        <span class="tag bg-slate-100 text-slate-500">教师风格判定（匿名）</span>
+        <span class="tag bg-slate-100 text-slate-500">匿名问卷 · 评教 / 满意度 / 心理健康 / 去向 / 学情</span>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
     <p class="text-xs text-slate-400">
-      问卷由导员按行政班发布，用于标定「教师给分尺度」，**匿名作答**：系统只记录是否提交，不记录是谁答的。
+      问卷由导员或教务按行政班发布，<b>匿名作答</b>：系统只记录是否提交，不记录是谁答的。
     </p>
 
     <div v-if="!list.length" class="card p-10 text-center text-slate-400 text-sm">
@@ -39,8 +39,13 @@
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="current = null">收起</button>
       </div>
       <div v-for="(q, i) in current.questions" :key="q.itemCode" class="border-b border-slate-100 pb-3">
-        <p class="text-sm text-slate-700 mb-2">{{ i + 1 }}. {{ q.text }}</p>
-        <div class="flex flex-wrap gap-2">
+        <p class="text-sm text-slate-700 mb-2">
+          {{ i + 1 }}. {{ q.text }}
+          <span v-if="q.type === 'TEXT'" class="text-xs text-slate-400 ml-1">（选填）</span>
+        </p>
+        <textarea v-if="q.type === 'TEXT'" v-model="texts[q.itemCode]" rows="3" maxlength="500"
+                  class="input w-full" placeholder="可填写你的想法（选填，500 字以内）"></textarea>
+        <div v-else class="flex flex-wrap gap-2">
           <label v-for="o in scoreOptions" :key="o.value"
                  class="px-3 py-1.5 rounded-lg border text-sm cursor-pointer"
                  :class="answers[q.itemCode] === o.value
@@ -52,7 +57,7 @@
         </div>
       </div>
       <div class="flex items-center justify-between">
-        <p class="text-xs text-slate-400">提交后不可修改；结果与你的身份无关，只用于课程层面的统计。</p>
+        <p class="text-xs text-slate-400">提交后不可修改；结果与你的身份无关，只用于学校层面的统计。</p>
         <button class="btn-primary text-sm" @click="submit">提交问卷</button>
       </div>
     </div>
@@ -66,6 +71,7 @@ import { surveyApi, scoreOptions } from '../../api/survey'
 const list = ref([])
 const current = ref(null)
 const answers = reactive({})
+const texts = reactive({})
 const message = ref('')
 const ok = ref(true)
 
@@ -85,14 +91,22 @@ async function open(q) {
     const d = await surveyApi.detail(q.id)
     current.value = d
     Object.keys(answers).forEach((k) => delete answers[k])
-    ;(d.questions || []).forEach((it) => { answers[it.itemCode] = answers[it.itemCode] || 0 })
+    Object.keys(texts).forEach((k) => delete texts[k])
+    ;(d.questions || []).forEach((it) => {
+      if (it.type === 'TEXT') texts[it.itemCode] = texts[it.itemCode] || ''
+      else answers[it.itemCode] = answers[it.itemCode] || 0
+    })
   } catch (e) { toast(e.message, false) }
 }
 
 async function submit() {
   if (!current.value) return
-  const items = (current.value.questions || []).map((it) => ({ itemCode: it.itemCode, score: answers[it.itemCode] }))
-  if (items.some((it) => !it.score)) { toast('还有题目没有选择', false); return }
+  const questions = current.value.questions || []
+  const missing = questions.filter((it) => it.type !== 'TEXT' && !answers[it.itemCode])
+  if (missing.length) { toast('还有题目没有选择：' + missing[0].text, false); return }
+  const items = questions.map((it) => (it.type === 'TEXT'
+    ? { itemCode: it.itemCode, text: (texts[it.itemCode] || '').trim() }
+    : { itemCode: it.itemCode, score: answers[it.itemCode] }))
   try {
     await surveyApi.answer(current.value.id, items)
     toast('提交成功，感谢你的反馈')

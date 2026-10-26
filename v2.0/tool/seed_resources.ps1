@@ -1,4 +1,4 @@
-# 资料库演示数据：同一课程组两位老师各上传一份，互相可见（课程组共享）
+﻿# 资料库演示数据：同一课程组两位老师各上传一份，互相可见（课程组共享）
 param([string]$Base = 'http://127.0.0.1:18080')
 $ErrorActionPreference='Continue'
 $base = $Base.TrimEnd('/') + '/api'

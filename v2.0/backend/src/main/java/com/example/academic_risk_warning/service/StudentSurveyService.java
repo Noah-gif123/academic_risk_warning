@@ -71,8 +71,8 @@ public class StudentSurveyService {
             v.setId(q.getId());
             v.setTitle(q.getTitle());
             v.setQuestionnaireType(q.getQuestionnaireType());
-            v.setQuestionnaireTypeText("TEACHER_STYLE".equals(q.getQuestionnaireType())
-                    ? "教师风格判定" : q.getQuestionnaireType());
+            v.setQuestionnaireTypeText(com.example.academic_risk_warning.common.QuestionnaireTypes
+                    .label(q.getQuestionnaireType()));
             v.setAnonymous(q.getIsAnonymous() != null && q.getIsAnonymous() == 1);
             v.setStatus(q.getStatus());
             v.setStatusText("收集中");
@@ -153,19 +153,35 @@ public class StudentSurveyService {
         }
         List<StudentSurveyVO.Question> questions = questionsOf(q);
         Map<String, BigDecimal> given = new LinkedHashMap<>();
+        Map<String, String> texts = new LinkedHashMap<>();
         if (req.getItems() != null) {
             for (QuestionnaireAnswerRequest.Item it : req.getItems()) {
                 if (it.getItemCode() == null) {
                     continue;
                 }
-                BigDecimal score = it.getScore() == null ? null : it.getScore();
-                if (score == null || score.signum() < 0 || score.compareTo(new BigDecimal("5")) > 0) {
+                if (it.getText() != null && !it.getText().isBlank()) {
+                    String text = it.getText().trim();
+                    if (text.length() > 500) {
+                        throw new BizException("文本作答不能超过 500 字");
+                    }
+                    texts.put(it.getItemCode(), text);
+                }
+                if (it.getScore() == null) {
+                    continue;
+                }
+                BigDecimal score = it.getScore();
+                if (score.signum() < 0 || score.compareTo(new BigDecimal("5")) > 0) {
                     throw new BizException("评分需在 0~5 之间");
                 }
                 given.put(it.getItemCode(), score);
             }
         }
         for (StudentSurveyVO.Question question : questions) {
+            boolean textType = "TEXT".equalsIgnoreCase(question.getType());
+            if (textType) {
+                // 文本题选填：不填也可以提交
+                continue;
+            }
             if (!given.containsKey(question.getItemCode())) {
                 throw new BizException("还有题目没有作答：" + question.getText());
             }
@@ -186,6 +202,17 @@ public class StudentSurveyService {
             a.setItemCode(e.getKey());
             a.setAnswerType("SCORE");
             a.setScoreValue(e.getValue());
+            a.setSubmitTime(now);
+            answerMapper.insert(a);
+        }
+        for (Map.Entry<String, String> e : texts.entrySet()) {
+            QuestionnaireAnswer a = new QuestionnaireAnswer();
+            a.setQuestionnaireId(q.getId());
+            a.setRespondentToken(token);
+            a.setTargetTeacherId(targetTeacher);
+            a.setItemCode(e.getKey());
+            a.setAnswerType("TEXT");
+            a.setTextValue(e.getValue());
             a.setSubmitTime(now);
             answerMapper.insert(a);
         }
@@ -238,9 +265,13 @@ public class StudentSurveyService {
             String code = m.get("itemCode");
             question.setItemCode(code == null || code.isBlank() ? ("Q" + i) : code);
             String text = m.get("q");
+            if (text == null || text.isBlank()) {
+                text = m.get("text");
+            }
             question.setText(text == null ? ("第 " + i + " 题") : text);
             String type = m.get("type");
-            question.setType(type == null ? "SCALE" : type);
+            // SCALE / SCORE / 空 → 1~5 量表；TEXT → 文本题
+            question.setType(type == null || type.isBlank() ? "SCALE" : type);
             out.add(question);
         }
         return out;

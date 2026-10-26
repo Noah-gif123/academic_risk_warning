@@ -2,7 +2,8 @@
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
-        <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/student/exams')">← 返回</button>
+        <button v-if="!embedded" class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/student/exams')">← 返回</button>
+        <button v-else class="text-sm text-slate-400 hover:text-slate-600" @click="emit('close')">← 关闭</button>
         <h1 class="text-lg font-semibold text-slate-800">{{ paper ? paper.paperName : '加载中…' }}</h1>
         <span v-if="paper" class="tag bg-slate-100 text-slate-500">{{ typeLabel(paper.paperType) }}</span>
         <span v-if="paper" class="tag bg-slate-100 text-slate-500">满分 {{ paper.fullScore }}</span>
@@ -123,7 +124,12 @@ import { useRoute } from 'vue-router'
 import { myPaperApi } from '../../api/paper'
 
 const route = useRoute()
-const paperId = Number(route.query.paperId || 0)
+const props = defineProps({
+  paperId: { type: Number, default: 0 },
+  embedded: { type: Boolean, default: false }
+})
+const emit = defineEmits(['close', 'submitted'])
+const paperId = computed(() => props.paperId || Number(route.query.paperId || 0))
 
 const paper = ref(null)
 const result = ref(null)
@@ -218,21 +224,22 @@ async function submit(auto) {
   if (submitting.value) return
   submitting.value = true
   try {
-    result.value = await myPaperApi.submit(paperId, payload())
+    result.value = await myPaperApi.submit(paperId.value, payload())
     if (timer) clearInterval(timer)
     toast(auto ? '时间到，已自动交卷' : '交卷成功')
+    emit('submitted')
   } catch (e) { toast(e.message, false) }
   submitting.value = false
 }
 
 async function loadResult() {
-  try { result.value = await myPaperApi.result(paperId) }
+  try { result.value = await myPaperApi.result(paperId.value) }
   catch (e) { toast(e.message, false) }
 }
 
 onMounted(async () => {
   try {
-    paper.value = await myPaperApi.get(paperId)
+    paper.value = await myPaperApi.get(paperId.value)
     if (paper.value.canAnswer) {
       initAnswers(paper.value.questions || [])
       remain.value = paper.value.remainingSeconds || 0
