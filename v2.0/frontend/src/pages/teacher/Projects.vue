@@ -187,25 +187,97 @@
               </tbody>
             </table>
 
-            <div class="flex flex-wrap items-end gap-2 pt-2 border-t border-slate-100">
-              <label class="text-xs">项目总分
-                <input v-model.number="drafts[s.id].score" type="number" class="input mt-1 w-28" />
-              </label>
-              <label class="text-xs flex-1">评语
-                <input v-model="drafts[s.id].comment" class="input mt-1" placeholder="可选" />
-              </label>
-              <button class="btn-primary text-sm" @click="saveScore(s)">保存评分</button>
+            <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+              <span class="text-xs text-slate-400">当前得分</span>
+              <span class="text-sm font-medium">{{ s.projectScore == null ? '未评分' : s.projectScore + ' 分' }}</span>
+              <span class="text-xs text-slate-400" v-if="s.comment">评语：{{ s.comment }}</span>
+              <button class="btn-primary text-sm ml-auto" @click="openGrade(s)">
+                {{ s.projectScore == null ? '评分' : '修改评分' }}
+              </button>
             </div>
           </div>
           <p v-if="!active.submissions.length" class="text-sm text-slate-400">还没有提交</p>
         </div>
       </div>
     </div>
+
+    <!-- 项目评分弹窗（独立弹窗，不再在列表里内联给分） -->
+    <Teleport to="body">
+      <div v-if="grading" class="fixed inset-0 z-50 bg-slate-900/45 flex items-center justify-center p-4"
+           @click.self="grading = null">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col">
+          <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+            <div class="flex items-center gap-2 flex-wrap min-w-0">
+              <h2 class="font-semibold text-slate-800 truncate">{{ grading.teamName || grading.studentName }}</h2>
+              <span class="tag bg-brand-50 text-brand-600 truncate max-w-56">{{ active.projectName }}</span>
+              <span class="tag" :class="grading.submitStatus === 'MARKED'
+                    ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'">
+                {{ grading.submitStatus === 'MARKED' ? '已批阅' : '已提交' }}
+              </span>
+            </div>
+            <button class="text-slate-400 hover:text-slate-600 text-lg leading-none px-1"
+                    title="关闭（Esc）" @click="grading = null">✕</button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto px-5 py-4 space-y-3 text-sm">
+            <p class="text-xs text-slate-400">
+              {{ grading.teamName ? '团队提交（组长 ' + grading.studentName + '）' : '个人提交' }}
+              ｜ 提交时间 {{ fmt(grading.submitTime) }}
+              <span v-if="grading.markedByName">｜ 判卷人 {{ grading.markedByName }}</span>
+            </p>
+
+            <div class="space-y-1 text-slate-600">
+              <p v-for="(f, i) in grading.files" :key="i">📎 {{ f.name }}
+                <span class="text-xs text-slate-400">（{{ sizeText(f.size) }}）</span>
+              </p>
+              <p v-if="grading.repoUrl">🔗 <a :href="grading.repoUrl" target="_blank" class="text-brand-600 hover:underline">{{ grading.repoUrl }}</a></p>
+              <p v-if="grading.remark" class="text-xs text-slate-400">提交说明：{{ grading.remark }}</p>
+              <p v-if="!grading.files.length && !grading.repoUrl" class="text-xs text-slate-400">没有上传文件</p>
+            </div>
+
+            <table v-if="grading.members && grading.members.length > 1" class="w-full text-sm">
+              <thead class="text-slate-400">
+                <tr>
+                  <th class="text-left py-1">成员</th><th class="text-right py-1 w-24">占比</th>
+                  <th class="text-right py-1 w-24">个人得分</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="m in grading.members" :key="m.studentId" class="border-t border-slate-100">
+                  <td class="py-1">{{ m.studentName }}<span v-if="m.leader" class="tag bg-brand-50 text-brand-600 ml-1">组长</span></td>
+                  <td class="py-1 text-right">{{ m.ratio == null ? '—' : pct(m.ratio) }}</td>
+                  <td class="py-1 text-right font-medium">{{ m.personalScore == null ? '—' : m.personalScore }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+              <label class="text-xs">项目总分（百分制）
+                <input v-model.number="grading.score" type="number" min="0" max="100" class="input mt-1 w-full" />
+              </label>
+              <label class="text-xs md:col-span-2">评语
+                <input v-model="grading.comment" class="input mt-1 w-full" placeholder="可选，学生可见" />
+              </label>
+            </div>
+            <p class="text-xs text-slate-400">
+              团队项目按贡献占比折算个人得分：等分时等于团队分，占比高的按比例上浮（封顶 100）。
+            </p>
+          </div>
+
+          <div class="border-t border-slate-200 px-5 py-3 flex items-center justify-end gap-2">
+            <button class="btn-ghost text-sm" @click="grading = null">关闭</button>
+            <button class="btn-primary text-sm" :disabled="gradingSaving" @click="saveGrade">
+              {{ gradingSaving ? '保存中…' : '保存评分' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { projectApi, formatOptions } from '../../api/project'
 import { contentApi } from '../../api/content'
@@ -292,21 +364,64 @@ async function doClose(p) {
     await load()
   } catch (e) { toast(e.message, false) }
 }
-async function saveScore(s) {
-  const d = drafts[s.id]
+
+// ---------------- 评分弹窗
+const grading = ref(null)
+const gradingSaving = ref(false)
+
+function openGrade(s) {
+  grading.value = {
+    id: s.id,
+    teamName: s.teamName,
+    studentName: s.studentName,
+    submitTime: s.submitTime,
+    submitStatus: s.submitStatus,
+    markedByName: s.markedByName,
+    files: s.files || [],
+    repoUrl: s.repoUrl,
+    remark: s.remark,
+    members: s.members || [],
+    score: s.projectScore == null ? '' : Number(s.projectScore),
+    comment: s.comment || ''
+  }
+}
+
+async function saveGrade() {
+  if (!grading.value) return
+  const score = grading.value.score
+  if (score === '' || Number.isNaN(Number(score))) {
+    toast('请填写项目总分', false)
+    return
+  }
+  gradingSaving.value = true
   try {
-    const res = await projectApi.grade(s.id, { score: Number(d.score), comment: d.comment })
+    const res = await projectApi.grade(grading.value.id, { score: Number(score), comment: grading.value.comment })
     toast('评分已保存：项目 ' + res.projectScore + ' 分')
-    const id = active.value.id
-    active.value = await projectApi.get(id)
+    const keepId = grading.value.id
+    const projectId = active.value.id
+    active.value = await projectApi.get(projectId)
     ;(active.value.submissions || []).forEach((x) => {
       drafts[x.id] = { score: x.projectScore == null ? '' : Number(x.projectScore), comment: x.comment || '' }
     })
+    const updated = (active.value.submissions || []).find((x) => x.id === keepId)
+    if (updated) openGrade(updated)
     await load()
-  } catch (e) { toast(e.message, false) }
+  } catch (e) { toast(e.message, false) } finally { gradingSaving.value = false }
+}
+
+function onGradingKey(e) {
+  if (e.key === 'Escape' && grading.value && !gradingSaving.value) grading.value = null
 }
 
 onMounted(async () => {
+  window.addEventListener('keydown', onGradingKey)
   try { await load() } catch (e) { toast(e.message, false) }
+})
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onGradingKey))
+
+// 评分弹窗打开时锁住页面滚动
+watchEffect(() => {
+  document.body.style.overflow = grading.value ? 'hidden' : ''
 })
 </script>

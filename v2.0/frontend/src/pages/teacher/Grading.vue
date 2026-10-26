@@ -61,81 +61,118 @@
       </table>
     </div>
 
-    <!-- 批改面板 -->
-    <div ref="panelEl" class="card p-4 space-y-3 scroll-mt-4" v-if="active">
-      <div class="flex items-center justify-between flex-wrap gap-2">
-        <h2 class="font-medium text-slate-700">
-          {{ active.studentNo }} · {{ active.studentName }} 的作答
-          <span class="text-xs text-slate-400 ml-2">判卷人：{{ active.markedByName || '系统判分' }}</span>
-        </h2>
-        <button class="text-sm text-slate-400 hover:text-slate-600" @click="active = null">收起</button>
-      </div>
+    <!-- 批改弹窗（独立弹窗，不再在列表下方展开） -->
+    <Teleport to="body">
+      <div v-if="active" class="fixed inset-0 z-50 bg-slate-900/45 flex items-center justify-center p-4"
+           @click.self="backToList">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col">
+          <!-- 弹窗头 -->
+          <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200">
+            <div class="flex items-center gap-2 flex-wrap min-w-0">
+              <h2 class="font-semibold text-slate-800">
+                {{ active.studentNo }} · {{ active.studentName }}
+              </h2>
+              <span v-if="paper" class="tag bg-brand-50 text-brand-600 truncate max-w-64">{{ paper.paperName }}</span>
+              <span class="tag" :class="active.markedStatus === 'ALL_MARKED'
+                    ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
+                {{ markedLabel(active.markedStatus) }}
+              </span>
+              <span class="text-xs text-slate-400">判卷人：{{ active.markedByName || '系统判分' }}</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs text-slate-400">
+                {{ activeIndex + 1 }} / {{ rows.length }}
+              </span>
+              <button class="text-slate-400 hover:text-slate-600 text-lg leading-none px-1"
+                      title="关闭（Esc）" @click="backToList">✕</button>
+            </div>
+          </div>
 
-      <div v-if="active.isAbsent === 1" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-        该学生缺考，已按 0 分记入。如需补正请联系教务在成绩册中处理（本系统不允许教师代交）。
-      </div>
+          <!-- 弹窗体 -->
+          <div class="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+            <div v-if="active.isAbsent === 1"
+                 class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+              该学生缺考，已按 0 分记入。如需补正请联系教务在成绩册中处理（本系统不允许教师代交）。
+            </div>
 
-      <div v-for="a in active.answers" :key="a.id" class="border border-slate-200 rounded-lg p-3 space-y-2">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-xs text-slate-400 w-12">第 {{ a.qNo }} 题</span>
-          <span class="tag bg-slate-100 text-slate-500">{{ typeLabel(a.qType) }}</span>
-          <span class="text-sm flex-1 min-w-48">{{ a.stem }}</span>
-          <span class="text-xs text-slate-400">满分 {{ a.fullScore }}</span>
-          <span v-if="a.qType === 'BLANK'" class="text-xs text-slate-400">共 {{ blankCount(a.stdAnswerJson) }} 空</span>
-          <span v-if="a.markedByType" class="tag"
-                :class="a.markedByType === 'SYSTEM' ? 'bg-slate-100 text-slate-500' : 'bg-brand-50 text-brand-600'">
-            {{ a.markedByType === 'SYSTEM' ? '系统判' : '教师判' }}{{ a.markedByName ? '·' + a.markedByName : '' }}
-          </span>
+            <div v-for="a in active.answers" :key="a.id" class="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs text-slate-400 w-12">第 {{ a.qNo }} 题</span>
+                <span class="tag bg-slate-100 text-slate-500">{{ typeLabel(a.qType) }}</span>
+                <span class="text-sm flex-1 min-w-48">{{ a.stem }}</span>
+                <span class="text-xs text-slate-400">满分 {{ a.fullScore }}</span>
+                <span v-if="a.qType === 'BLANK'" class="text-xs text-slate-400">共 {{ blankCount(a.stdAnswerJson) }} 空</span>
+                <span v-if="a.markedByType" class="tag"
+                      :class="a.markedByType === 'SYSTEM' ? 'bg-slate-100 text-slate-500' : 'bg-brand-50 text-brand-600'">
+                  {{ a.markedByType === 'SYSTEM' ? '系统判' : '教师判' }}{{ a.markedByName ? '·' + a.markedByName : '' }}
+                </span>
+              </div>
+
+              <div class="text-sm space-y-1 pl-14">
+                <p class="text-slate-700"><span class="text-xs text-slate-400">学生作答：</span>{{ answerText(a.answerJson, a.qType) }}</p>
+                <p v-if="a.qType === 'SHORT'" class="text-slate-500"><span class="text-xs text-slate-400">参考要点：</span>{{ answerText(a.stdAnswerJson, 'SHORT') }}</p>
+                <p v-else-if="a.qType === 'BLANK'" class="text-slate-500"><span class="text-xs text-slate-400">参考答案：</span>{{ answerText(a.stdAnswerJson, 'BLANK') }}</p>
+                <p v-else class="text-slate-500"><span class="text-xs text-slate-400">标准答案：</span>{{ answerText(a.stdAnswerJson, a.qType) }}</p>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2 pl-14">
+                <template v-if="isManual(a.qType)">
+                  <span class="text-xs text-slate-500">给分</span>
+                  <input v-model.number="drafts[a.id].score" type="number" :max="a.fullScore" min="0" class="input w-24" />
+                  <span class="text-xs text-slate-400">/ {{ a.fullScore }}</span>
+                  <input v-model="drafts[a.id].comment" class="input flex-1 min-w-48" placeholder="评语（可选）" />
+                </template>
+                <template v-else>
+                  <span class="text-sm" :class="a.isCorrect === 1 ? 'text-emerald-600' : 'text-red-600'">
+                    {{ a.isCorrect === 1 ? '正确' : '错误' }} · {{ a.score ?? 0 }} / {{ a.fullScore }} 分
+                  </span>
+                </template>
+              </div>
+            </div>
+
+            <!-- 批改完成反馈 -->
+            <div v-if="done"
+                 class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 space-y-1">
+              <p class="font-medium">
+                ✓ {{ done.studentName }} 批改完成 · 总分 {{ done.totalScore }} 分
+                <span class="ml-2 text-xs">{{ done.allMarked ? '该卷已全部批完' : '仍有主观题未批' }}</span>
+              </p>
+              <p class="text-xs text-emerald-600">
+                已写入判卷人（{{ active.markedByName || '当前账号' }}）与批改时间，列表状态已同步。
+              </p>
+            </div>
+          </div>
+
+          <!-- 弹窗底 -->
+          <div class="border-t border-slate-200 px-5 py-3 space-y-2">
+            <input v-model="remark" class="input w-full" placeholder="整卷批注（可选）" />
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <button class="btn-ghost text-sm" :disabled="activeIndex <= 0 || saving" @click="step(-1)">← 上一份</button>
+                <button class="btn-ghost text-sm" :disabled="activeIndex >= rows.length - 1 || saving" @click="step(1)">下一份 →</button>
+                <button v-if="nextUnmarked" class="text-xs text-brand-600 hover:underline" @click="openNext">
+                  跳到未批（{{ nextUnmarked.studentName }}）
+                </button>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="btn-ghost text-sm" @click="backToList">关闭</button>
+                <button class="btn-primary text-sm" :disabled="active.isAbsent === 1 || saving" @click="submitGrade">
+                  {{ saving ? '提交中…' : '提交批改' }}
+                </button>
+              </div>
+            </div>
+            <p class="text-xs text-slate-400">
+              只提交填空 / 简答的分数；单选、多选、判断由系统判分，不可改。
+            </p>
+          </div>
         </div>
-
-        <div class="text-sm space-y-1 pl-14">
-          <p><span class="text-xs text-slate-400">学生作答：</span>{{ answerText(a.answerJson, a.qType) }}</p>
-          <p v-if="a.qType === 'SHORT'"><span class="text-xs text-slate-400">参考要点：</span>{{ answerText(a.stdAnswerJson, 'SHORT') }}</p>
-          <p v-else-if="a.qType === 'BLANK'"><span class="text-xs text-slate-400">参考答案：</span>{{ answerText(a.stdAnswerJson, 'BLANK') }}</p>
-          <p v-else><span class="text-xs text-slate-400">标准答案：</span>{{ answerText(a.stdAnswerJson, a.qType) }}</p>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2 pl-14">
-          <template v-if="isManual(a.qType)">
-            <span class="text-xs text-slate-500">给分</span>
-            <input v-model.number="drafts[a.id].score" type="number" :max="a.fullScore" min="0" class="input w-24" />
-            <span class="text-xs text-slate-400">/ {{ a.fullScore }}</span>
-            <input v-model="drafts[a.id].comment" class="input flex-1 min-w-48" placeholder="评语（可选）" />
-          </template>
-          <template v-else>
-            <span class="text-sm" :class="a.isCorrect === 1 ? 'text-emerald-600' : 'text-red-600'">
-              {{ a.isCorrect === 1 ? '正确' : '错误' }} · {{ a.score ?? 0 }} / {{ a.fullScore }} 分
-            </span>
-          </template>
-        </div>
       </div>
-
-      <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-        <input v-model="remark" class="input flex-1 min-w-64" placeholder="整卷批注（可选）" />
-        <button class="btn-primary text-sm" :disabled="active.isAbsent === 1 || saving" @click="submitGrade">
-          {{ saving ? '提交中…' : '提交批改' }}
-        </button>
-        <span class="text-xs text-slate-400">只提交填空/简答的分数；单选、多选、判断由系统判分，不可改。</span>
-      </div>
-
-      <!-- 批改完成反馈 -->
-      <div v-if="done" class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 space-y-1">
-        <p class="font-medium">
-          ✓ {{ done.studentName }} 批改完成 · 总分 {{ done.totalScore }} 分
-          <span class="ml-2 text-xs">{{ done.allMarked ? '该卷已全部批完' : '仍有主观题未批' }}</span>
-        </p>
-        <p class="text-xs text-emerald-600">已写入判卷人（{{ active.markedByName || '当前账号' }}）与批改时间，可在列表里看到状态变化。</p>
-        <div class="flex items-center gap-2 pt-1">
-          <button v-if="nextUnmarked" class="btn-primary text-xs" @click="openNext">批改下一位（{{ nextUnmarked.studentName }}）</button>
-          <button class="btn-ghost text-xs" @click="backToList">返回列表</button>
-        </div>
-      </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { paperApi, questionTypes } from '../../api/paper'
 import { notify } from '../../toast'
@@ -153,7 +190,6 @@ const message = ref('')
 const ok = ref(true)
 const saving = ref(false)
 const opening = ref(0)
-const panelEl = ref(null)
 const done = ref(null)
 
 /** 返回列表：回到教学详情对应的页签（测验 / 作业 / 项目），而不是笼统的上一页 */
@@ -231,15 +267,23 @@ async function open(r) {
     ;(full.answers || []).forEach((a) => {
       drafts[a.id] = { score: a.score == null ? 0 : Number(a.score), comment: a.comment || '' }
     })
-    // 批改面板在列表下方，打开后滚到面板，避免“点了没反应”的错觉
-    await nextTick()
-    if (panelEl.value && panelEl.value.scrollIntoView) {
-      panelEl.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
   } catch (e) {
     toast('打开作答失败：' + e.message, false)
   } finally {
     opening.value = 0
+  }
+}
+
+/** 当前批改学生在列表中的位置（弹窗里显示 第几份 + 上一份/下一份） */
+const activeIndex = computed(() => {
+  if (!active.value) return -1
+  return rows.value.findIndex((r) => r.id === active.value.id)
+})
+
+async function step(delta) {
+  const i = activeIndex.value + delta
+  if (i >= 0 && i < rows.value.length) {
+    await open(rows.value[i])
   }
 }
 
@@ -271,7 +315,19 @@ async function submitGrade() {
   } catch (e) { toast(e.message, false) } finally { saving.value = false }
 }
 
+/** Esc 关闭弹窗；弹窗打开时锁住页面滚动 */
+function onKeydown(e) {
+  if (e.key === 'Escape' && active.value && !saving.value) backToList()
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown)
   try { await load() } catch (e) { toast(e.message, false) }
+})
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+
+// 弹窗打开时禁止背景滚动
+watchEffect(() => {
+  document.body.style.overflow = active.value ? 'hidden' : ''
 })
 </script>
