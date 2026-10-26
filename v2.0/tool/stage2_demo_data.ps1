@@ -64,7 +64,7 @@ if ($target) {
 }
 
 # 3) 教师端回复申诉（学生端可见 + 站内消息）；按申诉所属教学班找对应任课教师
-$TEACHER_OF_CLASS = @{ 201 = '1001'; 202 = '1001'; 203 = '1002'; 204 = '1002'; 205 = '1003'; 206 = '1003'
+$TEACHER_OF_CLASS = @{ 201 = '1001'; 202 = '1006'; 203 = '1002'; 204 = '1002'; 205 = '1003'; 206 = '1003'
                        207 = '1004'; 208 = '1004'; 209 = '1004'; 210 = '1005'; 211 = '1005'; 212 = '1005' }
 if ($target) {
   $tcId = $target.teachingClassId
@@ -83,3 +83,14 @@ if ($target) {
     if ($mine) { "学生端看到回复：{0}" -f $mine.teacherReply }
   }
 }
+
+# 4) 按课次生成课程目录（幂等）：12 个教学班各自任课教师操作，学生端「课程内容 → 目录」才有内容
+$tokens = @{}
+$synced = 0
+foreach ($tcId in ($TEACHER_OF_CLASS.Keys | Sort-Object)) {
+  $tNo = $TEACHER_OF_CLASS[$tcId]
+  if (-not $tokens.ContainsKey($tNo)) { $tokens[$tNo] = Login $tNo }
+  $r = Post-Json "$base/teacher/lessons/sync?teachingClassId=$tcId" @{} $tokens[$tNo]
+  if ($r.code -eq 0) { $synced++ } else { "  教学班 $tcId 生成目录失败：$($r.message)" }
+}
+"已为 $synced 个教学班生成课程目录（按课次）"

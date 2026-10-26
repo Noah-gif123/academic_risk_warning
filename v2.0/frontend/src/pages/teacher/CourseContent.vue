@@ -16,6 +16,9 @@
               @click="tab = t.key">{{ t.label }}</button>
     </div>
 
+    <!-- 文件选择：目录页与资料库页共用（支持多选） -->
+    <input ref="fileInput" type="file" class="hidden" multiple @change="onPick" />
+
     <!-- ============ 导学 ============ -->
     <div class="card p-4 space-y-3" v-if="tab === 'guide'">
       <div class="flex items-center justify-between flex-wrap gap-2">
@@ -146,12 +149,29 @@
                   <option value="PAPER">测验 / 作业</option>
                 </select>
               </label>
-              <label class="text-xs" v-if="resForm.resType === 'FILE'">选择文件
-                <select v-model="resForm.refId" class="input mt-1 w-56">
-                  <option :value="null">请先到资料库上传</option>
-                  <option v-for="f in resources" :key="f.id" :value="f.id">{{ f.fileName }}</option>
-                </select>
-              </label>
+              <div class="text-xs w-full" v-if="resForm.resType === 'FILE'">
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                  <button class="btn-ghost text-sm" type="button" @click="openPicker">从资料库选择</button>
+                  <button class="btn-ghost text-sm" type="button" :disabled="uploading" @click="fileInput.click()">
+                    {{ uploading ? '上传中…' : '从电脑上传' }}
+                  </button>
+                  <span class="text-slate-400">也可以把文件直接拖到下面的虚线框</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-1.5" v-if="resForm.refIds.length">
+                  <span v-for="id in resForm.refIds" :key="id"
+                        class="inline-flex items-center gap-1 bg-brand-50 text-brand-700 border border-brand-200 rounded-full pl-2 pr-1 py-0.5">
+                    {{ fileNameOf(id) }}
+                    <button type="button" class="text-brand-500 hover:text-red-500 px-1" @click="removePicked(id)">✕</button>
+                  </span>
+                </div>
+                <div class="mt-2 border border-dashed border-slate-300 rounded-lg px-3 py-3 text-center text-slate-400"
+                     :class="dragging ? 'bg-brand-50 border-brand-300' : ''"
+                     @dragover.prevent="dragging = true"
+                     @dragleave.prevent="dragging = false"
+                     @drop.prevent="onDrop">
+                  拖拽文件到这里上传（支持多选）
+                </div>
+              </div>
               <label class="text-xs" v-if="resForm.resType === 'PAPER'">测验 / 作业
                 <select v-model="resForm.refId" class="input mt-1 w-56">
                   <option :value="null">暂无（1-7 后可发布）</option>
@@ -177,6 +197,73 @@
       </div>
     </div>
 
+    <!-- ============ 资料库选择器（弹窗） ============ -->
+    <div v-if="pickerOpen" class="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4"
+         @click.self="pickerOpen = false">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <div class="flex items-center gap-2">
+            <h3 class="font-medium text-slate-800">从资料库选择</h3>
+            <span class="tag bg-brand-50 text-brand-700">课程组共享 {{ resources.length }} 份</span>
+          </div>
+          <button class="text-slate-400 hover:text-slate-600" @click="pickerOpen = false">✕</button>
+        </div>
+        <div class="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2">
+          <input v-model="pickerSearch" class="input w-64" placeholder="搜索文件名 / 上传人" />
+          <label class="flex items-center gap-1 text-xs text-slate-500">
+            <input type="checkbox" v-model="pickerMineOnly" /> 只看我上传
+          </label>
+          <span class="ml-auto text-xs text-slate-400">已选 {{ pickerSelected.length }} 份</span>
+        </div>
+        <div class="flex-1 overflow-y-auto px-4">
+          <table class="w-full text-sm">
+            <thead class="text-slate-500 border-b border-slate-200 sticky top-0 bg-white">
+              <tr>
+                <th class="py-2 w-8">
+                  <input type="checkbox" :checked="pageAllChecked" @change="togglePage($event.target.checked)" />
+                </th>
+                <th class="text-left py-2">文件名</th>
+                <th class="text-left py-2 w-24">上传人</th>
+                <th class="text-left py-2 w-24">教学班</th>
+                <th class="text-left py-2 w-32">上传时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="f in pickerPageRows" :key="f.id" class="border-b border-slate-100 hover:bg-slate-50"
+                  @click="togglePick(f.id)">
+                <td class="py-2"><input type="checkbox" :value="f.id" v-model="pickerSelected" @click.stop /></td>
+                <td class="py-2 truncate max-w-72">{{ f.fileName }}</td>
+                <td class="py-2 text-slate-500">{{ f.uploaderName || '—' }}</td>
+                <td class="py-2 text-slate-500">{{ f.classCode || '课程组' }}</td>
+                <td class="py-2 text-slate-500">{{ fmt(f.createTime) }}</td>
+              </tr>
+              <tr v-if="!pickerRows.length">
+                <td colspan="5" class="py-10 text-center text-slate-400">
+                  {{ resources.length ? '没有匹配的资料' : '资料库还是空的，先点「从电脑上传」' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
+          <div class="flex items-center gap-2 text-sm">
+            <button class="btn-ghost text-sm" :disabled="pickerPage <= 1" @click="pickerPage--">上一页</button>
+            <span class="text-slate-500">{{ pickerPage }} / {{ pickerPageCount }}</span>
+            <button class="btn-ghost text-sm" :disabled="pickerPage >= pickerPageCount" @click="pickerPage++">下一页</button>
+            <select v-model.number="pickerPageSize" class="input w-20 ml-2">
+              <option :value="10">10 条</option>
+              <option :value="20">20 条</option>
+              <option :value="50">50 条</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="btn-ghost text-sm" @click="pickerOpen = false">取消</button>
+            <button class="btn-primary text-sm" @click="confirmPick">确定（{{ pickerSelected.length }}）</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ============ 资料库（课程组共享） ============ -->
     <div class="card p-4 space-y-3" v-if="tab === 'files'">
       <div class="flex items-center justify-between flex-wrap gap-2">
@@ -188,8 +275,7 @@
           <label class="flex items-center gap-1 text-xs text-slate-500">
             <input type="checkbox" v-model="mineOnly" @change="loadResources" /> 只看我上传
           </label>
-          <input ref="fileInput" type="file" class="hidden" @change="onPick" />
-          <button class="btn-primary text-sm" :disabled="uploading" @click="$refs.fileInput.click()">
+          <button class="btn-primary text-sm" :disabled="uploading" @click="fileInput && fileInput.click()">
             {{ uploading ? '上传中…' : '上传文件' }}
           </button>
         </div>
@@ -236,7 +322,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { contentApi } from '../../api/content'
 import RichTextEditor from '../../components/RichTextEditor.vue'
@@ -276,7 +362,7 @@ const expanded = ref(null)
 const uploading = ref(false)
 const mineOnly = ref(false)
 const fileInput = ref(null)
-const resForm = reactive({ phase: 'BEFORE', resType: 'FILE', refId: null, extUrl: '', title: '', publish: true })
+const resForm = reactive({ phase: 'BEFORE', resType: 'FILE', refId: null, refIds: [], extUrl: '', title: '', publish: true })
 
 function toast(msg, isOk = true) {
   message.value = msg
@@ -351,6 +437,24 @@ async function saveLesson(l) {
   } catch (e) { toast(e.message, false) }
 }
 async function addResource(l) {
+  // 文件类型支持一次挂多份（从资料库多选 / 拖拽或多选上传）
+  if (resForm.resType === 'FILE') {
+    if (!resForm.refIds.length) { toast('请先从资料库选择，或从电脑上传文件', false); return }
+    try {
+      for (const id of resForm.refIds) {
+        await contentApi.addResource({
+          lessonId: l.id, phase: resForm.phase, resType: 'FILE', refId: id,
+          extUrl: null, title: resForm.title || null, publish: resForm.publish
+        })
+      }
+      toast(`已添加 ${resForm.refIds.length} 份资料`)
+      resForm.title = ''
+      resForm.refIds = []
+      await loadLessons()
+      expanded.value = l.id
+    } catch (e) { toast(e.message, false) }
+    return
+  }
   const body = {
     lessonId: l.id, phase: resForm.phase, resType: resForm.resType,
     refId: resForm.resType === 'LINK' || resForm.resType === 'TEXT' ? null : resForm.refId,
@@ -390,17 +494,99 @@ async function loadResources() {
   })
   papers.value = await contentApi.papers(teachingClassId)
 }
+
+// ---------------- 资料库选择器（弹窗：搜索 + 只看我上传 + 分页 + 多选）
+const pickerOpen = ref(false)
+const pickerSearch = ref('')
+const pickerMineOnly = ref(false)
+const pickerPage = ref(1)
+const pickerPageSize = ref(10)
+const pickerSelected = ref([])
+const dragging = ref(false)
+
+const pickerRows = computed(() => {
+  const kw = pickerSearch.value.trim()
+  return resources.value.filter((f) => {
+    if (pickerMineOnly.value && !f.isMine) return false
+    if (!kw) return true
+    return String(f.fileName || '').includes(kw) || String(f.uploaderName || '').includes(kw)
+  })
+})
+const pickerPageCount = computed(() => Math.max(1, Math.ceil(pickerRows.value.length / pickerPageSize.value)))
+const pickerPageRows = computed(() => {
+  const start = (pickerPage.value - 1) * pickerPageSize.value
+  return pickerRows.value.slice(start, start + pickerPageSize.value)
+})
+const pageAllChecked = computed(() =>
+  pickerPageRows.value.length > 0 && pickerPageRows.value.every((f) => pickerSelected.value.includes(f.id))
+)
+
+function openPicker() {
+  pickerSearch.value = ''
+  pickerMineOnly.value = mineOnly.value
+  pickerPage.value = 1
+  pickerSelected.value = []
+  pickerOpen.value = true
+}
+function togglePick(id) {
+  if (pickerSelected.value.includes(id)) {
+    pickerSelected.value = pickerSelected.value.filter((x) => x !== id)
+  } else {
+    pickerSelected.value = [...pickerSelected.value, id]
+  }
+}
+function togglePage(checked) {
+  const pageIds = pickerPageRows.value.map((f) => f.id)
+  if (checked) {
+    const set = new Set([...pickerSelected.value, ...pageIds])
+    pickerSelected.value = Array.from(set)
+  } else {
+    pickerSelected.value = pickerSelected.value.filter((id) => !pageIds.includes(id))
+  }
+}
+function confirmPick() {
+  resForm.refIds = [...new Set([...resForm.refIds, ...pickerSelected.value])]
+  pickerOpen.value = false
+  toast(`已选 ${pickerSelected.value.length} 份资料`)
+}
+function removePicked(id) {
+  resForm.refIds = resForm.refIds.filter((x) => x !== id)
+}
+function fileNameOf(id) {
+  const f = resources.value.find((x) => x.id === id)
+  return f ? f.fileName : '#' + id
+}
+
 async function onPick(e) {
-  const file = e.target.files && e.target.files[0]
-  if (!file) return
+  const files = Array.from(e.target.files || [])
+  if (!files.length) return
   uploading.value = true
   try {
-    await contentApi.upload(teachingClassId, file)
+    for (const file of files) {
+      const saved = await contentApi.upload(teachingClassId, file)
+      if (saved && saved.id) resForm.refIds = [...resForm.refIds, saved.id]
+    }
     await loadResources()
-    toast('上传成功：' + file.name)
+    toast(`已上传 ${files.length} 个文件，可直接「添加到本次课」`)
   } catch (err) { toast(err.message, false) }
   uploading.value = false
   e.target.value = ''
+}
+
+async function onDrop(e) {
+  dragging.value = false
+  const files = Array.from((e.dataTransfer && e.dataTransfer.files) || [])
+  if (!files.length) return
+  uploading.value = true
+  try {
+    for (const file of files) {
+      const saved = await contentApi.upload(teachingClassId, file)
+      if (saved && saved.id) resForm.refIds = [...resForm.refIds, saved.id]
+    }
+    await loadResources()
+    toast(`已上传 ${files.length} 个文件`)
+  } catch (err) { toast(err.message, false) }
+  uploading.value = false
 }
 async function voidFile(f) {
   try {
