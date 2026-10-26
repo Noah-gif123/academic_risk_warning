@@ -1,4 +1,4 @@
-﻿# 一键重建演示库并补齐第二阶段演示痕迹
+# 一键重建演示库并补齐第二阶段演示痕迹
 #   1) SQL：19 清理 → 20 重建（tool/20_rebuild_demo.sql，由 tool/seed_demo.js 生成）→ 21 收尾
 #   2) 起后端后：跑一次判定（admin，当前学期）→ 补演示痕迹（认领/处理/申诉/回复）→ 发布 5 门课导学
 #
@@ -26,6 +26,9 @@ function Step($text) { Write-Host ""; Write-Host ("=== " + $text + " ===") -Fore
 if (-not $SkipSql) {
   if (-not (Test-Path $MySql)) { throw "找不到 mysql 客户端：$MySql（可用 -MySql 指定）" }
   $env:MYSQL_PWD = $DbPassword
+  Step '生成 20_rebuild_demo.sql（node seed_demo.js）'
+  & node (Join-Path $toolDir 'seed_demo.js')
+  if ($LASTEXITCODE -ne 0) { throw '种子生成失败（是否没装 node？）' }
   $files = @(
     (Join-Path $sqlDir '19_cleanup_demo.sql'),
     (Join-Path $toolDir '20_rebuild_demo.sql'),
@@ -38,7 +41,7 @@ if (-not $SkipSql) {
     & $MySql -u $DbUser --default-character-set=utf8mb4 --execute="source $f"
     if ($LASTEXITCODE -ne 0) { throw "执行失败：$f" }
   }
-  Write-Host "  SQL 完成（19 → 20 → 21 → 25）" -ForegroundColor Green
+  Write-Host "  SQL 完成（生成 → 19 → 20 → 21 → 25）" -ForegroundColor Green
 }
 
 if (-not $SkipApi) {
@@ -49,6 +52,8 @@ if (-not $SkipApi) {
   if ($LASTEXITCODE -ne 0) { throw '演示痕迹脚本失败' }
   & powershell -NoProfile -File (Join-Path $toolDir 'publish_guides.ps1')
   if ($LASTEXITCODE -ne 0) { throw '导学发布脚本失败' }
+  & powershell -NoProfile -File (Join-Path $toolDir 'seed_resources.ps1')
+  if ($LASTEXITCODE -ne 0) { throw '资料库演示数据脚本失败' }
 }
 
 Step '完成'
@@ -56,4 +61,5 @@ Write-Host '演示库已就绪：' -ForegroundColor Green
 Write-Host '  · 5 门课 / 12 教学班 / 540 选课；试卷 124 张 + 2 张进行中，项目 12 个'
 Write-Host '  · 预警由引擎生成；计基 01 班有 1 条「处理中」+ 1 条「学生申诉已回复」'
 Write-Host '  · 5 门课的导学已发布（成绩构成 + 各小项 + 项目要求）'
-Write-Host '  打开前端 http://localhost:5173 ，账号 20250001 / 1001 / 1003 / admin001（口令 000000）'
+Write-Host '  · 资料库课程组共享：1001（计基 01 班）与 1006（计基 02 班）互相可见上传的资料'
+Write-Host '  打开前端 http://localhost:5173 ，账号 20250001 / 1001 / 1003 / 1006 / admin001（口令 000000）'

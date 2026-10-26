@@ -13,6 +13,7 @@ import com.example.academic_risk_warning.entity.CourseSession;
 import com.example.academic_risk_warning.entity.LessonResource;
 import com.example.academic_risk_warning.entity.Paper;
 import com.example.academic_risk_warning.entity.ResourceFile;
+import com.example.academic_risk_warning.entity.Teacher;
 import com.example.academic_risk_warning.entity.TeachingClass;
 import com.example.academic_risk_warning.entity.TeachingObjective;
 import com.example.academic_risk_warning.mapper.CourseGuideMapper;
@@ -23,9 +24,11 @@ import com.example.academic_risk_warning.mapper.LessonResourceMapper;
 import com.example.academic_risk_warning.mapper.PaperMapper;
 import com.example.academic_risk_warning.mapper.ResourceFileMapper;
 import com.example.academic_risk_warning.mapper.TeachingClassMapper;
+import com.example.academic_risk_warning.mapper.TeacherMapper;
 import com.example.academic_risk_warning.mapper.TeachingObjectiveMapper;
 import com.example.academic_risk_warning.vo.LessonResourceVO;
 import com.example.academic_risk_warning.vo.LessonVO;
+import com.example.academic_risk_warning.vo.ResourceFileVO;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,6 +39,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -56,6 +60,7 @@ public class CourseContentService {
     private final CourseOfferingMapper offeringMapper;
     private final TeachingClassMapper classMapper;
     private final PaperMapper paperMapper;
+    private final TeacherMapper teacherMapper;
     private final AuditService auditService;
 
     /** 教学班所属学期（教学班只存 offering_id，学期从开课实例取） */
@@ -409,6 +414,7 @@ public class CourseContentService {
     }
 
     // ============================================================ 资料库
+    /** 兼容旧接口：按教学班查（等价于该班所属课程组范围的本人文件） */
     public List<ResourceFile> listResources(Long teachingClassId, Long teacherId) {
         requireMyClass(teachingClassId, teacherId);
         return resourceMapper.selectList(Wrappers.<ResourceFile>lambdaQuery()
@@ -417,6 +423,81 @@ public class CourseContentService {
                 .and(q -> q.eq(ResourceFile::getTeachingClassId, teachingClassId)
                         .or().isNull(ResourceFile::getTeachingClassId))
                 .orderByDesc(ResourceFile::getId));
+    }
+
+    /** 课程组（同一开课实例）内的老师必须至少带一个班，才能看这一组的资料 */
+    public CourseOffering requireMyOffering(Long offeringId, Long teacherId) {
+        CourseOffering offering = offeringId == null ? null : offeringMapper.selectById(offeringId);
+        if (offering == null) {
+            throw new BizException("开课实例不存在");
+        }
+        Long mine = classMapper.selectCount(Wrappers.<TeachingClass>lambdaQuery()
+                .eq(TeachingClass::getOfferingId, offeringId)
+                .eq(TeachingClass::getTeacherId, teacherId));
+        if (mine == null || mine == 0) {
+            throw new BizException("只能查看本课程组（同一门课）的资料");
+        }
+        return offering;
+    }
+
+    /**
+     * 资料库列表：**课程组共享**——同一开课实例下所有教学班、所有老师上传的资料都能看到。
+     *
+     * @param teachingClassId 任一带班 id（与 offeringId 二选一）
+     * @param offeringId      开课实例 id（优先）
+     * @param mineOnly        true=只看我上传的
+     */
+    public List<ResourceFileVO> listSharedResources(Long teachingClassId, Long offeringId,
+                                                    Boolean mineOnly, Long teacherId) {
+        Long resolvedOffering = offeringId;
+        if (resolvedOffering == null) {
+            TeachingClass tc = requireMyClass(teachingClassId, teacherId);
+            resolvedOffering = tc.getOfferingId();
+        }
+        requireMyOffering(resolvedOffering, teacherId);
+        List<ResourceFile> files = resourceMapper.selectList(Wrappers.<ResourceFile>lambdaQuery()
+                .eq(ResourceFile::getOfferingId, resolvedOffering)
+                .eq(ResourceFile::getIsVoid, 0)
+                .eq(Boolean.TRUE.equals(mineOnly), ResourceFile::getUploadBy, teacherId)
+                .orderByDesc(ResourceFile::getId));
+        if (files.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> uploaderIds = files.stream().map(ResourceFile::getUploadBy)
+                .filter((x) -> x != null).collect(Collectors.toSet());
+        Map<Long, String> teacherNames = new LinkedHashMap<>();
+        if (!uploaderIds.isEmpty()) {
+            for (Teacher t : teacherMapper.selectBatchIds(uploaderIds)) {
+                teacherNames.put(t.getId(), t.getTeacherName());
+            }
+        }
+        Set<Long> classIds = files.stream().map(ResourceFile::getTeachingClassId)
+                .filter((x) -> x != null).collect(Collectors.toSet());
+        Map<Long, String> classCodes = new LinkedHashMap<>();
+        if (!classIds.isEmpty()) {
+            for (TeachingClass tc : classMapper.selectBatchIds(classIds)) {
+                classCodes.put(tc.getId(), tc.getClassCode());
+            }
+        }
+        List<ResourceFileVO> out = new ArrayList<>();
+        for (ResourceFile f : files) {
+            ResourceFileVO v = new ResourceFileVO();
+            v.setId(f.getId());
+            v.setFileName(f.getFileName());
+            v.setFileExt(f.getFileExt());
+            v.setFileSize(f.getFileSize());
+            v.setMimeType(f.getMimeType());
+            v.setOfferingId(f.getOfferingId());
+            v.setTeachingClassId(f.getTeachingClassId());
+            v.setClassCode(f.getTeachingClassId() == null ? null : classCodes.get(f.getTeachingClassId()));
+            v.setUploadBy(f.getUploadBy());
+            v.setUploaderName(f.getUploadBy() == null ? null : teacherNames.get(f.getUploadBy()));
+            v.setUploadRole(f.getUploadRole());
+            v.setCreateTime(f.getCreateTime());
+            v.setIsMine(teacherId != null && teacherId.equals(f.getUploadBy()));
+            out.add(v);
+        }
+        return out;
     }
 
     @Transactional

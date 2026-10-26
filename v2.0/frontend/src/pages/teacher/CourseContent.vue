@@ -9,8 +9,8 @@
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
-    <!-- 页签 -->
-    <div class="flex flex-wrap gap-2">
+    <!-- 页签（嵌入到「教学详情」时由外层页签控制，这里不再重复一排） -->
+    <div class="flex flex-wrap gap-2" v-if="!embedded">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
               :class="tab === t.key ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
               @click="tab = t.key">{{ t.label }}</button>
@@ -18,7 +18,7 @@
 
     <!-- ============ 导学 ============ -->
     <div class="card p-4 space-y-3" v-if="tab === 'guide'">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">课程导学</h2>
         <span class="text-xs text-slate-400">
           版本 v{{ guide.version }}
@@ -27,25 +27,17 @@
         </span>
       </div>
       <p class="text-xs text-slate-400">
-        导学是教师写给学生的课程说明（学什么、怎么学、怎么考），支持 HTML 富文本；保存后自动记录版本，
-        勾选「同时发布」学生端才可见。
+        导学是教师写给学生的课程说明（学什么、怎么学、怎么考）。直接用富文本编辑：加粗、字号、标题、列表都能用；
+        保存后自动记录版本，点「保存并发布」学生端才可见。
       </p>
-      <textarea v-model="guide.content" rows="14" class="input font-mono text-xs"
-                placeholder="&lt;p&gt;本课程……&lt;/p&gt;"></textarea>
-      <div class="flex items-center gap-3">
-        <button class="btn-primary text-sm" @click="saveGuide(false)">保存</button>
+      <RichTextEditor v-model="guide.content" :min-height="300"
+                      placeholder="例：本课程总评 = 平时成绩 40%（课堂测试 7×5 + 三级项目 20 + 课堂表现 5 + 课后作业 4×10）+ 期末考试 60%……" />
+      <div class="flex items-center gap-3 flex-wrap">
+        <button class="btn-primary text-sm" @click="saveGuide(false)">保存草稿</button>
         <button class="btn-ghost text-sm" @click="saveGuide(true)">保存并发布</button>
-        <label class="text-xs text-slate-500">格式
-          <select v-model="guide.contentFormat" class="input mt-1 w-28 inline-block ml-1">
-            <option value="HTML">HTML</option>
-            <option value="TEXT">纯文本</option>
-          </select>
-        </label>
-      </div>
-      <div v-if="guide.content" class="border-t border-slate-100 pt-3">
-        <p class="text-xs text-slate-400 mb-2">预览</p>
-        <div v-if="guide.contentFormat === 'HTML'" class="prose-sm text-sm leading-6" v-html="guide.content"></div>
-        <pre v-else class="text-sm whitespace-pre-wrap">{{ guide.content }}</pre>
+        <span class="text-xs text-slate-400">
+          正文 {{ guide.content ? guide.content.replace(/<[^>]+>/g, '').trim().length : 0 }} 字（不含标签）
+        </span>
       </div>
     </div>
 
@@ -185,11 +177,17 @@
       </div>
     </div>
 
-    <!-- ============ 资料库 ============ -->
+    <!-- ============ 资料库（课程组共享） ============ -->
     <div class="card p-4 space-y-3" v-if="tab === 'files'">
       <div class="flex items-center justify-between flex-wrap gap-2">
-        <h2 class="font-medium text-slate-700">课程资料库</h2>
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="font-medium text-slate-700">课程资料库</h2>
+          <span class="tag bg-brand-50 text-brand-700">课程组共享</span>
+        </div>
         <div class="flex items-center gap-2">
+          <label class="flex items-center gap-1 text-xs text-slate-500">
+            <input type="checkbox" v-model="mineOnly" @change="loadResources" /> 只看我上传
+          </label>
           <input ref="fileInput" type="file" class="hidden" @change="onPick" />
           <button class="btn-primary text-sm" :disabled="uploading" @click="$refs.fileInput.click()">
             {{ uploading ? '上传中…' : '上传文件' }}
@@ -197,28 +195,40 @@
         </div>
       </div>
       <p class="text-xs text-slate-400">
-        文件只存元信息，本体落服务器目录；删除采用逻辑作废，避免破坏课时里已有的引用。
+        同一门课（同一个开课实例）下所有教学班、所有老师上传的资料都在这里，互相可见、可下载；
+        上传时记录到当前教学班。文件只存元信息，本体落服务器目录，作废为逻辑删除（不破坏已引用它的课时）。
       </p>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
           <tr>
             <th class="text-left py-2">文件名</th><th class="text-left py-2 w-16">类型</th>
-            <th class="text-right py-2 w-24">大小</th><th class="text-left py-2 w-40">上传时间</th>
+            <th class="text-right py-2 w-24">大小</th>
+            <th class="text-left py-2 w-32">上传人</th>
+            <th class="text-left py-2 w-24">教学班</th>
+            <th class="text-left py-2 w-40">上传时间</th>
             <th class="text-right py-2 w-32">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="f in resources" :key="f.id" class="border-b border-slate-100">
-            <td class="py-2 truncate max-w-96">{{ f.fileName }}</td>
+            <td class="py-2 truncate max-w-80">{{ f.fileName }}</td>
             <td class="py-2 text-slate-500">{{ f.fileExt || '—' }}</td>
             <td class="py-2 text-right text-slate-500">{{ sizeText(f.fileSize) }}</td>
+            <td class="py-2">
+              <span :class="f.isMine ? 'text-slate-700' : 'text-slate-500'">{{ f.uploaderName || '—' }}</span>
+              <span v-if="f.isMine" class="tag bg-slate-100 text-slate-500 ml-1">我</span>
+            </td>
+            <td class="py-2 text-slate-500">{{ f.classCode || '课程组' }}</td>
             <td class="py-2 text-slate-500">{{ fmt(f.createTime) }}</td>
             <td class="py-2 text-right whitespace-nowrap">
               <button class="text-brand-600 hover:underline mr-3" @click="contentApi.downloadFile(f.id, f.fileName)">下载</button>
-              <button class="text-slate-400 hover:text-red-500" @click="voidFile(f)">作废</button>
+              <button v-if="f.isMine" class="text-slate-400 hover:text-red-500" @click="voidFile(f)">作废</button>
+              <span v-else class="text-xs text-slate-300">他人上传</span>
             </td>
           </tr>
-          <tr v-if="!resources.length"><td colspan="5" class="py-6 text-center text-slate-400">还没有上传资料</td></tr>
+          <tr v-if="!resources.length"><td colspan="7" class="py-6 text-center text-slate-400">
+            {{ mineOnly ? '你还没有上传过资料' : '本课程组还没有资料，点右上角「上传文件」' }}
+          </td></tr>
         </tbody>
       </table>
     </div>
@@ -229,15 +239,18 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { contentApi } from '../../api/content'
+import RichTextEditor from '../../components/RichTextEditor.vue'
 
 const route = useRoute()
 const router = useRouter()
 const props = defineProps({
   teachingClassId: { type: Number, default: 0 },
+  offeringId: { type: Number, default: 0 },
   embedded: { type: Boolean, default: false },
   initialTab: { type: String, default: 'guide' }
 })
 const teachingClassId = props.teachingClassId || Number(route.query.teachingClassId || 0)
+const offeringId = props.offeringId || Number(route.query.offeringId || 0)
 
 const tabs = [
   { key: 'guide', label: '导学' },
@@ -261,6 +274,7 @@ const resources = ref([])
 const papers = ref([])
 const expanded = ref(null)
 const uploading = ref(false)
+const mineOnly = ref(false)
 const fileInput = ref(null)
 const resForm = reactive({ phase: 'BEFORE', resType: 'FILE', refId: null, extUrl: '', title: '', publish: true })
 
@@ -367,9 +381,13 @@ async function removeResource(r) {
   } catch (e) { toast(e.message, false) }
 }
 
-// ---------------- 资料库
+// ---------------- 资料库（课程组共享：按开课实例取，含其他老师上传的）
 async function loadResources() {
-  resources.value = await contentApi.resources(teachingClassId)
+  resources.value = await contentApi.resources({
+    teachingClassId,
+    offeringId: offeringId || undefined,
+    mineOnly: mineOnly.value ? true : undefined
+  })
   papers.value = await contentApi.papers(teachingClassId)
 }
 async function onPick(e) {

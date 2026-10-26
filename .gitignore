@@ -90,3 +90,6 @@ entity/
 
 v2.0/sql/_backup/
 
+
+### Word/Office 打开文档时的临时锁文件 ###
+**/~$*

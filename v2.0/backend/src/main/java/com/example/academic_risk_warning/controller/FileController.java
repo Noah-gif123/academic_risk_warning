@@ -31,6 +31,7 @@ public class FileController {
 
     private final ResourceFileMapper resourceMapper;
     private final ResourceFileService resourceFileService;
+    private final com.example.academic_risk_warning.mapper.TeachingClassMapper classMapper;
 
     @GetMapping("/{id}")
     public ResponseEntity<Resource> download(@PathVariable Long id) {
@@ -41,7 +42,15 @@ public class FileController {
         }
         boolean owner = "TEACHER".equals(user.getRole()) && user.getRefId() != null
                 && user.getRefId().equals(f.getUploadBy());
-        if (!owner && !"ADMIN".equals(user.getRole())) {
+        // 同一课程组（同一开课实例）的老师可以互相对方上传的资料
+        boolean sameOffering = false;
+        if (!owner && "TEACHER".equals(user.getRole()) && user.getRefId() != null && f.getOfferingId() != null) {
+            sameOffering = classMapper.selectCount(
+                    com.baomidou.mybatisplus.core.toolkit.Wrappers.<com.example.academic_risk_warning.entity.TeachingClass>lambdaQuery()
+                            .eq(com.example.academic_risk_warning.entity.TeachingClass::getOfferingId, f.getOfferingId())
+                            .eq(com.example.academic_risk_warning.entity.TeachingClass::getTeacherId, user.getRefId())) > 0;
+        }
+        if (!owner && !sameOffering && !"ADMIN".equals(user.getRole())) {
             // 学生 / 辅导员：只允许取本教学班的文件
             if (f.getTeachingClassId() == null) {
                 throw new BizException("无权下载该文件");

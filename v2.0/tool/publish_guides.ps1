@@ -192,7 +192,7 @@ $GUIDES = @{ A = $GUIDE_A; B = $GUIDE_B; C = $GUIDE_C; D = $GUIDE_D; E = $GUIDE_
 
 # ---------------- 教学班 → 课程 / 任课教师 ----------------
 $TARGETS = @(
-  @{ tc = 201; key = 'A'; teacher = '1001' }, @{ tc = 202; key = 'A'; teacher = '1001' },
+  @{ tc = 201; key = 'A'; teacher = '1001' }, @{ tc = 202; key = 'A'; teacher = '1006' },
   @{ tc = 203; key = 'B'; teacher = '1002' }, @{ tc = 204; key = 'B'; teacher = '1002' },
   @{ tc = 205; key = 'C'; teacher = '1003' }, @{ tc = 206; key = 'C'; teacher = '1003' },
   @{ tc = 207; key = 'D'; teacher = '1004' }, @{ tc = 208; key = 'D'; teacher = '1004' }, @{ tc = 209; key = 'D'; teacher = '1004' },

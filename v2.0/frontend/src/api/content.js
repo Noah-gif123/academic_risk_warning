@@ -16,8 +16,16 @@ export const contentApi = {
   addResource: (body) => http.post('/teacher/lesson-resources', body),
   publishResource: (id, publish) => http.post(`/teacher/lesson-resources/${id}/publish?publish=${publish}`),
   deleteResource: (id) => http.delete(`/teacher/lesson-resources/${id}`),
-  // 资料库
-  resources: (teachingClassId) => http.get(`/teacher/resources?teachingClassId=${teachingClassId}`),
+  // 资料库（课程组共享）：params = { teachingClassId?, offeringId?, mineOnly? }
+  resources: (params) => {
+    const p = typeof params === 'object' && params !== null ? params : { teachingClassId: params }
+    const q = new URLSearchParams()
+    if (p.teachingClassId) q.set('teachingClassId', p.teachingClassId)
+    if (p.offeringId) q.set('offeringId', p.offeringId)
+    if (p.mineOnly) q.set('mineOnly', 'true')
+    const s = q.toString()
+    return http.get('/teacher/resources' + (s ? '?' + s : ''))
+  },
   papers: (teachingClassId) => http.get(`/teacher/papers?teachingClassId=${teachingClassId}`),
   upload: (teachingClassId, file) => {
     const fd = new FormData()

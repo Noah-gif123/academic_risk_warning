@@ -30,7 +30,7 @@ $ev = Post-Json "$base/engine/evaluate?termId=5&trigger=MANUAL" @{} $adm
 $cap = (Get-Json "$base/auth/captcha").data
 $code = (Get-Json "$base/auth/captcha/debug?captchaId=$($cap.captchaId)").data
 $tea = Login '1001'
-foreach ($tc in @(201, 202)) {
+foreach ($tc in @(201)) {
   $st = (Get-Json "$base/teacher/alerts/stats?teachingClassId=$tc" $tea).data
   "教学班 $tc 总览：红 $($st.red) 橙 $($st.orange) 黄 $($st.yellow) 待处理 $($st.active) 处理中 $($st.handling) 已判定 $($st.evaluated)"
 }

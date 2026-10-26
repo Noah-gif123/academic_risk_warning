@@ -103,13 +103,14 @@ $env:GRADLE_USER_HOME="..\..\v1.0\.gradle-home"   # 或你自己的缓存目录
 | GET | `/api/teacher/score-templates?courseType=` | 教师可读的构成模板 |
 | GET | `/api/admin/score-templates`、`/api/admin/score-schemes?termId=` | 教务端模板与全量构成 |
 | POST | `/api/admin/score-schemes/{id}/lock` | 教务裁定锁定 |
-| GET/POST | `/api/teacher/guide?teachingClassId=` | 课程导学（富文本，保存版本递增，可同时发布） |
+| GET/POST | `/api/teacher/guide?teachingClassId=` | 课程导学（富文本 HTML，保存版本递增，可同时发布；前端用内置富文本编辑器：加粗/字号/标题/列表/链接） |
 | GET/POST | `/api/teacher/objectives` | 教学目标（整批保存，删掉的转 DISABLED） |
 | GET | `/api/teacher/lessons?teachingClassId=` | 目录（一行 = 一次课，含课前 / 课中 / 课后三段） |
 | POST | `/api/teacher/lessons/sync?teachingClassId=` | 按课次生成目录（幂等） |
 | POST | `/api/teacher/lessons/{id}` | 调整课时标题 / 顺序 / 状态 |
 | POST | `/api/teacher/lesson-resources`、`.../{id}/publish`、`DELETE .../{id}` | 课时资源与任务的增删与发布 |
-| GET/POST | `/api/teacher/resources`、`/api/teacher/resources/upload`、`.../{id}/void` | 资料库（上传、列表、逻辑作废） |
+| GET | `/api/teacher/resources?offeringId=&teachingClassId=&mineOnly=` | **课程组共享**资料库：同一开课实例下所有教学班、所有老师上传的资料互相可见（返回上传人、所属教学班、是否本人上传）；`mineOnly=true` 只看自己 |
+| POST | `/api/teacher/resources/upload?teachingClassId=`、`POST .../{id}/void` | 上传（记录到当前教学班，落入课程组共享范围）、逻辑作废（仅本人可作废） |
 | GET | `/api/teacher/papers?teachingClassId=` | 本班测验 / 作业（供挂到课时；1-7 后才有数据） |
 | GET | `/api/files/{id}` | 文件下载（需登录，不走静态目录） |
 | GET/POST | `/api/teacher/papers`、`/api/teacher/papers/{id}` | 测验 / 作业（列表、详情、保存草稿与题目） |

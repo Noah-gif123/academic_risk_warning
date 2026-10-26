@@ -95,11 +95,15 @@ let tcid = 201;
 const CLASSES = [];
 COURSES.forEach((c) => {
   const teacherBase = { A: 1, B: 2, C: 3, D: 4, E: 5 }[c.key];
-  [1, 2].forEach((acId) => CLASSES.push({
-    id: tcid++, offeringId: c.offeringId, key: c.key, acId, retake: 0, teacherId: teacherBase,
-    code: (acId === 1 ? 'CS-01-' : 'CS-02-') + c.key,
-    name: c.name + (acId === 1 ? ' 01班' : ' 02班')
-  }));
+  [1, 2].forEach((acId) => {
+    // 计基 02 班换成另一位老师（1006 赵明）：同一个课程组两位老师，用来演示「资料库课程组共享」
+    const teacherId = (c.key === 'A' && acId === 2) ? 6 : teacherBase;
+    CLASSES.push({
+      id: tcid++, offeringId: c.offeringId, key: c.key, acId, retake: 0, teacherId,
+      code: (acId === 1 ? 'CS-01-' : 'CS-02-') + c.key,
+      name: c.name + (acId === 1 ? ' 01班' : ' 02班')
+    });
+  });
   if (c.key === 'D' || c.key === 'E') CLASSES.push({
     id: tcid++, offeringId: c.offeringId, key: c.key, acId: 3, retake: 1, teacherId: teacherBase,
     code: 'CS-RT-' + c.key, name: c.name + ' 重修班'

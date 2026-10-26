@@ -27,11 +27,12 @@
               @click="tab = t.key">{{ t.label }}</button>
     </div>
 
-    <!-- 导学 / 教学目标 / 目录 都用课程内容页，只是初始页签不同 -->
-    <CourseContent v-if="['guide', 'objectives', 'lessons'].includes(tab)"
+    <!-- 导学 / 教学目标 / 目录 / 资料库 都用课程内容页，只是初始页签不同（页签由本页统一控制） -->
+    <CourseContent v-if="['guide', 'objectives', 'lessons', 'files'].includes(tab)"
                    :key="tab"
                    :teaching-class-id="teachingClassId"
-                   :initial-tab="tab === 'lessons' ? 'lessons' : tab"
+                   :offering-id="offeringId"
+                   :initial-tab="tab"
                    embedded />
 
     <!-- 测验 / 作业：同一套试卷管理，按类型过滤 -->
@@ -62,6 +63,7 @@ const tabs = [
   { key: 'guide', label: '导学' },
   { key: 'objectives', label: '教学目标' },
   { key: 'lessons', label: '目录' },
+  { key: 'files', label: '资料库' },
   { key: 'quiz', label: '测验' },
   { key: 'homework', label: '作业' },
   { key: 'project', label: '项目' }

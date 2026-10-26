@@ -98,10 +98,13 @@ public class TeacherContentController {
         return Result.ok();
     }
 
-    // ---------------- 资料库
+    // ---------------- 资料库（课程组共享）
     @GetMapping("/resources")
-    public Result<List<ResourceFile>> resources(@RequestParam Long teachingClassId) {
-        return Result.ok(contentService.listResources(teachingClassId, me()));
+    public Result<List<com.example.academic_risk_warning.vo.ResourceFileVO>> resources(
+            @RequestParam(required = false) Long teachingClassId,
+            @RequestParam(required = false) Long offeringId,
+            @RequestParam(required = false) Boolean mineOnly) {
+        return Result.ok(contentService.listSharedResources(teachingClassId, offeringId, mineOnly, me()));
     }
 
     @PostMapping("/resources/upload")
