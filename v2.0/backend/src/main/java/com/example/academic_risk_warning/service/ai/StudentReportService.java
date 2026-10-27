@@ -61,27 +61,62 @@ public class StudentReportService {
         ReportComposer.Content content = null;
         String source = "TEMPLATE";
         String status = "FALLBACK";
-        String error = null;
+        StringBuilder note = new StringBuilder();
         int tokens = 0;
 
-        if (!props.reportReady() && props.dashscopeReady() && !runService.overLimit(studentId, "REPORT")) {
-            // 备用通道：Dify 工作流未配好时直连 DashScope（同一套 Prompt 与同样的数字回验）
+        // 通道一：Dify 工作流（配了 App Key 才走）
+        if (props.isEnabled() && props.reportReady()) {
+            if (runService.overLimit(studentId, "REPORT")) {
+                note.append("已达当日调用上限；");
+            } else {
+                Map<String, Object> inputs = composer.promptInputs(fact);
+                DifyClient.WorkflowResult res = difyClient.runWorkflow(props.getReportAppKey(), inputs, "student-" + studentId);
+                tokens += res.getTotalTokens();
+                if (!res.isOk()) {
+                    note.append("Dify 失败：").append(res.getError()).append("；");
+                    runService.step(runId, 1, "dify-workflow", "report-student", null, "FAIL", res.getError(),
+                            System.currentTimeMillis() - t0);
+                } else {
+                    String text = pickText(res.getOutputs());
+                    List<String> bad = composer.invalidNumbersForReport(text, fact);
+                    runService.step(runId, 1, "dify-workflow", "report-student", text,
+                            bad.isEmpty() ? "PASS" : "WARN",
+                            bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
+                            System.currentTimeMillis() - t0);
+                    if (bad.isEmpty()) {
+                        content = composer.composeByDify(fact, text);
+                        source = "DIFY";
+                        status = "SUCCESS";
+                    } else {
+                        note.append("Dify 数字回验未通过；");
+                    }
+                }
+            }
+        } else if (!props.isEnabled()) {
+            note.append("AI 已关闭（ai.enabled=false）；");
+        } else {
+            note.append("未配置 Dify 报告工作流 App Key；");
+        }
+
+        // 通道二：DashScope 直连（Dify 不可用或未配时兜底）
+        if (content == null && props.dashscopeReady() && !runService.overLimit(studentId, "REPORT")) {
             DashScopeClient.ChatResult res = dashScopeClient.chat(composer.promptSystem(), composer.promptUser(fact));
-            tokens = res.getTotalTokens();
+            long t1 = System.currentTimeMillis();
+            tokens += res.getTotalTokens();
             if (!res.isOk()) {
-                error = res.getError();
-                runService.step(runId, 1, "dashscope-chat", "report-student", null, "FAIL", error,
-                        System.currentTimeMillis() - t0);
+                note.append("直连模型失败：").append(res.getError()).append("；");
+                runService.step(runId, 2, "dashscope-chat", "report-student", null, "FAIL", res.getError(),
+                        System.currentTimeMillis() - t1);
             } else {
                 String text = res.getText();
                 List<String> bad = composer.invalidNumbersForReport(text, fact);
-                runService.step(runId, 1, "dashscope-chat", "report-student", text,
+                runService.step(runId, 2, "dashscope-chat", "report-student", text,
                         bad.isEmpty() ? "PASS" : "WARN",
-                        bad.isEmpty() ? null : "首次输出越界数字 " + bad.stream().distinct().limit(6).toList(),
-                        System.currentTimeMillis() - t0);
+                        bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
+                        System.currentTimeMillis() - t1);
                 if (!bad.isEmpty() && bad.size() <= 6) {
-                    // 带批评重写一次（Self-Refine）：只告诉它哪些数字越界，不重算事实
-                    long t1 = System.currentTimeMillis();
+                    // 带批评重写一次（Self-Refine）
+                    long t2 = System.currentTimeMillis();
                     String corrective = composer.promptUser(fact)
                             + "\n\n上一版出现了事实之外的数字：" + String.join("、", bad.stream().distinct().toList())
                             + "。请只使用给定事实中的数字重写；确实需要给出训练时长/题量时，用文字表述（如「每天若干道」）。";
@@ -89,10 +124,10 @@ public class StudentReportService {
                     tokens += retry.getTotalTokens();
                     if (retry.isOk()) {
                         List<String> bad2 = composer.invalidNumbersForReport(retry.getText(), fact);
-                        runService.step(runId, 2, "dashscope-chat-retry", "report-student", retry.getText(),
+                        runService.step(runId, 3, "dashscope-chat-retry", "report-student", retry.getText(),
                                 bad2.isEmpty() ? "PASS" : "FAIL",
                                 bad2.isEmpty() ? null : "重写后仍越界 " + bad2.stream().distinct().limit(6).toList(),
-                                System.currentTimeMillis() - t1);
+                                System.currentTimeMillis() - t2);
                         if (bad2.isEmpty()) {
                             text = retry.getText();
                             bad = List.of();
@@ -104,44 +139,22 @@ public class StudentReportService {
                     source = "LLM";
                     status = "SUCCESS";
                 } else {
-                    error = "数字回验未通过（已重写一次），退回模板";
+                    note.append("直连模型数字回验未通过（已重写一次）；");
                 }
             }
-        } else if (props.reportReady() && !runService.overLimit(studentId, "REPORT")) {
-            Map<String, Object> inputs = composer.promptInputs(fact);
-            DifyClient.WorkflowResult res = difyClient.runWorkflow(props.getReportAppKey(), inputs, "student-" + studentId);
-            tokens = res.getTotalTokens();
-            if (!res.isOk()) {
-                error = res.getError();
-                runService.step(runId, 1, "dify-workflow", "report-student", null, "FAIL", error,
-                        System.currentTimeMillis() - t0);
-            } else {
-                String text = pickText(res.getOutputs());
-                List<String> bad = composer.invalidNumbersForReport(text, fact);
-                boolean valid = bad.isEmpty();
-                runService.step(runId, 1, "dify-workflow", "report-student", text,
-                        valid ? "PASS" : "FAIL", valid ? null : "数字回验未通过：越界数字 " + bad.stream().distinct().limit(6).toList(),
-                        System.currentTimeMillis() - t0);
-                if (valid) {
-                    content = composer.composeByDify(fact, text);
-                    source = "DIFY";
-                    status = "SUCCESS";
-                } else {
-                    error = "数字回验未通过，已退回模板";
-                }
-            }
-        } else if (!props.isEnabled()) {
-            error = "AI 已关闭（ai.enabled=false），使用模板";
-        } else if (!props.reportReady() && !props.dashscopeReady()) {
-            error = "未配置 Dify 工作流 App Key 与 DashScope Key，使用模板";
-        } else {
-            error = "已达到当日调用上限，使用模板";
         }
 
+        // 通道三：规则模板（永远不会失败）
         if (content == null) {
             content = composer.composeByTemplate(fact);
+            if (status.equals("FALLBACK")) {
+                note.append("已使用规则模板");
+            }
+        } else {
+            note.append("ok");
         }
 
+        String error = status.equals("SUCCESS") ? null : note.toString();
         Long reportId = persist(fact, type, content, source, runId, tokens);
         runService.usage(runId, "REPORT", tokens, studentId);
         runService.finish(runId, status, source, tokens, error);
