@@ -50,6 +50,29 @@ app:
     # 课程资料文件的落盘目录（相对启动目录），库里只存元信息
     store-dir: ./file-store
 
+ai:
+  # 第三阶段 AI 总开关：false 时所有 AI 入口回退模板，不调用 Dify
+  enabled: ${AI_ENABLED:true}
+  # Dify 自托管地址（默认 8090，避开 80/443，与现有 8080/5173/3306 不冲突）
+  base-url: ${AI_DIFY_BASE_URL:http://localhost:8090}
+  # 学习评价报告工作流的 App API Key（在 Dify 控制台创建应用后复制到这里）
+  report-app-key: ${AI_REPORT_APP_KEY:}
+  # AI 出题工作流的 App API Key（M2 使用）
+  question-app-key: ${AI_QUESTION_APP_KEY:}
+  # 课程问答 App API Key（M4 使用）
+  chat-app-key: ${AI_CHAT_APP_KEY:}
+  timeout-seconds: 120
+  # 每个用户每日调用上限（防跑飞）
+  daily-limit: 30
+  model: qwen-plus
+  # 计费估算：元 / 千 token
+  yuan-per-k-token: 0.0015
+  report-prompt-version: report-student-v1
+  # 备用直连通道：DashScope（OpenAI 兼容）。留空则只用 Dify 或模板
+  dashscope-key: ${AI_DASHSCOPE_KEY:}
+  dashscope-base-url: ${AI_DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+  dashscope-model: ${AI_DASHSCOPE_MODEL:qwen-plus}
+
 logging:
   level:
     root: info

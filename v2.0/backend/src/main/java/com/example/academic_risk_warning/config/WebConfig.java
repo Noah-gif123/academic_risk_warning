@@ -18,7 +18,9 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/login", "/api/auth/captcha", "/api/auth/captcha/debug", "/api/health");
+                .excludePathPatterns("/api/auth/login", "/api/auth/captcha", "/api/auth/captcha/debug", "/api/health",
+                        // 部署体检用：不登录也能看到 Dify 是否可达、AI 是否开启（不返回任何业务数据）
+                        "/api/ai/health");
     }
 
     @Override

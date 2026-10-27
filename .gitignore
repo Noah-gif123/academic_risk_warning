@@ -93,3 +93,6 @@ v2.0/sql/_backup/
 
 ### Word/Office 打开文档时的临时锁文件 ###
 **/~$*
+
+### 第三阶段 AI：Dify 源码不入库（体积大，按 v2.0/ai/README.md 重新拉取） ###
+v2.0/ai/dify/

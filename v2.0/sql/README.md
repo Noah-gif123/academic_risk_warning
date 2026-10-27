@@ -168,3 +168,22 @@ mysql -uroot -p study_warning_system_v2 < 21_tidy_after_rebuild.sql
 2. **账号创建任务**：`sys_account` 需要 BCrypt 哈希，由 Java 迁移任务按学号 / 工号建账号并回填 `account_id`，全程写 `audit_log`。
 3. **合成数据生成器**：720 学生 / 6 门课 / 每生 6 门 / 32 课次，注入教师尺度真值，用于联调与算法验证。
 4. **口径落地校验**：把“1/3 门槛、扣分、覆盖率、期末需考、置信度分档、贡献度折算”写成单元测试，与本文第三节逐条对齐。
+
+## 七、第三阶段（AI）新增表：`26_ai_stage3.sql`
+
+`26_ai_stage3.sql` 幂等新增 7 张表，**不改动任何既有业务表**（这也是"不引入知识点"的直接结果）：
+
+| 表 | 用途 |
+| --- | --- |
+| `ai_run` | 一次 AI 任务（场景 / 对象 / 来源 DIFY·LLM·TEMPLATE / token / 费用 / 错误） |
+| `ai_run_step` | 步级明细与校验结论（数字回验 PASS/WARN/FAIL） |
+| `ai_usage` | 计费与限额统计 |
+| `ai_report` | 学习评价报告（`fact_json` 事实快照 + `content_json` 段落与动作） |
+| `ai_report_feedback` | 学生"有用/没用"反馈 |
+| `ai_prompt_template` | 提示词与工作流版本登记（配 `v2.0/ai/dify-workflows/*.yml`） |
+| `ai_question_draft` | AI 出题草稿 + 审核状态（M2 使用，已建表待用） |
+
+设计取舍：
+1. **报告存事实快照**（`fact_json`）：报告发布后即使成绩改了，也能复算"当时为什么这么说"，答辩与申诉都用得上；
+2. **AI 产物与业务表隔离**：草稿不进 `question`（`paper_id` 非空），报告不进 `score_result`，AI 挂了业务不受影响；
+3. **成本落库**：每次调用写 `ai_usage`，报表页可直接展示"本月花了多少、有多少次走了模板兜底"。
