@@ -72,17 +72,36 @@ ul([
   '⑥ 验证：`GET /console/api/workspaces/current/model-providers` 应能看到 `langgenius/openai_api_compatible/openai_api_compatible`。'
 ]);
 p('**如果第 ⑥ 步仍是 0**（我现在就是这种情况）：说明插件安装任务在"预加载成功"之后没有走到"激活"，最省事的办法是在 UI 里把该插件「卸载 → 重新安装」一次，UI 会补齐 API 没做的激活步骤。');
-h2('2.2 第二步：配置 DashScope 凭据');
-table('要填的四个字段',
+h2('2.2 第二步：给模型供应商填 Key（DashScope 或 DeepSeek 二选一）');
+p('**两家都能用**。Dify 里已装好三个插件（openai / openai_api_compatible / deepseek），填哪家就用哪家；**没 Key 的供应商保持未配置即可**，工作流只会用它节点里指定的那个模型。');
+table('路线一：DeepSeek（国内直连、便宜，推荐）',
   ['字段', '值', '说明'],
   [
-    ['API Key', 'DashScope 的 `sk-...`（v1.0 `application.properties` 里那把仍有效）', '只存在 Dify 里，不进代码库'],
-    ['Base URL', '`https://dashscope.aliyuncs.com/compatible-mode/v1`', '必须带 `/v1`'],
-    ['模型名', '先加 `qwen-plus`（报告），再加 `qwen-max`（后续出题）', '上下文长度与最大 token 用默认'],
-    ['模型类型', 'LLM / Chat 都行，分别加一条', 'Embedding 留到 M4 建知识库再加']
-  ], [16, 54, 30]);
-p('保存后点该供应商的「配置」→ 每个模型后面点「测试」→ 出现绿色「可用」即通过。');
+    ['供应商', 'DeepSeek（插件已装：langgenius/deepseek:0.0.26）', '设置 → 模型供应商 → DeepSeek → 设置'],
+    ['API Key', 'platform.deepseek.com → API keys 新建的 sk-...', '只存在 Dify 里，不进代码库'],
+    ['Base URL', '不用填（插件内置 https://api.deepseek.com）', '只有走 OpenAI-API-compatible 路线才要手填'],
+    ['模型', 'deepseek-chat（V3，报告够用）；需要推理再加 deepseek-reasoner', '勾选即可，上下文长度用默认'],
+    ['价格量级', '单份报告仍在一分钱以内', '以官方控制台为准']
+  ], [14, 50, 36]);
+table('路线二：DashScope（阿里云百炼，v1.0 那把 Key 仍有效）',
+  ['字段', '值', '说明'],
+  [
+    ['供应商', 'OpenAI-API-compatible（langgenius/openai_api_compatible:0.0.73）', '设置 → 模型供应商 → 安装后配置'],
+    ['API Key', 'DashScope 的 sk-...', '只存在 Dify 里'],
+    ['Base URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1', '必须带 /v1'],
+    ['模型', 'qwen-plus（报告）、qwen-max（出题）', '分别加一条']
+  ], [14, 50, 36]);
+p('保存后点该供应商的「配置」→ 每个模型后面点「测试」→ 出现绿色「可用」即通过。**OpenAI 官方供应商没有 Key 就放着别动**，不影响任何功能。');
 h2('2.3 第三步：验证工作流本身');
+h3('先做一步：把工作流里的 LLM 节点指到你要用的模型');
+p('导入的 DSL 里模型写的是占位值（`OpenAI-API-compatible / qwen-plus`）。配了 DeepSeek 就要改过来，否则运行时仍报"模型未配置"。');
+ol([
+  '工作室 → 打开「学习评价报告（学生端）」→ 点中间的 **LLM 节点**；',
+  '右上「模型」下拉 → 供应商选 **DeepSeek**，模型选 **`deepseek-chat`**（要推理能力就选 `deepseek-reasoner`，但报告场景没必要）；',
+  '温度保持 0.5，最大 token 保持 1600；',
+  '右上「发布」→ 填版本说明（如 v1-deepseek）→ 确认。'
+]);
+note('以后换模型只改这一个节点并重新发布，后端代码与接口都不用动。');
 h3('方式一：在 Dify 里点"运行"');
 ol([
   '工作室 → 打开「学习评价报告（学生端）」→ 右上「运行」。',
@@ -239,8 +258,10 @@ table('后端 AI 配置',
     ['`AI_DIFY_BASE_URL`', 'http://localhost:8090', 'Dify 地址'],
     ['`AI_REPORT_APP_KEY`', '空', '报告工作流 Key；配了优先走 Dify'],
     ['`AI_QUESTION_APP_KEY` / `AI_CHAT_APP_KEY`', '空', '出题 / 问答（M2、M4）'],
-    ['`AI_DASHSCOPE_KEY`', '空', '直连兜底 Key'],
-    ['`AI_DASHSCOPE_MODEL`', 'qwen-plus', '直连用的模型'],
+    ['`AI_LLM_BASE_URL`', '空', '通用直连地址：DeepSeek https://api.deepseek.com/v1，DashScope .../compatible-mode/v1'],
+    ['`AI_LLM_KEY`', '空', '通用直连 Key（DeepSeek 或 DashScope 都行）'],
+    ['`AI_LLM_MODEL`', '空', '通用直连模型：deepseek-chat 或 qwen-plus'],
+    ['`AI_DASHSCOPE_KEY` / _BASE_URL / _MODEL', '空 / DashScope / qwen-plus', '旧配置：上面三项留空时才用它们'],
     ['`AI_DAILY_LIMIT`', '30', '每用户每日调用上限（超额退模板）']
   ], [34, 26, 40]);
 h2('4.3 工作流契约（DSL 与后端对齐的地方）');

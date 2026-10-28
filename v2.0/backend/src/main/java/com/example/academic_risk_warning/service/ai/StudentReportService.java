@@ -99,7 +99,7 @@ public class StudentReportService {
         }
 
         // 通道二：DashScope 直连（Dify 不可用或未配时兜底）
-        if (content == null && props.dashscopeReady() && !runService.overLimit(studentId, "REPORT")) {
+        if (content == null && props.directReady() && !runService.overLimit(studentId, "REPORT")) {
             DashScopeClient.ChatResult res = dashScopeClient.chat(composer.promptSystem(), composer.promptUser(fact));
             long t1 = System.currentTimeMillis();
             tokens += res.getTotalTokens();

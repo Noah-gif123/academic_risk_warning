@@ -52,7 +52,40 @@ public class AiProperties {
 
     private String dashscopeModel = "qwen-plus";
 
+    /**
+     * 通用直连通道（任意 OpenAI 兼容端点：DashScope / DeepSeek / 本地 vLLM …）。
+     * 留空则回退到下面的 dashscope-* 三个配置。
+     */
+    private String llmBaseUrl = "";
+
+    private String llmApiKey = "";
+
+    private String llmModel = "";
+
+    /** 实际使用的直连地址 */
+    public String directBaseUrl() {
+        return notBlank(llmBaseUrl) ? llmBaseUrl : dashscopeBaseUrl;
+    }
+
+    /** 实际使用的直连 Key */
+    public String directApiKey() {
+        return notBlank(llmApiKey) ? llmApiKey : dashscopeKey;
+    }
+
+    /** 实际使用的直连模型 */
+    public String directModel() {
+        return notBlank(llmModel) ? llmModel : dashscopeModel;
+    }
+
     /** 直连通道是否可用 */
+    public boolean directReady() {
+        return enabled && notBlank(directApiKey());
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
+    /** 直连通道是否可用（旧名，保留兼容） */
     public boolean dashscopeReady() {
         return enabled && dashscopeKey != null && !dashscopeKey.isBlank();
     }

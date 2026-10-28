@@ -68,7 +68,13 @@ ai:
   # 计费估算：元 / 千 token
   yuan-per-k-token: 0.0015
   report-prompt-version: report-student-v1
-  # 备用直连通道：DashScope（OpenAI 兼容）。留空则只用 Dify 或模板
+  # 通用直连通道（任意 OpenAI 兼容端点，Dify 不可用时兜底）
+  # 例：DashScope  -> https://dashscope.aliyuncs.com/compatible-mode/v1 + qwen-plus
+  #     DeepSeek   -> https://api.deepseek.com/v1 + deepseek-chat
+  llm-base-url: ${AI_LLM_BASE_URL:}
+  llm-api-key: ${AI_LLM_KEY:}
+  llm-model: ${AI_LLM_MODEL:}
+  # 兼容旧配置：上面三项留空时用这里的 dashscope-*
   dashscope-key: ${AI_DASHSCOPE_KEY:}
   dashscope-base-url: ${AI_DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
   dashscope-model: ${AI_DASHSCOPE_MODEL:qwen-plus}

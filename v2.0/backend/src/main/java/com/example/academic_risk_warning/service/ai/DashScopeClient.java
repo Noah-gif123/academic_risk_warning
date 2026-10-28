@@ -52,12 +52,12 @@ public class DashScopeClient {
     }
 
     public ChatResult chat(String system, String user) {
-        if (!props.dashscopeReady()) {
+        if (!props.directReady()) {
             return new ChatResult(false, null, 0, "未配置 DashScope Key");
         }
         try {
             Map<String, Object> body = new LinkedHashMap<>();
-            body.put("model", props.getDashscopeModel());
+            body.put("model", props.directModel());
             body.put("messages", List.of(
                     Map.of("role", "system", "content", system),
                     Map.of("role", "user", "content", user)));
@@ -65,10 +65,10 @@ public class DashScopeClient {
             body.put("max_tokens", 1600);
 
             HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(trim(props.getDashscopeBaseUrl()) + "/chat/completions"))
+                    .uri(URI.create(trim(props.directBaseUrl()) + "/chat/completions"))
                     .timeout(Duration.ofSeconds(Math.max(15, props.getTimeoutSeconds())))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + props.getDashscopeKey())
+                    .header("Authorization", "Bearer " + props.directApiKey())
                     .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body)))
                     .build();
 

@@ -70,6 +70,19 @@ $null = Invoke-WebRequest -Uri 'http://localhost:8090/console/api/login' -Method
 
 ## 5. 模型接入
 
+两条路都行，**任选其一**填 Key 即可；没配 Key 的供应商放着不动，工作流只用它节点里指定的模型。
+
+### 路线一：DeepSeek（国内直连，便宜）
+
+| 配置 | 值 |
+| --- | --- |
+| 供应商 | DeepSeek（插件 `langgenius/deepseek`，Dify 设置里安装） |
+| API Key | platform.deepseek.com → API keys 生成的 `sk-...` |
+| Base URL | 不用填（插件内置 `https://api.deepseek.com`） |
+| 模型 | `deepseek-chat`（日常报告够用）；需要推理再勾 `deepseek-reasoner` |
+
+### 路线二：DashScope（阿里云百炼）
+
 Dify 里"设置 → 模型供应商 → 添加 OpenAI-API-compatible"：
 
 | 配置 | 值 |
@@ -77,6 +90,7 @@ Dify 里"设置 → 模型供应商 → 添加 OpenAI-API-compatible"：
 | Base URL | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | API Key | DashScope Key（v1.0 那把仍有效，已实测） |
 | 模型 | 出题/批改用 qwen-max，报告用 qwen-plus，去重用 text-embedding 系列 |
+
 
 > 若模型供应商插件需要从 marketplace 安装而网络不稳，后端已内置 **DashScope 直连通道**：
 > 把 `AI_DASHSCOPE_KEY` 配好即可先跑通报告，Dify 工作流配好后再把 `AI_REPORT_APP_KEY` 填上，
@@ -138,3 +152,9 @@ Docker Desktop → 右上齿轮「Settings」→「General」→ 勾选 **Start 
 | 浏览器能开 8090，但后端 `/api/ai/health` 显示 `reachable=false` | 后端比 Dify 先起，或 `AI_DIFY_BASE_URL` 指错 | 重启后端；确认变量是 `http://localhost:8090` |
 | 8090 能开但登录提示密码错 | 用了明文密码（API 才要 base64，UI 不用） | UI 登录直接输 `Dify@2026demo` |
 | `model-providers` 一直是 0（已装插件） | 插件安装任务没走到"激活" | UI 里卸载重装一次，见 v2.0/word/学情预警系统_AI功能测试与Dify配置指南.docx 第 2 章 |
+> **用过 DeepSeek 后要在工作流里改一行**：工作室 → 打开报告工作流 → 点 LLM 节点 → 模型改成
+> `DeepSeek / deepseek-chat` → 右上「发布」。后端与接口都不用动。
+
+> **后端直连通道也支持 DeepSeek**（Dify 挂了时的兜底）：设
+> `AI_LLM_BASE_URL=https://api.deepseek.com/v1`、`AI_LLM_KEY=sk-...`、`AI_LLM_MODEL=deepseek-chat`
+> 即可；三项留空则回退旧的 `AI_DASHSCOPE_*` 配置。
