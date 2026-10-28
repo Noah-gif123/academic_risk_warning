@@ -174,47 +174,126 @@ public class ReportComposer {
     }
 
     // ================================================================ 模型输出处理
+    /**
+     * 去掉推理模型的"思考过程"。
+     *
+     * <p>DeepSeek 的推理模型会输出 &lt;think&gt;…&lt;/think&gt;（Dify 还会插入
+     * {@code <!--dify-deepseek-reasoning-->} 标记），这些内容既不该给学生看，也会把
+     * 数字回验带偏，所以在解析与校验之前统一剥掉。</p>
+     */
+    public static String stripReasoning(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        String out = text;
+        // 1) 成对的思考块
+        out = out.replaceAll("(?is)<think\\b[^>]*>.*?</think\\s*>", "\n");
+        out = out.replaceAll("(?is)<reasoning\\b[^>]*>.*?</reasoning\\s*>", "\n");
+        out = out.replace("<!--dify-deepseek-reasoning-->", "\n");
+        // 2) 只有开标签（推理模型没闭合）时：从第一个段落标题处截断，标题之前的全扔掉
+        String lower = out.toLowerCase();
+        int open = lower.indexOf("<think");
+        if (open >= 0) {
+            int head = firstHeadingIndex(out);
+            if (head > open) {
+                out = out.substring(head);
+            } else {
+                out = out.replaceAll("(?is)</?think\\b[^>]*>", " ");
+            }
+        }
+        out = out.replaceAll("(?is)</?\\s*think\\b[^>]*>", " ");
+        return out.replaceAll("[ \\t]+\\n", "\n").trim();
+    }
+
+    /** 第一个段落标题/章节号的下标，找不到返回 -1 */
+    private static int firstHeadingIndex(String text) {
+        int best = -1;
+        for (String mark : new String[]{"【", "### ", "## "}) {
+            int i = text.indexOf(mark);
+            if (i >= 0 && (best < 0 || i < best)) {
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** 像不像一份四段式报告（至少 2 个段落标题，且正文不空） */
+    public boolean looksLikeReport(String raw) {
+        String text = stripReasoning(raw);
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        int hits = 0;
+        for (String mark : new String[]{"【结论】", "【你的强项】", "【需要补的地方】", "【下一步做什么】"}) {
+            if (text.contains(mark)) {
+                hits++;
+            }
+        }
+        if (hits >= 2) {
+            return true;
+        }
+        return text.contains("【") && text.length() > 120;
+    }
     /** 把 Dify 返回的正文按段落切开（支持 【标题】 或 一、标题 或 ### 标题） */
-    public Content composeByDify(ReportFact f, String text) {
+    public Content composeByDify(ReportFact f, String rawText) {
         Content fallback = composeByTemplate(f);
+        String text = stripReasoning(rawText);
         if (text == null || text.isBlank()) {
             return fallback;
         }
-        List<Section> sections = new ArrayList<>();
-        String currentTitle = null;
-        StringBuilder buf = new StringBuilder();
-        for (String raw : text.split("\\R")) {
-            String line = raw.trim();
-            String title = headingOf(line);
-            if (title != null) {
-                if (currentTitle != null && buf.length() > 0) {
-                    sections.add(new Section(currentTitle, buf.toString().trim()));
-                    buf.setLength(0);
-                }
-                currentTitle = title;
-                continue;
-            }
-            if (currentTitle == null) {
-                currentTitle = "结论";
-            }
-            if (!line.isEmpty()) {
-                buf.append(line).append('\n');
-            }
-        }
-        if (currentTitle != null && buf.length() > 0) {
-            sections.add(new Section(currentTitle, buf.toString().trim()));
-        }
-        if (sections.isEmpty()) {
+        List<Section> sections = parseSections(text);
+        if (sections.size() < 2) {
             return fallback;
+        }
+        // 模型偶尔漏写"下一步做什么"：用规则动作补一段，保证四段结构与可执行性
+        boolean hasNext = sections.stream()
+                .anyMatch(s -> s.getTitle() != null && s.getTitle().contains("下一步"));
+        if (!hasNext) {
+            List<Action> acts = actions(f);
+            StringBuilder sb = new StringBuilder();
+            int idx = 1;
+            for (Action a : acts) {
+                sb.append(idx++).append("）").append(a.getLabel()).append("；");
+            }
+            sb.append("两周后再看一次这份报告。");
+            sections.add(new Section("下一步做什么", sb.toString()));
         }
         Content c = new Content();
         c.setSections(sections);
         c.setActions(actions(f));
-        String first = sections.get(0).getText();
-        c.setSummary(trim(first.replace("\n", " "), 290));
+        c.setSummary(trim(sections.get(0).getText().replace("\n", " "), 290));
         return c;
     }
 
+    /** 段落标题正则：兼容"内联"（同一行连续多个标题）与"独占一行"两种排版 */
+    private static final Pattern SECTION_HEAD = Pattern.compile(
+            "【(结论|你的强项|需要补的地方|下一步做什么|学习投入)】|(#{2,3})\\s*(结论|你的强项|需要补的地方|下一步做什么|学习投入)");
+
+    private List<Section> parseSections(String text) {
+        List<Section> out = new ArrayList<>();
+        Matcher m = SECTION_HEAD.matcher(text);
+        List<int[]> spans = new ArrayList<>();
+        List<String> titles = new ArrayList<>();
+        while (m.find()) {
+            String title = m.group(1) != null ? m.group(1) : m.group(3);
+            spans.add(new int[]{m.start(), m.end()});
+            titles.add(title);
+        }
+        for (int i = 0; i < spans.size(); i++) {
+            int from = spans.get(i)[1];
+            int to = (i + 1 < spans.size()) ? spans.get(i + 1)[0] : text.length();
+            if (to <= from) {
+                continue;
+            }
+            String body = text.substring(from, to).trim();
+            body = body.replaceAll("^[\\s:：,，.。]+", "").trim();
+            if (body.isEmpty()) {
+                continue;
+            }
+            out.add(new Section(titles.get(i), body));
+        }
+        return out;
+    }
     private String headingOf(String line) {
         if (line.startsWith("【") && line.contains("】")) {
             String t = line.substring(1, line.indexOf('】'));
@@ -320,7 +399,8 @@ public class ReportComposer {
      * 报告口径的数字校验：**前三段必须严格命中事实**，最后一段"下一步做什么"是行动建议，
      * 允许出现"每天 20 分钟""再刷 3 道题"这类由模型给出的计划量，不做白名单校验。
      */
-    public List<String> invalidNumbersForReport(String text, ReportFact f) {
+    public List<String> invalidNumbersForReport(String rawText, ReportFact f) {
+        String text = stripReasoning(rawText);
         if (text == null) {
             return new ArrayList<>();
         }

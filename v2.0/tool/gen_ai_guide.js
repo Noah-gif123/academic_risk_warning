@@ -80,7 +80,8 @@ table('路线一：DeepSeek（国内直连、便宜，推荐）',
     ['供应商', 'DeepSeek（插件已装：langgenius/deepseek:0.0.26）', '设置 → 模型供应商 → DeepSeek → 设置'],
     ['API Key', 'platform.deepseek.com → API keys 新建的 sk-...', '只存在 Dify 里，不进代码库'],
     ['Base URL', '不用填（插件内置 https://api.deepseek.com）', '只有走 OpenAI-API-compatible 路线才要手填'],
-    ['模型', 'deepseek-chat（V3，报告够用）；需要推理再加 deepseek-reasoner', '勾选即可，上下文长度用默认'],
+    ['模型', 'deepseek-v4-flash（本项目用的就是它，1M 上下文）；另有 deepseek-flash / deepseek-v4-pro 可选', '勾选即可，上下文长度用默认'],
+    ['注意', 'DeepSeek v4 是推理模型，返回里带 <think>…</think> 思考块', '后端已自动剥离；Dify 运行面板里仍可见，属正常'],
     ['价格量级', '单份报告仍在一分钱以内', '以官方控制台为准']
   ], [14, 50, 36]);
 table('路线二：DashScope（阿里云百炼，v1.0 那把 Key 仍有效）',
@@ -270,7 +271,7 @@ table('输入输出约定',
   [
     ['输入 `facts`', '段落文本，≤ 4000 字，由 `FactPackBuilder` 生成', '模型只能凭空编，数字回验会把它挡掉'],
     ['输入 `course` / `student` / `risk_level` / `total_score` / `class_avg` / `absents` / `allowed_absents`', '均为字符串，可空', '工作流里没声明会被忽略，不影响运行'],
-    ['输出 `text`', '**必须叫 text**，四段正文', '后端会依次找 `text` / `result` / `output`，都找不到则判失败并降级'],
+    ['输出 `text`', '**必须叫 text**，四段正文（允许带 <think> 思考块）', '后端会剥掉思考块；找不到 text 则判失败并降级'],
     ['分隔标题', '必须是【结论】【你的强项】【需要补的地方】【下一步做什么】', '后端按标题切段，标题不对会整段塞进"结论"'],
     ['数字口径', '只能引用 facts 里的数字；"下一步"里的训练量可用文字表述', '白名单外数字 → 重写一次 → 仍失败退模板']
   ], [30, 40, 30]);

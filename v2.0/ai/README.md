@@ -79,7 +79,11 @@ $null = Invoke-WebRequest -Uri 'http://localhost:8090/console/api/login' -Method
 | 供应商 | DeepSeek（插件 `langgenius/deepseek`，Dify 设置里安装） |
 | API Key | platform.deepseek.com → API keys 生成的 `sk-...` |
 | Base URL | 不用填（插件内置 `https://api.deepseek.com`） |
-| 模型 | `deepseek-chat`（日常报告够用）；需要推理再勾 `deepseek-reasoner` |
+| 模型 | 插件提供 4 个：`deepseek-flash`、`deepseek-v4-flash`、`deepseek-v4-pro`、`deepseek-v4-flash-vision-exp`（本项目用 **`deepseek-v4-flash`**，上下文 1M） |
+
+> 实测说明：DeepSeek 的 v4 是**推理模型**，会把思考过程写在 `<think>…</think>` 里一起返回。后端 `ReportComposer.stripReasoning()` 会先剥掉推理块再解析，所以正文里不会出现思考内容；Dify 的「运行」面板里仍能看到（属于平台侧展示，不影响业务）。
+
+> 本项目已经把报告工作流的 LLM 节点改成 `DeepSeek / deepseek-v4-flash` 并发布（版本 `v3-prompt`），后端 `AI_REPORT_APP_KEY` 一配即走 Dify。
 
 ### 路线二：DashScope（阿里云百炼）
 

@@ -83,12 +83,14 @@ public class StudentReportService {
                             bad.isEmpty() ? "PASS" : "WARN",
                             bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                             System.currentTimeMillis() - t0);
-                    if (bad.isEmpty()) {
+                    if (bad.isEmpty() && composer.looksLikeReport(text)) {
                         content = composer.composeByDify(fact, text);
                         source = "DIFY";
                         status = "SUCCESS";
-                    } else {
+                    } else if (!bad.isEmpty()) {
                         note.append("Dify 数字回验未通过；");
+                    } else {
+                        note.append("Dify 输出不含四段标题（可能全被推理块吞掉）；");
                     }
                 }
             }
@@ -134,12 +136,14 @@ public class StudentReportService {
                         }
                     }
                 }
-                if (bad.isEmpty()) {
+                if (bad.isEmpty() && composer.looksLikeReport(text)) {
                     content = composer.composeByDify(fact, text);
                     source = "LLM";
                     status = "SUCCESS";
-                } else {
+                } else if (!bad.isEmpty()) {
                     note.append("直连模型数字回验未通过（已重写一次）；");
+                } else {
+                    note.append("直连模型输出不含四段标题；");
                 }
             }
         }

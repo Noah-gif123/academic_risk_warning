@@ -256,8 +256,13 @@
     ],
     [
      "模型",
-     "deepseek-chat（V3，报告够用）；需要推理再加 deepseek-reasoner",
+     "deepseek-v4-flash（本项目用的就是它，1M 上下文）；另有 deepseek-flash / deepseek-v4-pro 可选",
      "勾选即可，上下文长度用默认"
+    ],
+    [
+     "注意",
+     "DeepSeek v4 是推理模型，返回里带 <think>…</think> 思考块",
+     "后端已自动剥离；Dify 运行面板里仍可见，属正常"
     ],
     [
      "价格量级",
@@ -996,8 +1001,8 @@
     ],
     [
      "输出 `text`",
-     "**必须叫 text**，四段正文",
-     "后端会依次找 `text` / `result` / `output`，都找不到则判失败并降级"
+     "**必须叫 text**，四段正文（允许带 <think> 思考块）",
+     "后端会剥掉思考块；找不到 text 则判失败并降级"
     ],
     [
      "分隔标题",
