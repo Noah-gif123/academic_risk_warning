@@ -99,3 +99,42 @@ Dify 里"设置 → 模型供应商 → 添加 OpenAI-API-compatible"：
 - 备份三件套：`docker/volumes/` 整目录、`pg_dump`、三条工作流 DSL（本目录 `dify-workflows/`）；
 - 升级：固定 tag（如 1.18.0，**不要 latest/main**）→ 先导出 DSL 与数据库备份 → 拉新镜像 → `up -d` → 冒烟；
 - 离线：有网机器 `docker save` 上述镜像，内网 `docker load` 后 `up -d`。
+
+## 8. 重启电脑后怎么恢复（最常见的问题）
+
+**结论：Dify 是 Docker 里的服务，电脑重启后 Docker Desktop 不会自己起来（除非你开了开机自启），所以 8090 一定打不开。**
+按顺序把三样东西拉起来即可：
+
+| 顺序 | 依赖 | 怎么起 | 验证 |
+| --- | --- | --- | --- |
+| 1 | Docker Desktop | 开始菜单点「Docker Desktop」，等托盘图标变绿 | `docker info` 有版本号 |
+| 2 | Dify 全家桶 | `v2.0/ai/start-dify.ps1`（推荐）或 `cd v2.0/ai/dify/docker && docker compose up -d` | 浏览器打开 http://localhost:8090 |
+| 3 | 业务后端 + 前端 | IDEA 起 Spring Boot（8080）+ Vite（5173） | `curl http://localhost:8080/api/ai/health` |
+
+### 8.1 一键脚本
+
+```powershell
+powershell -ExecutionPolicy Bypass -File E:\JavaDEVIDEA\workspace\JavaProject\academic_risk_warning\v2.0\ai\start-dify.ps1
+```
+
+脚本做四件事：引擎没起就帮你起 Docker Desktop 并等待 → `docker compose up -d` → 停掉两个可选容器（省内存）→ 等 8090 返回 200 并打印所有容器状态。
+
+桌面上已放了一个快捷方式「启动 Dify(8090)」，双击即可（会弹一个 PowerShell 窗口显示进度）。
+
+### 8.2 让 Docker Desktop 开机自启（可选，省掉第 1 步）
+
+Docker Desktop → 右上齿轮「Settings」→「General」→ 勾选 **Start Docker Desktop when you sign in to your computer** → Apply。
+
+容器本身已经是 `restart: always`，所以只要 Docker 引擎起来，Dify 会自动跟着起来，脚本里的 `compose up -d` 只是兜底。
+
+### 8.3 现象对照
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| 8090 拒绝连接 | Docker 没起 / Dify 没起 | 跑 8.1 的脚本 |
+| `docker ps` 报 `dockerDesktopLinuxEngine` 管道不存在 | Docker Desktop 没启动 | 同上 |
+| 容器 `Restarting` 一直循环 | 多半是可选容器（agent_backend / local_sandbox） | 脚本已自动停掉；手动：`docker compose stop agent_backend local_sandbox` |
+| 8090 转圈很久 | 首次启动要等 postgres 初始化 | 等 1–2 分钟；`docker compose logs api` 看进度 |
+| 浏览器能开 8090，但后端 `/api/ai/health` 显示 `reachable=false` | 后端比 Dify 先起，或 `AI_DIFY_BASE_URL` 指错 | 重启后端；确认变量是 `http://localhost:8090` |
+| 8090 能开但登录提示密码错 | 用了明文密码（API 才要 base64，UI 不用） | UI 登录直接输 `Dify@2026demo` |
+| `model-providers` 一直是 0（已装插件） | 插件安装任务没走到"激活" | UI 里卸载重装一次，见 v2.0/word/学情预警系统_AI功能测试与Dify配置指南.docx 第 2 章 |
