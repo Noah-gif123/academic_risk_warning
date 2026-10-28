@@ -234,6 +234,135 @@ public class ReportComposer {
         }
         return text.contains("【") && text.length() > 120;
     }
+    // ================================================================ 群体报告（M8）支持
+    /** 群体报告段落（教学班 / 行政班） */
+    public static class GroupSection {
+        private final String title;
+        private final String text;
+
+        public GroupSection(String title, String text) {
+            this.title = title;
+            this.text = text;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getText() {
+            return text;
+        }
+    }
+
+    private static final Pattern GROUP_HEAD = Pattern.compile(
+            "【(风险概览|共性难点|重点关注|教学建议|班级画像|集中风险课程|多门预警学生|干预建议)】");
+
+    /** 切分群体报告的四段 */
+    public java.util.List<GroupSection> parseGroupSections(String raw) {
+        String text = stripReasoning(raw);
+        java.util.List<GroupSection> out = new ArrayList<>();
+        if (text == null || text.isBlank()) {
+            return out;
+        }
+        Matcher m = GROUP_HEAD.matcher(text);
+        List<int[]> spans = new ArrayList<>();
+        List<String> titles = new ArrayList<>();
+        while (m.find()) {
+            spans.add(new int[]{m.start(), m.end()});
+            titles.add(m.group(1));
+        }
+        for (int i = 0; i < spans.size(); i++) {
+            int from = spans.get(i)[1];
+            int to = (i + 1 < spans.size()) ? spans.get(i + 1)[0] : text.length();
+            if (to <= from) {
+                continue;
+            }
+            String body = text.substring(from, to).trim().replaceAll("^[\\s:：,，.。]+", "");
+            if (!body.isEmpty()) {
+                out.add(new GroupSection(titles.get(i), body));
+            }
+        }
+        return out;
+    }
+
+    /** 像不像一份群体报告（至少 2 个群体标题） */
+    public boolean looksLikeGroupReport(String raw) {
+        String text = stripReasoning(raw);
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        int hits = 0;
+        Matcher m = GROUP_HEAD.matcher(text);
+        while (m.find()) {
+            hits++;
+        }
+        return hits >= 2 && text.length() > 80;
+    }
+
+    /** 通用数字回验：白名单从任意事实对象的 JSON 里抽取 */
+    public List<String> invalidNumbersAgainst(String rawText, Object fact) {
+        String text = stripReasoning(rawText);
+        List<String> bad = new ArrayList<>();
+        if (text == null || text.isBlank()) {
+            return bad;
+        }
+        List<BigDecimal> allowed = allowedFromObject(fact);
+        Matcher m = NUMBER.matcher(text);
+        while (m.find()) {
+            String raw = m.group();
+            BigDecimal v;
+            try {
+                v = new BigDecimal(raw);
+            } catch (Exception e) {
+                continue;
+            }
+            boolean ok = false;
+            for (BigDecimal a : allowed) {
+                BigDecimal tol = BigDecimal.valueOf(v.abs().doubleValue() > 1000 ? 0.0001 : 0.6);
+                if (v.subtract(a).abs().compareTo(tol) <= 0) {
+                    ok = true;
+                    break;
+                }
+            }
+            if (!ok) {
+                bad.add(raw);
+            }
+        }
+        return bad;
+    }
+
+    /** 从事实对象 JSON 抽白名单（含百分比换算） */
+    private List<BigDecimal> allowedFromObject(Object fact) {
+        List<BigDecimal> out = new ArrayList<>();
+        for (String s : SAFE) {
+            try {
+                out.add(new BigDecimal(s));
+            } catch (Exception ignore) {
+                // 忽略
+            }
+        }
+        String json;
+        try {
+            json = MAPPER.writeValueAsString(fact);
+        } catch (Exception e) {
+            return out;
+        }
+        Matcher m = NUMBER.matcher(json);
+        Set<String> seen = new LinkedHashSet<>();
+        while (m.find()) {
+            if (!seen.add(m.group())) {
+                continue;
+            }
+            try {
+                BigDecimal v = new BigDecimal(m.group());
+                out.add(v);
+                out.add(v.multiply(BigDecimal.valueOf(100)));
+            } catch (Exception ignore) {
+                // 忽略
+            }
+        }
+        return out;
+    }
     /** 把 Dify 返回的正文按段落切开（支持 【标题】 或 一、标题 或 ### 标题） */
     public Content composeByDify(ReportFact f, String rawText) {
         Content fallback = composeByTemplate(f);

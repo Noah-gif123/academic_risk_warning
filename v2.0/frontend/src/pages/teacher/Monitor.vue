@@ -18,8 +18,18 @@
         <button class="btn-primary text-sm" :disabled="evaluating" @click="reevaluate">
           {{ evaluating ? '判定中…' : '重新判定' }}
         </button>
+        <button class="btn-ghost text-sm" :disabled="!filters.teachingClassId" @click="openClassReport">
+          班级报告
+        </button>
       </div>
     </div>
+
+    <GroupReportModal
+      :open="reportOpen"
+      scope="CLASS"
+      :target-id="reportTargetId"
+      :title="reportTitle"
+      @close="reportOpen = false" />
 
     <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
 
@@ -324,6 +334,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import GroupReportModal from '../../components/GroupReportModal.vue'
 import { teacherAlertApi, riskEngineApi } from '../../api/alert'
 import { teacherPortalApi } from '../../api/teacherPortal'
 import {
@@ -340,6 +351,22 @@ const evaluating = ref(false)
 const exporting = ref(false)
 const batching = ref(false)
 const acting = ref(false)
+// ---- 班级报告（M8）：仅当选中某个教学班时可用
+const reportOpen = ref(false)
+const reportTargetId = ref(null)
+const reportTitle = ref('')
+
+function openClassReport() {
+  if (!filters.teachingClassId) {
+    message.value = '先在右上角选择一个教学班，再生成班级报告'
+    ok.value = false
+    return
+  }
+  const c = (classOptions.value || []).find((x) => String(x.teachingClassId) === String(filters.teachingClassId))
+  reportTargetId.value = Number(filters.teachingClassId)
+  reportTitle.value = c ? `${c.classCode} · ${c.courseName} 班级学情报告` : '班级学情报告'
+  reportOpen.value = true
+}
 const message = ref('')
 const ok = ref(true)
 

@@ -29,9 +29,12 @@
     <div class="card p-4" v-if="students.length">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">学生名单（{{ students.length }}）</h2>
-        <label class="flex items-center gap-1 text-sm text-slate-600">
-          <input type="checkbox" v-model="onlyRisky" /> 只看有风险的
-        </label>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-1 text-sm text-slate-600">
+            <input type="checkbox" v-model="onlyRisky" /> 只看有风险的
+          </label>
+          <button class="btn-ghost text-sm" :disabled="!adminClassId" @click="openReport">班级报告</button>
+        </div>
       </div>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
@@ -60,6 +63,13 @@
       </table>
     </div>
 
+    <GroupReportModal
+      :open="reportOpen"
+      scope="ADMIN_CLASS"
+      :target-id="adminClassId"
+      :title="reportTitle"
+      @close="reportOpen = false" />
+
     <StudentDetailPanel v-if="detail" :detail="detail"
                         @close="detail = null"
                         @refer="refer"
@@ -73,6 +83,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { counselorApi } from '../../api/counselor'
 import StudentDetailPanel from './StudentDetailPanel.vue'
+import GroupReportModal from '../../components/GroupReportModal.vue'
 
 const route = useRoute()
 const classes = ref([])
@@ -80,6 +91,20 @@ const students = ref([])
 const adminClassId = ref(Number(route.query.adminClassId || 0))
 const onlyRisky = ref(false)
 const detail = ref(null)
+const reportOpen = ref(false)
+const reportTitle = ref('')
+
+function openReport() {
+  if (!adminClassId.value) {
+    message.value = '先在上方选择一个行政班'
+    ok.value = false
+    return
+  }
+  const c = classes.value.find((x) => x.adminClassId === adminClassId.value)
+  reportTitle.value = c ? `${c.className} · 行政班学情报告` : '行政班学情报告'
+  reportOpen.value = true
+}
+
 const message = ref('')
 const ok = ref(true)
 

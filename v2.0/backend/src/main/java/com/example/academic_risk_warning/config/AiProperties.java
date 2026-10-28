@@ -30,6 +30,9 @@ public class AiProperties {
     /** 课程问答 App API Key（M4 使用） */
     private String chatAppKey = "";
 
+    /** 群体报告（教学班 / 行政班）工作流 App Key，未配置则走直连或模板 */
+    private String groupReportAppKey = "";
+
     /** 单次调用超时（秒） */
     private int timeoutSeconds = 120;
 

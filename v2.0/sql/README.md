@@ -187,3 +187,10 @@ mysql -uroot -p study_warning_system_v2 < 21_tidy_after_rebuild.sql
 1. **报告存事实快照**（`fact_json`）：报告发布后即使成绩改了，也能复算"当时为什么这么说"，答辩与申诉都用得上；
 2. **AI 产物与业务表隔离**：草稿不进 `question`（`paper_id` 非空），报告不进 `score_result`，AI 挂了业务不受影响；
 3. **成本落库**：每次调用写 `ai_usage`，报表页可直接展示"本月花了多少、有多少次走了模板兜底"。
+## 八、M8 新增表：`27_ai_group_report.sql`
+
+| 表 | 用途 |
+| --- | --- |
+| `ai_group_report` | 群体学情报告（`scope=CLASS` 教学班 / `scope=ADMIN_CLASS` 行政班），与个人报告 `ai_report` 分表，避免个人表塞空的学生字段 |
+
+字段要点：`target_id`（教学班或行政班 ID）+ `fact_json`（事实快照，可复算）+ `content_json`（段落与动作）+ `source`（DIFY/LLM/TEMPLATE）+ `tokens/cost`（成本可见）。

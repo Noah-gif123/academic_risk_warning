@@ -18,3 +18,16 @@ export const reportApi = {
 export const aiApi = {
   health: () => http.get('/ai/health')
 }
+
+/**
+ * 群体报告（M8）：教学班（教师端）与行政班（辅导员端）
+ * scope: 'CLASS' | 'ADMIN_CLASS'
+ */
+const groupPath = (scope, id) =>
+  scope === 'ADMIN_CLASS' ? `/counselor/reports/admin-class/${id}` : `/teacher/reports/class/${id}`
+
+export const groupReportApi = {
+  latest: (scope, id) => http.get(`${groupPath(scope, id)}/latest`),
+  generate: (scope, id) => http.post(groupPath(scope, id), {}),
+  history: (scope, id, limit = 10) => http.get(`${groupPath(scope, id)}/history?limit=${limit}`)
+}
