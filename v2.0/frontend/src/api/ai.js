@@ -31,3 +31,14 @@ export const groupReportApi = {
   generate: (scope, id) => http.post(groupPath(scope, id), {}),
   history: (scope, id, limit = 10) => http.get(`${groupPath(scope, id)}/history?limit=${limit}`)
 }
+/**
+ * 预警解释卡（M9）
+ * role: 'teacher' | 'student'
+ */
+const explainPath = (alertId, role) =>
+  `${role === 'student' ? '/student' : '/teacher'}/alerts/${alertId}/explain`
+
+export const alertExplainApi = {
+  latest: (alertId, role = 'teacher') => http.get(explainPath(alertId, role)),
+  generate: (alertId, role = 'teacher') => http.post(explainPath(alertId, role), {})
+}

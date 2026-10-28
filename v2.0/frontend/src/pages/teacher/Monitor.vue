@@ -230,6 +230,9 @@
             </p>
           </div>
 
+          <!-- AI 预警解释卡（M9） -->
+          <AlertExplainCard :alert-id="detail.alert.id" role="teacher" />
+
           <!-- 关联数据 -->
           <div class="border border-slate-200 rounded-lg p-3">
             <p class="font-medium text-slate-700 mb-2">关联考勤与成绩</p>
@@ -335,6 +338,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import GroupReportModal from '../../components/GroupReportModal.vue'
+import AlertExplainCard from '../../components/AlertExplainCard.vue'
 import { teacherAlertApi, riskEngineApi } from '../../api/alert'
 import { teacherPortalApi } from '../../api/teacherPortal'
 import {

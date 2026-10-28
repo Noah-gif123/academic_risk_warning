@@ -30,6 +30,9 @@ public class AiProperties {
     /** 课程问答 App API Key（M4 使用） */
     private String chatAppKey = "";
 
+    /** 预警解释卡工作流 App Key，未配置则走直连或模板 */
+    private String alertExplainAppKey = "";
+
     /** 群体报告（教学班 / 行政班）工作流 App Key，未配置则走直连或模板 */
     private String groupReportAppKey = "";
 

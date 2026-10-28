@@ -59,6 +59,8 @@ ai:
   report-app-key: ${AI_REPORT_APP_KEY:}
   # AI 出题工作流的 App API Key（M2 使用）
   question-app-key: ${AI_QUESTION_APP_KEY:}
+  # 预警解释卡工作流 App Key（M9 使用）
+  alert-explain-app-key: ${AI_ALERT_APP_KEY:}
   # 群体报告（教学班 / 行政班）工作流 App Key（M8 使用）
   group-report-app-key: ${AI_GROUP_REPORT_APP_KEY:}
   # 课程问答 App API Key（M4 使用）

@@ -194,3 +194,10 @@ mysql -uroot -p study_warning_system_v2 < 21_tidy_after_rebuild.sql
 | `ai_group_report` | 群体学情报告（`scope=CLASS` 教学班 / `scope=ADMIN_CLASS` 行政班），与个人报告 `ai_report` 分表，避免个人表塞空的学生字段 |
 
 字段要点：`target_id`（教学班或行政班 ID）+ `fact_json`（事实快照，可复算）+ `content_json`（段落与动作）+ `source`（DIFY/LLM/TEMPLATE）+ `tokens/cost`（成本可见）。
+## 九、M9 新增表：`28_ai_alert_explain.sql`
+
+| 表 | 用途 |
+| --- | --- |
+| `ai_alert_explain` | 预警解释卡（一条预警可反复生成，页面取最新）：`alert_id` + `trigger_type`（ABSENCE/HOMEWORK/PROJECT/SCORE/MULTI/DATA）+ `fact_json` 事实快照 + `content_json`（四段正文与三条例行动作）+ `source`（DIFY/LLM/TEMPLATE）+ `tokens/cost` |
+
+设计取舍：**触发类型与三条例行动作由规则库给出，模型只负责表述**——这样"怎么补"永远可执行、可追溯，也避免模型给出不存在的资源链接。

@@ -299,6 +299,40 @@ public class ReportComposer {
         return hits >= 2 && text.length() > 80;
     }
 
+    /** 通用分段：按任意【标题】切分（预警解释卡等非固定标题场景用） */
+    private static final Pattern ANY_HEAD = Pattern.compile("【([^】]{2,14})】");
+
+    public java.util.List<GroupSection> parseAnySections(String raw) {
+        String text = stripReasoning(raw);
+        java.util.List<GroupSection> out = new ArrayList<>();
+        if (text == null || text.isBlank()) {
+            return out;
+        }
+        Matcher m = ANY_HEAD.matcher(text);
+        List<int[]> spans = new ArrayList<>();
+        List<String> titles = new ArrayList<>();
+        while (m.find()) {
+            spans.add(new int[]{m.start(), m.end()});
+            titles.add(m.group(1).trim());
+        }
+        for (int i = 0; i < spans.size(); i++) {
+            int from = spans.get(i)[1];
+            int to = (i + 1 < spans.size()) ? spans.get(i + 1)[0] : text.length();
+            if (to <= from) {
+                continue;
+            }
+            String body = text.substring(from, to).trim().replaceAll("^[\\s:：,，.。]+", "");
+            if (!body.isEmpty()) {
+                out.add(new GroupSection(titles.get(i), body));
+            }
+        }
+        return out;
+    }
+
+    /** 至少 n 个【标题】且正文足够长，才算"像一份分段报告" */
+    public boolean looksLikeSections(String raw, int minSections) {
+        return parseAnySections(raw).size() >= minSections;
+    }
     /** 通用数字回验：白名单从任意事实对象的 JSON 里抽取 */
     public List<String> invalidNumbersAgainst(String rawText, Object fact) {
         String text = stripReasoning(rawText);

@@ -145,6 +145,9 @@
             </div>
           </div>
 
+          <!-- AI 预警解释卡（M9） -->
+          <AlertExplainCard :alert-id="detail.item.alertId" role="student" />
+
           <!-- 三点依据（学生版措辞） -->
           <div class="border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs text-slate-600">
             <p class="font-medium text-slate-700 text-sm">判定依据</p>
@@ -246,6 +249,7 @@
 </template>
 
 <script setup>
+import AlertExplainCard from '../../components/AlertExplainCard.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { studentWarningApi } from '../../api/alert'
 import { outputModeLabel, riskLevelBadge, riskLevelLabel } from '../../labels'
