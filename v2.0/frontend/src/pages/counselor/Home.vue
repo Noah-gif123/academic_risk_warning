@@ -49,6 +49,8 @@
         说明：班集体提醒从第 5 周起生效；预警等级由第二阶段引擎产出，本阶段按「挂科 / 缺课超 1/3」等确定性指标估算。
       </p>
     </section>
+    <!-- 干预闭环度量（M10） -->
+    <InterventionMetricsCard role="counselor" />
 
     <section>
       <div class="flex items-center justify-between mb-3">
@@ -119,6 +121,7 @@
 </template>
 
 <script setup>
+import InterventionMetricsCard from '../../components/InterventionMetricsCard.vue'
 import { computed, onMounted, ref } from 'vue'
 import { counselorApi } from '../../api/counselor'
 import { session } from '../../session'

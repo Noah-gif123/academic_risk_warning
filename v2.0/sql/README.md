@@ -201,3 +201,17 @@ mysql -uroot -p study_warning_system_v2 < 21_tidy_after_rebuild.sql
 | `ai_alert_explain` | 预警解释卡（一条预警可反复生成，页面取最新）：`alert_id` + `trigger_type`（ABSENCE/HOMEWORK/PROJECT/SCORE/MULTI/DATA）+ `fact_json` 事实快照 + `content_json`（四段正文与三条例行动作）+ `source`（DIFY/LLM/TEMPLATE）+ `tokens/cost` |
 
 设计取舍：**触发类型与三条例行动作由规则库给出，模型只负责表述**——这样"怎么补"永远可执行、可追溯，也避免模型给出不存在的资源链接。
+## 十、M10 新增：`29_seed_intervention_demo.sql`（演示数据）
+
+M10 的口径（覆盖率 / 有效率 / 响应时长 / 复发率）依赖 `intervention_record` 的回访结论，而演示库里原本只有 1 条。
+该脚本幂等补 10 条：6 条 `EFFECTIVE`、2 条 `INEFFECTIVE`、2 条 `PENDING`，并把前 3 条对应的预警置为 `CLOSED` 且写 `alert_flow_log`，
+从而形成"预警 → 干预 → 回访 → 关闭"的完整轨迹，指标才有数可算。
+
+统计口径（`InterventionMetricsService`，全部 SQL 聚合）：
+
+| 指标 | 定义 |
+| --- | --- |
+| 干预覆盖率 | 有干预记录的预警 ÷ 预警总数 |
+| 回访有效率 | 回访结论 EFFECTIVE ÷（EFFECTIVE + INEFFECTIVE） |
+| 平均响应时长 | 预警创建 → 首次干预，按小时平均 |
+| 复发率 | 干预后同一门课又产生新预警的数量 ÷ 已干预预警数 |

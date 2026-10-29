@@ -15,6 +15,9 @@
 
     <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
 
+    <!-- 干预闭环度量（M10） -->
+    <InterventionMetricsCard role="admin" />
+
     <section>
       <h2 class="text-base font-semibold text-slate-700 mb-3">教务工作台</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -73,6 +76,7 @@ import { computed, onMounted, ref } from 'vue'
 import { adminPortalApi } from '../../api/adminPortal'
 import { adminApi } from '../../api/admin'
 import { session } from '../../session'
+import InterventionMetricsCard from '../../components/InterventionMetricsCard.vue'
 
 const name = computed(() => session.realName || '老师')
 const terms = ref([])

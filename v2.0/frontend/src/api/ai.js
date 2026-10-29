@@ -42,3 +42,8 @@ export const alertExplainApi = {
   latest: (alertId, role = 'teacher') => http.get(explainPath(alertId, role)),
   generate: (alertId, role = 'teacher') => http.post(explainPath(alertId, role), {})
 }
+/** 干预闭环度量（M10）：role = 'admin' | 'counselor' */
+export const interventionMetricsApi = {
+  get: (role = 'admin', termId) =>
+    http.get(`/${role === 'counselor' ? 'counselor' : 'admin'}/metrics/intervention` + (termId ? `?termId=${termId}` : ''))
+}
