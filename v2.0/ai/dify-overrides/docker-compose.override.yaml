@@ -1,0 +1,20 @@
+# 与现有 v2.0 栈共存的最小覆盖（不改官方 compose）
+# 说明：
+#   1) 端口全部由 .env 的 EXPOSE_NGINX_PORT / EXPOSE_NGINX_SSL_PORT 控制（默认已改为 8090 / 8443）
+#   2) 把官方 compose 里使用 latest 的两个第三方镜像固定到具体版本（按本机实际运行版本锁定），
+#      避免"今天拉到的和明天拉到的不是同一版"；升级时只改这里的版本号，不改官方文件
+services:
+  api:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  worker:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  # 官方为 nginx:latest；本机实际版本 1.31.8（debian 版，镜像内自带 curl，可直接做健康检查）
+  nginx:
+    image: nginx:1.31.8
+  # 官方为 ubuntu/squid:latest；本机实际版本 squid 6.13（出口代理与 agent 出口代理两处）
+  ssrf_proxy:
+    image: ubuntu/squid:6.13-25.04_edge
+  agent_ssrf_proxy:
+    image: ubuntu/squid:6.13-25.04_edge

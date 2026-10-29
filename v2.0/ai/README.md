@@ -162,3 +162,32 @@ Docker Desktop → 右上齿轮「Settings」→「General」→ 勾选 **Start 
 > **后端直连通道也支持 DeepSeek**（Dify 挂了时的兜底）：设
 > `AI_LLM_BASE_URL=https://api.deepseek.com/v1`、`AI_LLM_KEY=sk-...`、`AI_LLM_MODEL=deepseek-chat`
 > 即可；三项留空则回退旧的 `AI_DASHSCOPE_*` 配置。
+
+## 9. 应用容器化（与 Dify 分开编排）
+
+我们自己的后端与前端有自己的镜像与 compose，放在 `v2.0/` 下，**不与 Dify 的 compose 混在一起**：
+
+| 文件 | 作用 |
+| --- | --- |
+| `v2.0/backend/Dockerfile` | 后端多阶段构建（gradle 构建 → JRE 运行），非 root、HEALTHCHECK 指向 `/api/ai/health`、`MaxRAMPercentage=75` |
+| `v2.0/backend/.dockerignore` | 剔除 build/.gradle/.git/file-store 等 |
+| `v2.0/frontend/Dockerfile` + `nginx.conf` | 前端 Vite 构建 → nginx 托管 dist，并把 `/api` 反代到 `app:8080` |
+| `v2.0/docker-compose.app.yml` | app + web 两个服务：mem_limit、日志轮转、健康检查、命名卷、自定义网络 |
+
+```bash
+cd v2.0
+docker compose -f docker-compose.app.yml build
+docker compose -f docker-compose.app.yml up -d
+docker compose -f docker-compose.app.yml ps      # 期望两个都 healthy
+```
+
+宿主的 MySQL(3306) 与 Dify(8090) 通过 `host.docker.internal` 访问；密钥用环境变量注入（`AI_LLM_KEY`、`AI_REPORT_APP_KEY`）。
+
+> **端口冲突提示**：容器占 8080，用 IDEA 直跑后端前先 `docker compose -f docker-compose.app.yml down`。
+
+### 9.1 Dify 的 override 副本（可版本化）
+
+`v2.0/ai/dify/` 整个目录被 `.gitignore` 忽略（体积大、按需拉取），但我们在里面改过 override
+（固定 nginx / squid 镜像标签、给 api/worker 加 host.docker.internal）。
+所以在这里存一份**可追踪的副本**：`v2.0/ai/dify-overrides/docker-compose.override.yaml`，
+重新拉取 Dify 源码后把它复制到 `v2.0/ai/dify/docker/docker-compose.override.yaml` 即可。

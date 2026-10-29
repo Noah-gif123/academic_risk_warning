@@ -1,0 +1,23 @@
+# 构建产物与本地状态：不进构建上下文（加速构建、避免把宿主二进制带进镜像）
+build/
+.gradle/
+.gradle-home/
+out/
+bin/
+
+# 版本控制与 IDE
+.git/
+.gitignore
+.idea/
+*.iml
+.vscode/
+
+# 运行期数据：上传资料落命名卷，不打进镜像
+file-store/
+logs/
+*.log
+
+# 系统与临时文件
+.DS_Store
+Thumbs.db
+*.tmp
