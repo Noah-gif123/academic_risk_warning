@@ -47,3 +47,7 @@ export const interventionMetricsApi = {
   get: (role = 'admin', termId) =>
     http.get(`/${role === 'counselor' ? 'counselor' : 'admin'}/metrics/intervention` + (termId ? `?termId=${termId}` : ''))
 }
+/** 课程答疑（RAG，M11）：只能由学生端调用，回答带引用、无依据拒答 */
+export const qaApi = {
+  ask: (body) => http.post('/student/ai/qa', body || {})
+}

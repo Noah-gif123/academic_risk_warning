@@ -147,6 +147,8 @@
 
           <!-- AI 预警解释卡（M9） -->
           <AlertExplainCard :alert-id="detail.item.alertId" role="student" />
+          <!-- 课程答疑（M11 / RAG）：只在本课程资料里检索，带引用、无依据拒答 -->
+          <CourseQaBox :teaching-class-id="detail.item.teachingClassId" />
 
           <!-- 三点依据（学生版措辞） -->
           <div class="border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs text-slate-600">
@@ -250,6 +252,7 @@
 
 <script setup>
 import AlertExplainCard from '../../components/AlertExplainCard.vue'
+import CourseQaBox from '../../components/CourseQaBox.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { studentWarningApi } from '../../api/alert'
 import { outputModeLabel, riskLevelBadge, riskLevelLabel } from '../../labels'
