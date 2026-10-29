@@ -224,5 +224,18 @@ RAG 的"R"这一步没有引入第二套向量库，直接用 MySQL 的 ngram �
 
 实测（教学班 201 · 第2讲_Excel函数与图表.pptx）：5 题（3 单选 + 2 判断）全部通过五道闸门，tokens 3119、约 0.0047 元；
 采纳前 2 题入卷后，草稿试卷题数 2、满分 4 分，与手工建卷一致。
+## 12. AI 批改辅助（M15）
+
+| 环节 | 位置 | 说明 |
+| --- | --- | --- |
+| 生成建议 | POST /api/teacher/ai/grading/submissions/{id}/suggest | 一次调用批完整张卷子的主观题（填空/简答）：题干 + 参考要点 + 评分说明 + 学生作答 → 建议分 + 评语 + 给分依据 |
+| 落库 | i_grading_suggest（sql/33_ai_grading.sql） | 一条答案一条建议（uk_answer 唯一），存校验结果、tokens、cost、run_id；重生成会覆盖 |
+| 三道校验 | GradingAssistService | ① 分数落在 [0, 满分]（越界截断并记 FAIL）② 评语里的数字只能是满分/得分或参考要点里出现过的 ③ 参考要点为空时标 FAIL（只给分档建议） |
+| 采纳 | POST /api/teacher/ai/grading/suggestions/{id}/apply | **只留痕**：记 inal_score / inal_comment / reviewer / review_time |
+| 写分 | 仍走原有 POST /api/teacher/submissions/{id}/grade | AI **不写分数**：判卷人、批改时间、审计链路与人工批改完全一致 |
+
+空作答不走模型（直接 0 分 + "未作答"），模型没返回有效分数的题会进 skipped，页面提示"请人工评分"——不拿 0 分冒充建议。
+
+实测（sql/34_seed_grading_demo.sql 的两道简答卷）：2 条建议（3/5、1/5，评语分别点出缺"绝对引用拖动不变 / F4"与"第二条原因 + TRIM 排查"）、tokens 984、约 0.0015 元、4.5 秒；采纳 + 提交批改后主观 4 分、总分 4 分，判卷人写入本人。
 闸门另有单测 QuestionGenServiceGateTest（7 个用例）：
 cd v2.0/backend && ./gradlew test --tests "*QuestionGenServiceGateTest*"。

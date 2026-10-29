@@ -65,3 +65,14 @@ export const aiQuestionApi = {
   reject: (id) => http.post(`/teacher/ai/questions/drafts/${id}/reject`, {}),
   adopt: (draftIds) => http.post('/teacher/ai/questions/adopt', { draftIds })
 }
+
+/**
+ * AI 批改辅助（M15）：给填空/简答出建议分 + 评语。
+ * 注意 apply 只留痕（记录教师最终用了多少分），真正写分仍走 paperApi.grade。
+ */
+export const gradingAssistApi = {
+  suggest: (submissionId) => http.post(`/teacher/ai/grading/submissions/${submissionId}/suggest`, {}),
+  list: (submissionId) => http.get(`/teacher/ai/grading/submissions/${submissionId}/suggestions`),
+  apply: (id, body) => http.post(`/teacher/ai/grading/suggestions/${id}/apply`, body || {})
+}
+

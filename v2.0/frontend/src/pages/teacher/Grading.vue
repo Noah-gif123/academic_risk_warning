@@ -115,6 +115,30 @@
                 <p v-else class="text-slate-500"><span class="text-xs text-slate-400">标准答案：</span>{{ answerText(a.stdAnswerJson, a.qType) }}</p>
               </div>
 
+              <!-- AI 批改建议（M15）：只给建议，点「填入评分框」后仍需提交批改 -->
+              <div v-if="isManual(a.qType) && aiSuggest[a.id]"
+                   class="ml-14 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 space-y-1">
+                <div class="flex flex-wrap items-center gap-2 text-sm">
+                  <span class="tag bg-white text-brand-600 border border-brand-200">AI 建议</span>
+                  <span class="font-medium text-brand-700">
+                    {{ aiSuggest[a.id].suggestedScore }} / {{ a.fullScore }} 分
+                  </span>
+                  <span v-for="c in aiSuggest[a.id].checks || []" :key="c.code" class="text-[11px]"
+                        :class="c.pass ? 'text-slate-400' : 'text-amber-700'" :title="c.detail">
+                    {{ c.pass ? '✓' : '✗' }}{{ c.name }}
+                  </span>
+                  <button class="ml-auto text-xs text-brand-600 hover:underline"
+                          @click="adoptAi(a, aiSuggest[a.id])">填入评分框</button>
+                </div>
+                <p class="text-sm text-slate-700">{{ aiSuggest[a.id].comment }}</p>
+                <p v-if="aiSuggest[a.id].modelRubric" class="text-xs text-slate-500">
+                  给分依据：{{ aiSuggest[a.id].modelRubric }}
+                </p>
+                <p v-if="aiSuggest[a.id].status === 'APPLIED'" class="text-[11px] text-emerald-600">
+                  已采纳（教师定稿 {{ aiSuggest[a.id].finalScore }} 分）· 提交批改后生效
+                </p>
+              </div>
+
               <div class="flex flex-wrap items-center gap-2 pl-14">
                 <template v-if="isManual(a.qType)">
                   <span class="text-xs text-slate-500">给分</span>
@@ -155,6 +179,9 @@
                 </button>
               </div>
               <div class="flex items-center gap-2">
+                <button class="btn-ghost text-sm" :disabled="aiBusy || active.isAbsent === 1" @click="suggestAll">
+                  {{ aiBusy ? 'AI 批改中…' : (aiHasSuggestions ? '重新生成 AI 建议' : 'AI 批改建议') }}
+                </button>
                 <button class="btn-ghost text-sm" @click="backToList">关闭</button>
                 <button class="btn-primary text-sm" :disabled="active.isAbsent === 1 || saving" @click="submitGrade">
                   {{ saving ? '提交中…' : '提交批改' }}
@@ -163,7 +190,9 @@
             </div>
             <p class="text-xs text-slate-400">
               只提交填空 / 简答的分数；单选、多选、判断由系统判分，不可改。
+              AI 建议只供参考：点「填入评分框」后仍要点「提交批改」才写入分数（判卷人记你）。
             </p>
+            <p v-if="aiInfo" class="text-xs text-slate-400">{{ aiInfo }}</p>
           </div>
         </div>
       </div>
@@ -175,6 +204,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { paperApi, questionTypes } from '../../api/paper'
+import { gradingAssistApi } from '../../api/ai'
 import { notify } from '../../toast'
 
 const route = useRoute()
@@ -267,11 +297,64 @@ async function open(r) {
     ;(full.answers || []).forEach((a) => {
       drafts[a.id] = { score: a.score == null ? 0 : Number(a.score), comment: a.comment || '' }
     })
+    clearAiSuggestions()
+    loadAiSuggestions(r.id)
   } catch (e) {
     toast('打开作答失败：' + e.message, false)
   } finally {
     opening.value = 0
   }
+}
+
+// ---------------- AI 批改建议（M15）：只建议，采纳后仍要点「提交批改」
+const aiSuggest = reactive({})
+const aiBusy = ref(false)
+const aiInfo = ref('')
+const aiHasSuggestions = computed(() => Object.keys(aiSuggest).length > 0)
+
+function clearAiSuggestions() {
+  Object.keys(aiSuggest).forEach((k) => delete aiSuggest[k])
+  aiInfo.value = ''
+}
+
+async function loadAiSuggestions(submissionId) {
+  try {
+    const list = await gradingAssistApi.list(submissionId)
+    ;(list || []).forEach((s) => { aiSuggest[s.answerId] = s })
+    if ((list || []).length) {
+      aiInfo.value = `已有 ${list.length} 条 AI 建议（点「重新生成」可再算一次）`
+    }
+  } catch (e) {
+    // 没有建议是正常情况，静默即可
+  }
+}
+
+async function suggestAll() {
+  if (!active.value || aiBusy.value) return
+  aiBusy.value = true
+  try {
+    const r = await gradingAssistApi.suggest(active.value.id)
+    ;(r.suggestions || []).forEach((s) => { aiSuggest[s.answerId] = s })
+    const skipped = (r.skipped || []).length
+    aiInfo.value = `${r.message || ''} · ${r.tokens || 0} tokens · 约 ${Number(r.cost || 0).toFixed(4)} 元`
+      + (skipped ? ` · 跳过 ${skipped} 题（模型没返回有效分数，请人工评分）` : '')
+    notify(r.message || 'AI 建议已生成', true)
+  } catch (e) {
+    toast(e.message || '生成 AI 建议失败', false)
+  } finally {
+    aiBusy.value = false
+  }
+}
+
+async function adoptAi(a, s) {
+  drafts[a.id] = { score: Number(s.suggestedScore), comment: s.comment || '' }
+  try {
+    const r = await gradingAssistApi.apply(s.id, { score: drafts[a.id].score, comment: drafts[a.id].comment })
+    aiSuggest[a.id] = { ...s, status: 'APPLIED', finalScore: r.finalScore, finalComment: r.finalComment }
+  } catch (e) {
+    // 留痕失败不影响填分
+  }
+  toast('已填入评分框，记得点「提交批改」')
 }
 
 /** 当前批改学生在列表中的位置（弹窗里显示 第几份 + 上一份/下一份） */
