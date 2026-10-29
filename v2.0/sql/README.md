@@ -215,3 +215,12 @@ M10 的口径（覆盖率 / 有效率 / 响应时长 / 复发率）依赖 `inter
 | 回访有效率 | 回访结论 EFFECTIVE ÷（EFFECTIVE + INEFFECTIVE） |
 | 平均响应时长 | 预警创建 → 首次干预，按小时平均 |
 | 复发率 | 干预后同一门课又产生新预警的数量 ÷ 已干预预警数 |
+## 十一、M11 新增表：`30_ai_kb.sql`（课程知识库）
+
+| 表 | 用途 |
+| --- | --- |
+| `ai_kb_doc` | 知识库文档（来源：导学 GUIDE / 资料 RESOURCE），记录 content_hash 做幂等、chunk_count 与状态 |
+| `ai_kb_chunk` | 知识库分块，**带 ngram 全文索引**（`FULLTEXT ... WITH PARSER ngram`），检索与引用的最小单位（doc_name + section_no） |
+
+首版 RAG 的"R"用 MySQL ngram 全文检索实现（中文按 2-gram 切分，相关度由 MySQL 打分）；
+分块与引用结构与向量库方案一致，后续接向量检索只替换 `KbService.retrieve()` 的内部实现。
