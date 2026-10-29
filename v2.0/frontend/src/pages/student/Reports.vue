@@ -128,6 +128,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { reportApi } from '../../api/ai'
 import { portalApi } from '../../api/portal'
+import { riskLevelBadge, riskLevelLabel } from '../../labels'
 
 const router = useRouter()
 const loading = ref(false)
@@ -147,15 +148,12 @@ function fmt(v) {
 }
 
 function levelText(l) {
-  return { RED: '红灯', YELLOW: '黄灯', GREEN: '绿灯' }[l] || '未判定'
+  // 统一走 labels.js：四档（红/橙/黄/绿）一处定义，避免有的页面把橙灯显示成"未判定"
+  return riskLevelLabel(l)
 }
 
 function levelClass(l) {
-  return {
-    RED: 'bg-red-50 text-red-600',
-    YELLOW: 'bg-amber-50 text-amber-600',
-    GREEN: 'bg-emerald-50 text-emerald-600'
-  }[l] || 'bg-slate-100 text-slate-500'
+  return riskLevelBadge(l)
 }
 
 async function load() {
