@@ -39,6 +39,13 @@ public class StudentQaService {
     /** 低于该相关度视为"没有依据"（ngram 打分会随语料规模下降，取绝对下限） */
     private static final double MIN_SCORE = 0.10;
 
+    /**
+     * 词面支撑度下限：查询的 2 字片段出现在最佳片段里的比例。
+     * ngram 分值会随语料规模放大（同一问题从 0.3 变到 20+），单看分值不能判断"有没有依据"，
+     * 所以再加一道与语料规模无关的护栏：连 2 字片段都对不上，就认定没有依据。
+     */
+    private static final double MIN_LEX_SUPPORT = 0.10;
+
     public Map<String, Object> ask(Long studentId, Long courseId, Long teachingClassId, String question) {
         String q = question == null ? "" : question.trim();
         if (q.isEmpty()) {
@@ -69,18 +76,20 @@ public class StudentQaService {
             Object s = hits.get(0).get("score");
             topScore = s == null ? 0d : Double.parseDouble(String.valueOf(s));
         }
+        double lexSupport = hits.isEmpty() ? 0d : lexicalSupport(q, String.valueOf(hits.get(0).get("content")));
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("question", q);
         out.put("courseId", courseId);
         out.put("courseName", courseName);
         out.put("hits", hits);
 
-        // ---- 拒答分支：没检索到 / 相关度太低
-        if (hits.isEmpty() || topScore < MIN_SCORE) {
+        // ---- 拒答分支：没检索到 / 相关度太低 / 连 2 字片段都对不上
+        if (hits.isEmpty() || topScore < MIN_SCORE || lexSupport < MIN_LEX_SUPPORT) {
             String answer = "这个问题在《" + courseName + "》的资料里没有检索到足够可靠的依据，我先不给结论，避免给你错的信息。"
                     + "建议换个问法（比如直接问某一章的名词或公式），或把问题带到课堂上问任课老师。";
             Map<String, Object> res = finish(out, runId, studentId, courseId, teachingClassId, q,
                     answer, List.of(), hits.size(), topScore, true, "REFUSAL", "TEMPLATE", 0, t0);
+            out.put("lexSupport", lexSupport);
             return res;
         }
 
@@ -136,8 +145,39 @@ public class StudentQaService {
             citations = autoCitations(hits);
         }
 
-        return finish(out, runId, studentId, courseId, teachingClassId, q, answer, citations,
+        Map<String, Object> res = finish(out, runId, studentId, courseId, teachingClassId, q, answer, citations,
                 hits.size(), topScore, false, "OK", source, tokens, t0);
+        res.put("lexSupport", lexSupport);
+        return res;
+    }
+
+    /**
+     * 词面支撑度：把问题切成 2 字片段，看有多少比例出现在片段正文里。
+     * 与 ngram 分值不同，这个比例不受语料规模影响，用来拦住"检索到东西但和问题无关"的情况。
+     */
+    private static double lexicalSupport(String question, String content) {
+        if (question == null || content == null) {
+            return 0d;
+        }
+        String q = question.replaceAll("[\\s\\p{Punct}\\u3000-\\u303f\\uff00-\\uffef]", "").toLowerCase();
+        if (q.length() < 2) {
+            return 1d; // 单字问题不做词面判断
+        }
+        Set<String> grams = new LinkedHashSet<>();
+        for (int i = 0; i + 2 <= q.length(); i++) {
+            grams.add(q.substring(i, i + 2));
+        }
+        if (grams.isEmpty()) {
+            return 0d;
+        }
+        String body = content.toLowerCase();
+        int hit = 0;
+        for (String g : grams) {
+            if (body.contains(g)) {
+                hit++;
+            }
+        }
+        return (double) hit / grams.size();
     }
 
     // ============================================================ 组装与落库
@@ -182,8 +222,9 @@ public class StudentQaService {
         sb.append("课程：").append(courseName).append("\n学生问题：").append(question).append("\n\n【材料片段】\n");
         int i = 1;
         for (Map<String, Object> h : hits) {
-            sb.append(i++).append("）").append(h.get("docName")).append(" 第").append(h.get("sectionNo")).append("段：\n")
-                    .append(h.get("content")).append("\n\n");
+            sb.append(i++).append("）").append(h.get("docName")).append(" 第").append(h.get("sectionNo")).append("段")
+                    .append(h.get("pageNo") == null ? "" : "（课件第" + h.get("pageNo") + "页）")
+                    .append("：\n").append(h.get("content")).append("\n\n");
         }
         sb.append("请依据以上片段回答，并在最后一行给出「依据：文档名 第N段」。");
         return sb.toString();
@@ -194,8 +235,9 @@ public class StudentQaService {
         sb.append("在《").append(courseName).append("》的资料里查到以下内容（AI 暂不可用，这里只列依据、不生成结论）：\n");
         int i = 1;
         for (Map<String, Object> h : hits) {
-            sb.append(i++).append("）").append(h.get("docName")).append(" 第").append(h.get("sectionNo")).append("段：")
-                    .append(h.get("snippet")).append("\n");
+            sb.append(i++).append("）").append(h.get("docName")).append(" 第").append(h.get("sectionNo")).append("段")
+                    .append(h.get("pageNo") == null ? "" : "（第" + h.get("pageNo") + "页）")
+                    .append("：").append(h.get("snippet")).append("\n");
         }
         sb.append("如需口径解释，建议直接问任课老师。");
         return sb.toString();
@@ -264,6 +306,7 @@ public class StudentQaService {
             Map<String, Object> c = new LinkedHashMap<>();
             c.put("docName", match.get("docName"));
             c.put("sectionNo", match.get("sectionNo"));
+            c.put("pageNo", match.get("pageNo"));
             out.add(c);
         }
         return out;
@@ -275,6 +318,7 @@ public class StudentQaService {
             Map<String, Object> c = new LinkedHashMap<>();
             c.put("docName", h.get("docName"));
             c.put("sectionNo", h.get("sectionNo"));
+            c.put("pageNo", h.get("pageNo"));
             out.add(c);
         }
         return out;

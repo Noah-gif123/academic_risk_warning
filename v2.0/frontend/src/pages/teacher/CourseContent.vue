@@ -284,6 +284,10 @@
         同一门课（同一个开课实例）下所有教学班、所有老师上传的资料都在这里，互相可见、可下载；
         上传时记录到当前教学班。文件只存元信息，本体落服务器目录，作废为逻辑删除（不破坏已引用它的课时）。
       </p>
+      <p class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+        上传即入库：课件（ppt/md/txt/docx/pptx）上传后自动进本课程知识库，学生在「课程答疑」里问课件内容时，
+        AI 只依据这些资料作答，并在答案后标注「文档名 + 第几段（第几页）」，可以翻到对应页核对。
+      </p>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
           <tr>

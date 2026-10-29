@@ -21,7 +21,8 @@ import java.util.*;
  * 中文按 ngram 切分，相关度由 MySQL 打分。分块与引用（文档名 + 第几段）与向量库方案一致，
  * 以后接向量检索只需替换 {@link #retrieve} 的内部实现。</p>
  *
- * <p>语料来源：课程导学（HTML→纯文本）+ 课程资料（txt）。题目暂无解析，暂不入库。</p>
+ * <p>语料来源：课程导学（HTML→纯文本）+ 课程资料（txt/md/csv/docx/pptx，见 {@link KbExtractor}）。
+ * 题目暂无解析，暂不入库。</p>
  */
 @Slf4j
 @Service
@@ -35,7 +36,6 @@ public class KbService {
     private String storeDir;
 
     private static final int CHUNK_SIZE = 420;
-    private static final int CHUNK_OVERLAP = 60;
 
     // ============================================================ 入库
     @Transactional
@@ -44,6 +44,7 @@ public class KbService {
         int docs = 0;
         int chunks = 0;
         List<String> errors = new ArrayList<>();
+        Set<String> aliveSources = new HashSet<>();
 
         // 1) 导学：每个教学班一条（同一门课多个班会得到多份导学，便于按班检索）
         for (Map<String, Object> g : jdbc.queryForList("""
@@ -54,6 +55,7 @@ public class KbService {
                 where o.course_id = ? and g.is_published = 1 and g.content is not null
                 """, courseId)) {
             try {
+                aliveSources.add("GUIDE:" + g.get("id"));
                 String text = htmlToText(String.valueOf(g.get("content")));
                 String docName = "导学 · " + (g.get("class_code") == null ? "课程" : g.get("class_code"));
                 int n = upsertDoc(courseId, lng(g.get("offering_id")), "GUIDE", lng(g.get("id")), docName,
@@ -67,24 +69,29 @@ public class KbService {
             }
         }
 
-        // 2) 课程资料：本课程本学期的 txt 资料（PPTX 需先抽文本，见规划）
+        // 2) 课程资料：txt/md/csv/docx/pptx，课件按页抽文本（页码进分块，便于引用到页）
+        int skipped = 0;
         for (Map<String, Object> r : jdbc.queryForList("""
                 select r.id, r.offering_id, r.teaching_class_id, r.file_name, r.file_path, r.file_ext
                 from resource_file r join course_offering o on o.id = r.offering_id
                 where o.course_id = ? and r.is_void = 0
                 """, courseId)) {
+            Long rid = lng(r.get("id"));
             try {
                 String ext = r.get("file_ext") == null ? "" : String.valueOf(r.get("file_ext")).toLowerCase();
-                if (!List.of("txt", "md", "csv").contains(ext)) {
+                if (!KbExtractor.supports(ext)) {
+                    skipped++;
+                    errors.add("资料 " + r.get("file_name") + " 格式（" + ext + "）暂不支持入库，已跳过");
                     continue;
                 }
-                Path p = Paths.get(storeDir, String.valueOf(r.get("file_path")));
+                Path p = Paths.get(storeDir, String.valueOf(r.get("file_path"))).toAbsolutePath().normalize();
                 if (!Files.exists(p)) {
                     errors.add("资料 " + r.get("file_name") + " 文件不存在：" + p);
                     continue;
                 }
-                String text = Files.readString(p, StandardCharsets.UTF_8);
-                int n = upsertDoc(courseId, lng(r.get("offering_id")), "RESOURCE", lng(r.get("id")),
+                aliveSources.add("RESOURCE:" + rid);
+                String text = KbExtractor.extract(p, ext);
+                int n = upsertDoc(courseId, lng(r.get("offering_id")), "RESOURCE", rid,
                         String.valueOf(r.get("file_name")), text, lng(r.get("teaching_class_id")));
                 if (n > 0) {
                     docs++;
@@ -95,12 +102,73 @@ public class KbService {
             }
         }
 
+        // 3) 清理：来源已作废/删除/取消发布的资料，其分块一并下线（否则会一直参与检索）
+        int purged = purgeStale(courseId, aliveSources);
+
         out.put("courseId", courseId);
         out.put("docs", docs);
         out.put("chunks", chunks);
+        out.put("purged", purged);
+        out.put("skipped", skipped);
         out.put("errors", errors);
-        out.put("message", docs == 0 ? "没有新的可入库内容（已是最新）" : "入库完成");
+        out.put("message", docs == 0 && purged == 0 ? "没有新的可入库内容（已是最新）" : "入库完成");
         return out;
+    }
+
+    /** 删除本课程中"来源已不存在"的知识库文档与分块（导学取消发布、资料作废都会在下次入库时下线） */
+    private int purgeStale(Long courseId, Set<String> aliveSources) {
+        int removed = 0;
+        for (Map<String, Object> d : jdbc.queryForList(
+                "select id, source_type, source_id, doc_name from ai_kb_doc where course_id = ?", courseId)) {
+            String type = String.valueOf(d.get("source_type"));
+            if (aliveSources.contains(type + ":" + d.get("source_id"))) {
+                continue;
+            }
+            if ("QUESTION".equals(type)) {
+                continue; // 题库来源暂未接入，保留原状
+            }
+            jdbc.update("delete from ai_kb_chunk where course_id = ? and source_type = ? and source_id = ?",
+                    courseId, type, d.get("source_id"));
+            jdbc.update("delete from ai_kb_doc where id = ?", lng(d.get("id")));
+            log.info("[KB] 下线过期来源：{}（{}:{}）", d.get("doc_name"), type, d.get("source_id"));
+            removed++;
+        }
+        return removed;
+    }
+
+    /**
+     * 教师上传资料后立即单份入库（上传即入库，失败不影响上传本身）。
+     * 只在教师资料库上传时调用，见 ResourceFileService#store。
+     */
+    @Transactional
+    public void ingestUploaded(Long resourceId) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                select r.id, r.offering_id, r.teaching_class_id, r.file_name, r.file_path, r.file_ext, o.course_id
+                from resource_file r join course_offering o on o.id = r.offering_id
+                where r.id = ?
+                """, resourceId);
+        if (rows.isEmpty()) {
+            return;
+        }
+        Map<String, Object> r = rows.get(0);
+        String ext = r.get("file_ext") == null ? "" : String.valueOf(r.get("file_ext")).toLowerCase();
+        if (!KbExtractor.supports(ext)) {
+            log.info("[KB] 资料 {} 格式 {} 不支持入库，跳过", r.get("file_name"), ext);
+            return;
+        }
+        Path p = Paths.get(storeDir, String.valueOf(r.get("file_path"))).toAbsolutePath().normalize();
+        if (!Files.exists(p)) {
+            log.warn("[KB] 资料 {} 文件不存在：{}", r.get("file_name"), p);
+            return;
+        }
+        try {
+            String text = KbExtractor.extract(p, ext);
+            int n = upsertDoc(lng(r.get("course_id")), lng(r.get("offering_id")), "RESOURCE", resourceId,
+                    String.valueOf(r.get("file_name")), text, lng(r.get("teaching_class_id")));
+            log.info("[KB] 上传即入库：{} → {} 段", r.get("file_name"), n);
+        } catch (Exception e) {
+            log.warn("[KB] 上传即入库失败：{} —— {}", r.get("file_name"), e.getMessage());
+        }
     }
 
     /** 写入/更新一个来源；返回分块数（内容未变返回 0） */
@@ -191,6 +259,7 @@ public class KbService {
             m.put("sourceType", r.get("source_type"));
             m.put("score", r.get("score"));
             String content = String.valueOf(r.get("content"));
+            m.put("pageNo", KbExtractor.pageOf(content));
             m.put("snippet", content.length() <= 220 ? content : content.substring(0, 219) + "…");
             m.put("content", content);
             out.add(m);
@@ -214,6 +283,11 @@ public class KbService {
     }
 
     // ============================================================ 工具
+    /**
+     * 分块：按段落装箱到 {@link #CHUNK_SIZE}。
+     * 课件抽出的文本每页以「【第N页】」开头，遇到页标记先换块，保证一个分块不会被页边界截断，
+     * 这样引用的段号天然对得上页码（见 {@link KbExtractor#pageOf}）。
+     */
     private static List<String> chunk(String text) {
         List<String> out = new ArrayList<>();
         String[] paragraphs = text.split("\\n+");
@@ -223,12 +297,11 @@ public class KbService {
             if (s.isEmpty()) {
                 continue;
             }
-            if (buf.length() > 0 && buf.length() + s.length() > CHUNK_SIZE) {
+            boolean pageStart = s.startsWith(KbExtractor.PAGE_MARK_PREFIX);
+            boolean overflow = buf.length() > 0 && buf.length() + s.length() > CHUNK_SIZE;
+            if ((pageStart || overflow) && buf.length() > 0) {
                 out.add(buf.toString());
-                int keep = Math.min(CHUNK_OVERLAP, buf.length());
-                String tail = buf.substring(buf.length() - keep);
                 buf.setLength(0);
-                buf.append(tail);
             }
             if (buf.length() > 0) {
                 buf.append('\n');

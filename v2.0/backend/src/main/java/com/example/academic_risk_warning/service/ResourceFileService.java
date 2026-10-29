@@ -4,6 +4,7 @@ import com.example.academic_risk_warning.common.BizException;
 import com.example.academic_risk_warning.entity.ResourceFile;
 import com.example.academic_risk_warning.entity.TeachingClass;
 import com.example.academic_risk_warning.mapper.ResourceFileMapper;
+import com.example.academic_risk_warning.service.ai.KbService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,7 @@ public class ResourceFileService {
 
     private final ResourceFileMapper resourceMapper;
     private final CourseContentService contentService;
+    private final KbService kbService;
 
     @Value("${app.file.store-dir:./file-store}")
     private String storeDir;
@@ -77,6 +79,15 @@ public class ResourceFileService {
         f.setCreateTime(LocalDateTime.now());
         f.setIsVoid(0);
         resourceMapper.insert(f);
+        // 上传即入库：课件（pptx/docx/txt）立刻进课程知识库，学生答疑马上能检索到；
+        // 入库失败不影响上传结果（教师可在资料库重新触发一次入库）
+        if ("TEACHER".equals(uploadRole)) {
+            try {
+                kbService.ingestUploaded(f.getId());
+            } catch (Exception e) {
+                log.warn("[KB] 上传后自动入库失败 resourceId={}：{}", f.getId(), e.getMessage());
+            }
+        }
         return f;
     }
 

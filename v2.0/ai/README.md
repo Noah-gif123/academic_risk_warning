@@ -191,3 +191,21 @@ docker compose -f docker-compose.app.yml ps      # 期望两个都 healthy
 （固定 nginx / squid 镜像标签、给 api/worker 加 host.docker.internal）。
 所以在这里存一份**可追踪的副本**：`v2.0/ai/dify-overrides/docker-compose.override.yaml`，
 重新拉取 Dify 源码后把它复制到 `v2.0/ai/dify/docker/docker-compose.override.yaml` 即可。
+## 10. 课程知识库与课件入库（M11）
+
+RAG 的"R"这一步没有引入第二套向量库，直接用 MySQL 的 ngram 全文索引（`ai_kb_chunk` 的 `FULLTEXT ... WITH PARSER ngram`），
+引用契约（文档名 + 第几段 + 课件第几页）与向量方案一致，将来换向量检索只改 `KbService.retrieve()`。
+
+| 环节 | 位置 | 说明 |
+| --- | --- | --- |
+| 抽文本 | `service/ai/KbExtractor` | 支持 `txt/md/csv/docx/pptx`；txt 先按 UTF-8 严格解码，失败再按 GBK；PPTX 一页一块、块首 `【第N页】`，顺带收讲稿备注；DOCX 按原文顺序拍平段落与表格（行用 `|` 分隔） |
+| 入库 | `KbService.syncCourse(courseId)` | 导学 + 资料；内容 hash 未变不重写；**资料作废/取消发布后，下次入库自动下线对应分块**（返回值 `purged`） |
+| 上传即入库 | `ResourceFileService.store` | 教师上传课件后立刻单份入库，失败只告警、不影响上传 |
+| 检索 | `KbService.retrieve` | ngram 打分排序，返回 `docName / sectionNo / pageNo / score`；超短查询零召回时回退 LIKE |
+| 生成与拒答 | `StudentQaService` | 只依据命中片段作答，答案末尾必须给「依据：文档名 第N段」，后端逐条校验；检索为空 / 相关度低于 0.10 / **词面支撑度低于 0.10** 都直接拒答 |
+
+课件演示数据（可选）：`v2.0/tool/courseware` 下的生成器造一份 9 页 PPTX 与一份 6 章 DOCX，
+再用 `sql/32_seed_courseware.sql` 挂到教学班 201，最后触发一次 `POST /api/teacher/ai/kb/sync?courseId=1`。
+
+实测（课程 1）：知识库 7 份文档 / 20 个分块；「VLOOKUP 返回 #N/A 是什么原因」→ 命中课件第 4 页（相关度 23.08、词面 47%），
+答案 3 条要点 + 引用两条；「实验二的评分标准是什么」→ 命中评分标准表（词面 50%）；「帮我写一份入党申请书」→ 零命中直接拒答。
