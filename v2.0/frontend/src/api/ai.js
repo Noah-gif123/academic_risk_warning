@@ -51,3 +51,17 @@ export const interventionMetricsApi = {
 export const qaApi = {
   ask: (body) => http.post('/student/ai/qa', body || {})
 }
+
+/**
+ * AI 出题（M14）：按所选资料出题 → 五道闸门 → 审题草稿 → 采纳入卷
+ * 成题责任链不变：草稿由模型出、由教师改，题目进试卷依旧走试卷保存接口。
+ */
+export const aiQuestionApi = {
+  sources: (teachingClassId) => http.get(`/teacher/ai/questions/sources?teachingClassId=${teachingClassId}`),
+  generate: (body) => http.post('/teacher/ai/questions/generate', body || {}),
+  drafts: (teachingClassId, status) =>
+    http.get(`/teacher/ai/questions/drafts?teachingClassId=${teachingClassId}` + (status ? `&status=${status}` : '')),
+  updateDraft: (id, body) => http.post(`/teacher/ai/questions/drafts/${id}`, body || {}),
+  reject: (id) => http.post(`/teacher/ai/questions/drafts/${id}/reject`, {}),
+  adopt: (draftIds) => http.post('/teacher/ai/questions/adopt', { draftIds })
+}

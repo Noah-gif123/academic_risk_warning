@@ -124,6 +124,9 @@
           <button class="btn-ghost text-sm" :disabled="editing.status !== 'DRAFT'" @click="$refs.importInput.click()">
             导入 Word / 文本
           </button>
+          <button class="btn-ghost text-sm" :disabled="editing.status !== 'DRAFT'" @click="showAiQuestion = true">
+            AI 出题（按课程资料）
+          </button>
           <button class="btn-primary text-sm" :disabled="editing.status !== 'DRAFT'" @click="saveQuestions">保存题目</button>
           <button class="text-sm text-slate-400 hover:text-slate-600" @click="editing = null">收起</button>
         </div>
@@ -207,6 +210,10 @@
       </div>
     </div>
 
+    <!-- AI 出题（M14）：按课程资料出草稿 → 审题 → 采纳后加入上面的题目列表 -->
+    <AiQuestionModal v-if="showAiQuestion" :teaching-class-id="teachingClassId"
+                     @close="showAiQuestion = false" @adopt="onAiAdopt" />
+
     <!-- 删除草稿确认弹窗 -->
     <div v-if="pendingDelete" class="fixed inset-0 z-40 bg-slate-900/40 flex items-center justify-center px-4">
       <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5 space-y-3">
@@ -233,6 +240,7 @@ import { paperApi, questionTypes, paperTypes } from '../../api/paper'
 import { contentApi } from '../../api/content'
 import { scoreApi } from '../../api/score'
 import { notify } from '../../toast'
+import AiQuestionModal from '../../components/AiQuestionModal.vue'
 
 const route = useRoute()
 const props = defineProps({
@@ -251,6 +259,7 @@ const editing = ref(null)
 const questions = ref([])
 const importWarnings = ref([])
 const importInput = ref(null)
+const showAiQuestion = ref(false)
 const message = ref('')
 const ok = ref(true)
 
@@ -405,6 +414,13 @@ async function onImport(e) {
     applyImport(res)
   } catch (err) { toast(err.message, false) }
   e.target.value = ''
+}
+
+/** AI 出题采纳：题目追加到当前编辑的草稿里，后续仍走「保存题目」这条原有链路 */
+function onAiAdopt(list) {
+  if (!list || !list.length) return
+  questions.value.push(...list)
+  toast(`已加入 ${list.length} 道 AI 草稿题，请校对后点「保存题目」`)
 }
 
 function applyImport(res) {

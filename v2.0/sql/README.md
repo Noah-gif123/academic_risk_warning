@@ -248,3 +248,17 @@ M10 的口径（覆盖率 / 有效率 / 响应时长 / 复发率）依赖 `inter
 分块在页边界强制断开，所以引用既能给「第N段」（分块序号）又能给出「第N页」（课件页码）；
 DOCX 按原文顺序拍平段落与表格（表格行用 `|` 分隔，标题加 `## `）。
 教师上传课件后**上传即入库**（不占额外操作）；资料作废后，下次 `sync` 会把对应分块自动下线（返回值里的 `purged`）。
+## 十四、M14 AI 出题：复用 26_ai_stage3.sql 里的 i_question_draft
+
+出题**没有新增表**——第三阶段建表时就留好了草稿表，M14 只是开始真正往里写：
+
+| 字段 | M14 的用法 |
+| --- | --- |
+| offering_id + group_name | 按开课实例隔离草稿；大题名沿用试卷的分组名（仍然不用知识点） |
+| q_type / difficulty / stem / options_json / nswer_json / nalysis | 题型、难度、题干、选项、标准答案、解析；答案结构与 question.answer_json 一致，所以能直接入卷 |
+| source_pages | 引用出处：课件页码（PPTX）或分段序号（其它格式） |
+| quality_json | **五道闸门的逐项结果**（checks[].code/pass/detail + passed），答辩时可逐题展示"为什么这题被拦下" |
+| status | DRAFT 生成 → ADOPTED 采纳 / REJECTED 弃用；入卷由 paper/question 负责，这里只留痕 |
+| un_id / 	okens / cost / model / prompt_version | 可追溯到具体一次 AI 运行与成本（prompt_version = question-gen-v1） |
+
+口径：**AI 只出草稿，成题责任在教师**；草稿表不参与学生端任何查询，只有 /api/teacher/ai/questions/* 会读它。

@@ -52,6 +52,11 @@ public class DashScopeClient {
     }
 
     public ChatResult chat(String system, String user) {
+        return chat(system, user, 0.5, 1600);
+    }
+
+    /** 可调温度与最大输出长度（出题需要更多 token、报告需要更稳的语气） */
+    public ChatResult chat(String system, String user, double temperature, int maxTokens) {
         if (!props.directReady()) {
             return new ChatResult(false, null, 0, "未配置 DashScope Key");
         }
@@ -61,8 +66,8 @@ public class DashScopeClient {
             body.put("messages", List.of(
                     Map.of("role", "system", "content", system),
                     Map.of("role", "user", "content", user)));
-            body.put("temperature", 0.5);
-            body.put("max_tokens", 1600);
+            body.put("temperature", temperature);
+            body.put("max_tokens", maxTokens);
 
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(trim(props.directBaseUrl()) + "/chat/completions"))

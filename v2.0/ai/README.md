@@ -209,3 +209,20 @@ RAG 的"R"这一步没有引入第二套向量库，直接用 MySQL 的 ngram �
 
 实测（课程 1）：知识库 7 份文档 / 20 个分块；「VLOOKUP 返回 #N/A 是什么原因」→ 命中课件第 4 页（相关度 23.08、词面 47%），
 答案 3 条要点 + 引用两条；「实验二的评分标准是什么」→ 命中评分标准表（词面 50%）；「帮我写一份入党申请书」→ 零命中直接拒答。
+## 11. AI 出题（M14）
+
+| 环节 | 位置 | 说明 |
+| --- | --- | --- |
+| 资料范围 | GET /api/teacher/ai/questions/sources | 返回本课程知识库文档（docId / 名称 / 分段数），教师可勾选"按哪几份资料出题"，不勾 = 全部 |
+| 生成 | POST /api/teacher/ai/questions/generate | 按文档轮转取分块（≤3600 字）→ 模型按固定行格式出题 → 解析 → **五道闸门** → 逐题落 i_question_draft（带 quality_json） |
+| 五道闸门 | QuestionGenService.runGates | ① 结构完整 ② 答案自洽 ③ **出处可核**（依据必须对上素材的「文档名 + 第N段」）④ 不照抄不重复（题干与原文 2 字片段重合 ≤75%、与历史草稿相似 ≤80%）⑤ 难度与分值 |
+| 审题 | POST /drafts/{id} / /drafts/{id}/reject | 教师改题干/选项/答案/解析/分值，或直接弃用（REJECTED） |
+| 采纳 | POST /adopt | 只改状态（ADOPTED，留 reviewer 与时间），**题目进试卷走原有 POST /api/teacher/papers**，分值/发布/批阅链路不变 |
+
+设计取舍：**AI 只出草稿，成题的责任永远在教师**——这也是答辩时最该讲的一句。
+生成通道沿用直连（AI_LLM_*）；AI_QUESTION_APP_KEY 预留给 Dify 工作流版本，接上后上层接口不变。
+
+实测（教学班 201 · 第2讲_Excel函数与图表.pptx）：5 题（3 单选 + 2 判断）全部通过五道闸门，tokens 3119、约 0.0047 元；
+采纳前 2 题入卷后，草稿试卷题数 2、满分 4 分，与手工建卷一致。
+闸门另有单测 QuestionGenServiceGateTest（7 个用例）：
+cd v2.0/backend && ./gradlew test --tests "*QuestionGenServiceGateTest*"。
