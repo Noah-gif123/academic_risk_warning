@@ -96,3 +96,10 @@ v2.0/sql/_backup/
 
 ### 第三阶段 AI：Dify 源码不入库（体积大，按 v2.0/ai/README.md 重新拉取） ###
 v2.0/ai/dify/
+### 本地编译/运行产物（勿入库） ###
+v2.0/backend/build-verify/
+v2.0/backend/build-verify-lib/
+v2.0/backend/build-verify-test/
+v2.0/backend/javac*.args
+v2.0/tool/.npm-cache/
+.tmp-render/
