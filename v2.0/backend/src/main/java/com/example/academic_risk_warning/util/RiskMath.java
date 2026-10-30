@@ -294,22 +294,129 @@ public final class RiskMath {
     }
 
     /**
-     * 绝对口径风险分：需考 60 → 0、100 → 100（线性），低于及格线一律 0。
+     * 绝对口径风险分（分段映射，以"需考 = 及格线"为折点）。
      *
-     * <p>配合 70/55/35 三档阈值即：红 ≈ 需考 ≥88、橙 ≥82、黄 ≥74。</p>
+     * <p>本套数据里过程分普遍 80+，需考落在 35–75 之间。如果按"需考 60→0"一条直线，分数型风险全被压到绿的底部；
+     * 但反过来把起点一直往下压，又会把"期末随便考考就能过"的人也刷成黄。所以分两段：</p>
+     *
+     * <ul>
+     *   <li><b>需考 ≤ 及格线</b>（期末只要及格就能过）：`起点 → 0`，`及格线 → 50`；</li>
+     *   <li><b>需考 &gt; 及格线</b>（期末必须考出超及格的水平）：`及格线 → 50`，满分 → 100。</li>
+     * </ul>
+     *
+     * <p>于是 25→0、45→20、55→40、60→50、65→56、68→60（进橙）、80→75（进红）、100→100。
+     * 起点 = 及格线 − {@code NEED_FLOOR_OFFSET}（35）是标定旋钮：调大更松、调小更严。</p>
      */
+    public static final BigDecimal NEED_FLOOR_OFFSET = BigDecimal.valueOf(25);
+
     public static BigDecimal absoluteRiskScore(BigDecimal need, BigDecimal passScore, BigDecimal finalFullScore) {
         if (need == null) {
             return null;
         }
-        BigDecimal span = nz(finalFullScore).subtract(nz(passScore));
-        if (span.signum() <= 0) {
-            return BigDecimal.ZERO;
+        BigDecimal full = nz(finalFullScore);
+        BigDecimal pass = nz(passScore);
+        BigDecimal floor = pass.subtract(NEED_FLOOR_OFFSET);
+        BigDecimal raw;
+        if (need.compareTo(pass) <= 0) {
+            BigDecimal span = pass.subtract(floor);
+            raw = span.signum() <= 0
+                    ? BigDecimal.valueOf(50)
+                    : need.subtract(floor).multiply(BigDecimal.valueOf(50)).divide(span, 2, RoundingMode.HALF_UP);
+        } else {
+            BigDecimal span = full.subtract(pass);
+            raw = span.signum() <= 0
+                    ? BigDecimal.valueOf(100)
+                    : BigDecimal.valueOf(50).add(need.subtract(pass)
+                    .multiply(BigDecimal.valueOf(50)).divide(span, 2, RoundingMode.HALF_UP));
         }
-        BigDecimal raw = need.subtract(nz(passScore))
-                .multiply(BigDecimal.valueOf(100))
-                .divide(span, 2, RoundingMode.HALF_UP);
         return clamp100(raw.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    // ============================================================ M16：C 通道因子的纯函数
+    /**
+     * 教师风格（连续版）：Δ 是"教师尺度"（同水平学生在这位老师手里的平均偏差，负值=偏严）。
+     *
+     * <p>旧版是三档离散（≤−1 严 / ≥+0.5 松 / 其间 1.00），导致 −0.46、−0.82 这种"偏严但不极端"的老师
+     * 完全不加权。现在按指数连续映射：偏严侧用 {@code strictStep^(−Δ)}，偏松侧用 {@code looseStep^Δ}，
+     * 结果夹在 [0.90, 1.15]；|Δ| 超过熔断阈值直接不用（数据可疑）；样本 &lt; 30 向 1.00 折半收缩。</p>
+     */
+    public static BigDecimal teacherStyleFactor(BigDecimal delta, Integer sampleSize, BigDecimal fuseThreshold,
+                                                BigDecimal strictStep, BigDecimal looseStep) {
+        if (delta == null) {
+            return BigDecimal.ONE;
+        }
+        if (fuseThreshold != null && delta.abs().compareTo(fuseThreshold) > 0) {
+            return BigDecimal.ONE;
+        }
+        BigDecimal strict = strictStep == null ? new BigDecimal("1.05") : strictStep;
+        BigDecimal loose = looseStep == null ? new BigDecimal("0.95") : looseStep;
+        double step = delta.signum() < 0 ? strict.doubleValue() : loose.doubleValue();
+        double exponent = Math.abs(delta.doubleValue());
+        BigDecimal factor = BigDecimal.valueOf(Math.pow(step, exponent)).setScale(4, RoundingMode.HALF_UP);
+        if (factor.compareTo(new BigDecimal("0.90")) < 0) {
+            factor = new BigDecimal("0.90");
+        }
+        if (factor.compareTo(new BigDecimal("1.15")) > 0) {
+            factor = new BigDecimal("1.15");
+        }
+        if (sampleSize != null && sampleSize < 30) {
+            factor = BigDecimal.ONE.add(factor.subtract(BigDecimal.ONE).multiply(new BigDecimal("0.5")))
+                    .setScale(4, RoundingMode.HALF_UP);
+        }
+        return factor;
+    }
+
+    /**
+     * 该科历史挂科率因子：以"每高 5 个百分点乘一次 step"的线性近似，夹在 [0.90, cap]。
+     *
+     * @param avgFailRate 历史平均挂科率（%，如 26.70）
+     * @param examinees   历史样本人数；&lt; 30 时向 1.00 折半收缩（小样本不可信）
+     */
+    public static BigDecimal failRateFactor(BigDecimal avgFailRate, int examinees, BigDecimal base,
+                                            BigDecimal step, BigDecimal cap) {
+        if (avgFailRate == null) {
+            return BigDecimal.ONE;
+        }
+        BigDecimal b = base == null ? new BigDecimal("5.00") : base;
+        BigDecimal s = step == null ? new BigDecimal("1.05") : step;
+        BigDecimal c = cap == null ? new BigDecimal("1.20") : cap;
+        BigDecimal dev = avgFailRate.subtract(b).divide(new BigDecimal("5"), 4, RoundingMode.HALF_UP);
+        BigDecimal factor = BigDecimal.ONE.add(dev.multiply(s.subtract(BigDecimal.ONE)));
+        if (factor.compareTo(new BigDecimal("0.90")) < 0) {
+            factor = new BigDecimal("0.90");
+        }
+        if (factor.compareTo(c) > 0) {
+            factor = c;
+        }
+        if (examinees > 0 && examinees < 30) {
+            factor = BigDecimal.ONE.add(factor.subtract(BigDecimal.ONE).multiply(new BigDecimal("0.5")));
+        }
+        return factor.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /** 一次挂科的权重：同一门课重修 ×2；再按时间衰减 1/(1+0.5×相隔学期数) */
+    public static BigDecimal priorWeight(boolean sameCourse, int termsAgo) {
+        BigDecimal w = sameCourse ? BigDecimal.valueOf(2) : BigDecimal.ONE;
+        int ago = Math.max(0, termsAgo);
+        return w.divide(BigDecimal.ONE.add(BigDecimal.valueOf(0.5).multiply(BigDecimal.valueOf(ago))),
+                4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 个人前科因子：把每次挂科的权重加起来，&lt;0.5 视为无前科（1.00）、&lt;1.0 用 prior1、否则 prior2。
+     *
+     * <p>为什么按权重而不是"门数"：同一门课重修（尤其本课程重修班）比"挂过别的课"信号强得多，
+     * 而三年前的挂科也不该和上学期的一样重。阈值取 1.0，正好让"同一门课挂一次"或"两门课各挂一次"
+     * 进到 prior2。</p>
+     */
+    public static BigDecimal personalPriorFactor(BigDecimal weightedFails, BigDecimal prior1, BigDecimal prior2) {
+        if (weightedFails == null || weightedFails.compareTo(new BigDecimal("0.5")) < 0) {
+            return BigDecimal.ONE;
+        }
+        BigDecimal p1 = prior1 == null ? new BigDecimal("1.05") : prior1;
+        BigDecimal p2 = prior2 == null ? new BigDecimal("1.10") : prior2;
+        BigDecimal factor = weightedFails.compareTo(BigDecimal.ONE) < 0 ? p1 : p2;
+        return factor.setScale(4, RoundingMode.HALF_UP);
     }
 
     /**

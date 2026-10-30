@@ -201,18 +201,71 @@ class RiskMathTest {
     }
 
     @Test
-    @DisplayName("M16 绝对风险分：需考 60→0、80→50、100→100，低于及格线一律 0")
+    @DisplayName("M16 绝对风险分：分段映射，及格线为折点（35→0、45→20、55→40、60→50、68→60、80→75、100→100）")
     void absoluteRiskScore() {
         BigDecimal pass = BigDecimal.valueOf(60), full = BigDecimal.valueOf(100);
-        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(43.5), pass, full).signum());
-        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(60), pass, full).signum());
-        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(80), pass, full)
-                .compareTo(BigDecimal.valueOf(50)));
-        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(100), pass, full)
-                .compareTo(BigDecimal.valueOf(100)));
-        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(150), pass, full)
-                .compareTo(BigDecimal.valueOf(100)));
+        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(30), pass, full).signum());
+        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(35), pass, full).signum());
+        assertEquals(0, RiskMath.absoluteRiskScore(new BigDecimal("45"), pass, full).compareTo(new BigDecimal("20")));
+        assertEquals(0, RiskMath.absoluteRiskScore(new BigDecimal("55"), pass, full).compareTo(new BigDecimal("40")));
+        assertEquals(0, RiskMath.absoluteRiskScore(new BigDecimal("60"), pass, full).compareTo(new BigDecimal("50")));
+        assertEquals(0, RiskMath.absoluteRiskScore(new BigDecimal("68"), pass, full).compareTo(new BigDecimal("60")));
+        assertEquals(0, RiskMath.absoluteRiskScore(new BigDecimal("80"), pass, full).compareTo(new BigDecimal("75")));
+        assertEquals(0, RiskMath.absoluteRiskScore(new BigDecimal("100"), pass, full).compareTo(BigDecimal.valueOf(100)));
+        assertEquals(0, RiskMath.absoluteRiskScore(new BigDecimal("150"), pass, full).compareTo(BigDecimal.valueOf(100)));
         assertNull(RiskMath.absoluteRiskScore(null, pass, full));
+    }
+
+    @Test
+    @DisplayName("M16 教师风格：连续映射，偏严 Δ=−1.61 → ×1.0817，偏松 Δ=+0.19 → ×0.9903")
+    void teacherStyleFactor() {
+        BigDecimal strict = new BigDecimal("1.05"), loose = new BigDecimal("0.95"), fuse = BigDecimal.valueOf(20);
+        // 1.05^1.61 = 1.0817（旧的离散版这里只给 1.05，−0.46 这种干脆给 1.00）
+        assertEquals(0, RiskMath.teacherStyleFactor(new BigDecimal("-1.61"), 45, fuse, strict, loose)
+                .compareTo(new BigDecimal("1.0817")));
+        assertEquals(0, RiskMath.teacherStyleFactor(new BigDecimal("-0.46"), 45, fuse, strict, loose)
+                .compareTo(new BigDecimal("1.0227")));
+        assertEquals(0, RiskMath.teacherStyleFactor(new BigDecimal("0.19"), 45, fuse, strict, loose)
+                .compareTo(new BigDecimal("0.9903")));
+        assertEquals(0, RiskMath.teacherStyleFactor(BigDecimal.ZERO, 45, fuse, strict, loose)
+                .compareTo(BigDecimal.ONE));
+        // 样本 < 30 折半：1 + (1.0817−1)×0.5 = 1.0409
+        assertEquals(0, RiskMath.teacherStyleFactor(new BigDecimal("-1.61"), 12, fuse, strict, loose)
+                .compareTo(new BigDecimal("1.0409")));
+        // |Δ| 超熔断阈值 → 直接不用
+        assertEquals(0, RiskMath.teacherStyleFactor(new BigDecimal("-25"), 45, fuse, strict, loose)
+                .compareTo(BigDecimal.ONE));
+    }
+
+    @Test
+    @DisplayName("M16 该科历史挂科率：26.7% → 触到上限 1.20；小样本折半；无数据 1.00")
+    void failRateFactor() {
+        BigDecimal base = BigDecimal.valueOf(5), step = new BigDecimal("1.05"), cap = new BigDecimal("1.20");
+        assertEquals(0, RiskMath.failRateFactor(new BigDecimal("26.70"), 45, base, step, cap)
+                .compareTo(new BigDecimal("1.20")));
+        assertEquals(0, RiskMath.failRateFactor(new BigDecimal("6.00"), 45, base, step, cap)
+                .compareTo(new BigDecimal("1.0100")));
+        // 样本 20 人 → 向 1 折半
+        assertEquals(0, RiskMath.failRateFactor(new BigDecimal("26.70"), 20, base, step, cap)
+                .compareTo(new BigDecimal("1.1000")));
+        assertEquals(0, RiskMath.failRateFactor(null, 45, base, step, cap).compareTo(BigDecimal.ONE));
+    }
+
+    @Test
+    @DisplayName("M16 个人前科：同课重修 ×2、时间衰减、按权重给 prior1/prior2")
+    void personalPrior() {
+        BigDecimal p1 = new BigDecimal("1.05"), p2 = new BigDecimal("1.10");
+        // 同一门课挂过、1 个学期前：权重 2/(1+0.5)=1.333 → prior2
+        BigDecimal sameCourse = RiskMath.priorWeight(true, 1);
+        assertEquals(0, sameCourse.compareTo(new BigDecimal("1.3333")));
+        assertEquals(0, RiskMath.personalPriorFactor(sameCourse, p1, p2).compareTo(p2));
+        // 别的课挂过一次、1 个学期前：0.6667 → 无前科（<0.5？不，>0.5 → prior1）
+        assertEquals(0, RiskMath.priorWeight(false, 1).compareTo(new BigDecimal("0.6667")));
+        assertEquals(0, RiskMath.personalPriorFactor(new BigDecimal("0.6667"), p1, p2).compareTo(p1));
+        // 三年前的挂科：0.4 → 衰减到没有影响
+        assertEquals(0, RiskMath.priorWeight(false, 3).compareTo(new BigDecimal("0.4000")));
+        assertEquals(0, RiskMath.personalPriorFactor(new BigDecimal("0.4000"), p1, p2).compareTo(BigDecimal.ONE));
+        assertEquals(0, RiskMath.personalPriorFactor(null, p1, p2).compareTo(BigDecimal.ONE));
     }
 
     @Test
@@ -223,13 +276,16 @@ class RiskMathTest {
                 .compareTo(BigDecimal.valueOf(95)));
         assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(120), pass, full, false, 4)
                 .compareTo(BigDecimal.valueOf(100)));
+        // 需考 45 → 分数部分 20（起点 35），门槛地板把它抬起来
         assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(45), pass, full, false, 1)
                 .compareTo(BigDecimal.valueOf(55)));
         assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(45), pass, full, false, 2)
                 .compareTo(BigDecimal.valueOf(40)));
+        // 需考 68 → 60，已经高于"剩余 2 次"的地板
         assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(68), pass, full, false, 2)
-                .compareTo(BigDecimal.valueOf(40)));
-        assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(45), pass, full, false, 3).signum());
+                .compareTo(new BigDecimal("60")));
+        assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(45), pass, full, false, 3)
+                .compareTo(new BigDecimal("20")));
     }
 
     @Test

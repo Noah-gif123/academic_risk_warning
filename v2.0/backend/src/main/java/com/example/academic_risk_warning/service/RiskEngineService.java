@@ -77,9 +77,6 @@ public class RiskEngineService {
     private static final BigDecimal ONE = BigDecimal.ONE;
     /** 过程分覆盖率闸门：低于 30% 只给行为预警，不给"需考"结论 */
     private static final BigDecimal PROCESS_COVERAGE_GATE = new BigDecimal("0.30");
-    /** 教师风格判别阈值（Δ ≤ −1.0 判严格、Δ ≥ +0.5 判宽松） */
-    private static final BigDecimal STRICT_DELTA = new BigDecimal("-1.0");
-    private static final BigDecimal LOOSE_DELTA = new BigDecimal("0.5");
 
     private final EnrollmentMapper enrollmentMapper;
     private final StudentMapper studentMapper;
@@ -163,6 +160,7 @@ public class RiskEngineService {
         int levelChanged = 0;
         LocalDateTime now = LocalDateTime.now();
         Set<Long> syntheticTerms = syntheticTermIds();
+        Map<Long, Integer> termOrdinal = termOrdinals();
         for (Map.Entry<Long, List<Enrollment>> entry : byClass.entrySet()) {
             TeachingClass tc = classMapper.selectById(entry.getKey());
             if (tc == null) {
@@ -179,7 +177,7 @@ public class RiskEngineService {
             // M16：成绩折算走 ScoreCalculator（与成绩单页同一套数），不再读 score_result
             ScoreCalculator.ClassScore sc = scoreCalculator.compute(tc);
             Course course = offering == null ? null : courseMapper.selectById(offering.getCourseId());
-            ChannelC cc = channelC(tc, offering, course, classEnrollments, syntheticTerms, config);
+            ChannelC cc = channelC(tc, offering, course, classEnrollments, syntheticTerms, termOrdinal, config);
 
             List<Decision> decisions = new ArrayList<>();
             for (Enrollment e : classEnrollments) {
@@ -619,7 +617,7 @@ public class RiskEngineService {
     /** C 通道因子（按开关回退：关了就是 1.00） */
     private ChannelC channelC(TeachingClass tc, CourseOffering offering, Course course,
                               List<Enrollment> classEnrollments, Set<Long> syntheticTerms,
-                              RiskEngineConfig config) {
+                              Map<Long, Integer> termOrdinal, RiskEngineConfig config) {
         ChannelC cc = new ChannelC();
         boolean cOn = config.getChannelCEnabled() != null && config.getChannelCEnabled() == 1;
         if (!cOn) {
@@ -642,7 +640,8 @@ public class RiskEngineService {
                 cc.teacher = teacherFactor(ts.getDelta(), ts.getSampleSize(), config);
             }
         }
-        cc.personal = personalFactors(classEnrollments, syntheticTerms, config);
+        cc.personal = personalFactors(classEnrollments, course == null ? null : course.getId(),
+                offering == null ? null : offering.getTermId(), termOrdinal, syntheticTerms, config);
         return cc;
     }
 
@@ -660,64 +659,64 @@ public class RiskEngineService {
     }
 
     /**
-     * 该科历史挂科率：只用 `course_fail_rate_history` 里**已结束学期**的数据。
+     * 该科历史挂科率：优先用 `course_fail_rate_history` 的**已结束学期**；没有就用
+     * `student_fail_history` 按课程聚合反推（本学期与合成学期一律排除）。
      *
      * <p>不能用 `teaching_class_fail_rate` / `admin_class_fail_rate`：那是本期数据、且是旧口径算出来的，
-     * 拿它当"历史"等于用旧结论喂新口径。合成学期（term_code 以 SYN 开头）也必须排除。</p>
+     * 拿它当"历史"等于用旧结论喂新口径。</p>
      */
     private FailRateFactor failRateFactor(Long courseId, Long currentTermId, Set<Long> syntheticTerms,
                                           RiskEngineConfig config) {
-        List<CourseFailRateHistory> rows = courseFailRateMapper.selectList(
-                Wrappers.<CourseFailRateHistory>lambdaQuery().eq(CourseFailRateHistory::getCourseId, courseId));
-        BigDecimal sum = BigDecimal.ZERO;
-        int n = 0;
-        for (CourseFailRateHistory r : rows) {
+        BigDecimal sumRate = BigDecimal.ZERO;
+        int rateRows = 0;
+        int examinees = 0;
+        for (CourseFailRateHistory r : courseFailRateMapper.selectList(
+                Wrappers.<CourseFailRateHistory>lambdaQuery().eq(CourseFailRateHistory::getCourseId, courseId))) {
             if (r.getTermId() == null || r.getTermId().equals(currentTermId)
                     || syntheticTerms.contains(r.getTermId()) || r.getFailRate() == null) {
                 continue;
             }
-            sum = sum.add(r.getFailRate());
-            n++;
+            sumRate = sumRate.add(r.getFailRate());
+            rateRows++;
+            examinees += r.getExamineeCount() == null ? 0 : r.getExamineeCount();
         }
-        if (n == 0) {
-            return new FailRateFactor(ONE, "absent（库里只有本期数据，按 1.00）");
+        String source = "course_fail_rate_history";
+        if (rateRows == 0) {
+            // 兜底：从归档的挂科历史反推课程级挂科率（term 4 起才有真历史）
+            int n = 0;
+            int fails = 0;
+            for (StudentFailHistory h : failHistoryMapper.selectList(
+                    Wrappers.<StudentFailHistory>lambdaQuery().eq(StudentFailHistory::getCourseId, courseId))) {
+                if (h.getTermId() == null || h.getTermId().equals(currentTermId)
+                        || syntheticTerms.contains(h.getTermId())) {
+                    continue;
+                }
+                n++;
+                if (h.getIsFail() != null && h.getIsFail() == 1) {
+                    fails++;
+                }
+            }
+            if (n == 0) {
+                return new FailRateFactor(ONE, "absent（没有已结束学期的课程级挂科记录，按 1.00）");
+            }
+            sumRate = BigDecimal.valueOf(fails * 100.0 / n).setScale(2, RoundingMode.HALF_UP);
+            rateRows = 1;
+            examinees = n;
+            source = "student_fail_history";
         }
-        BigDecimal avg = sum.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP);
-        BigDecimal base = config.getFailRateBase() == null ? new BigDecimal("5.00") : config.getFailRateBase();
-        BigDecimal step = config.getFailRateStep() == null ? new BigDecimal("1.05") : config.getFailRateStep();
-        BigDecimal cap = config.getFailRateCap() == null ? new BigDecimal("1.20") : config.getFailRateCap();
-        // 每高于基准 5 个百分点乘一次（线性近似），下限 0.90、上限 cap
-        BigDecimal dev = avg.subtract(base).divide(new BigDecimal("5"), 4, RoundingMode.HALF_UP);
-        BigDecimal factor = ONE.add(dev.multiply(step.subtract(ONE)));
-        if (factor.compareTo(new BigDecimal("0.90")) < 0) {
-            factor = new BigDecimal("0.90");
-        }
-        if (factor.compareTo(cap) > 0) {
-            factor = cap;
-        }
-        return new FailRateFactor(factor.setScale(4, RoundingMode.HALF_UP),
-                "avg=" + avg.toPlainString() + "% terms=" + n);
+        BigDecimal avg = sumRate.divide(BigDecimal.valueOf(rateRows), 2, RoundingMode.HALF_UP);
+        BigDecimal factor = RiskMath.failRateFactor(avg, examinees, config.getFailRateBase(),
+                config.getFailRateStep(), config.getFailRateCap());
+        return new FailRateFactor(factor, source + " avg=" + avg.toPlainString() + "% examinees=" + examinees);
     }
 
-    /** 教师风格：Δ ≤ −1.0 严格、Δ ≥ +0.5 宽松；样本 < 30 按 0.5 向 1.00 收缩；|Δ| 超过熔断阈值直接不用 */
+    /**
+     * 教师风格：连续映射（偏严侧 strictStep^(−Δ)、偏松侧 looseStep^Δ），见
+     * {@link RiskMath#teacherStyleFactor}。样本 &lt; 30 折半收缩，|Δ| 超过熔断阈值直接不用。
+     */
     private BigDecimal teacherFactor(BigDecimal delta, Integer sampleSize, RiskEngineConfig config) {
-        if (delta == null) {
-            return ONE;
-        }
-        BigDecimal fuse = config.getDeltaFuseThreshold();
-        if (fuse != null && delta.abs().compareTo(fuse) > 0) {
-            return ONE;
-        }
-        BigDecimal factor = ONE;
-        if (delta.compareTo(STRICT_DELTA) <= 0) {
-            factor = config.getTeacherStrictFactor() == null ? new BigDecimal("1.05") : config.getTeacherStrictFactor();
-        } else if (delta.compareTo(LOOSE_DELTA) >= 0) {
-            factor = config.getTeacherLooseFactor() == null ? new BigDecimal("0.95") : config.getTeacherLooseFactor();
-        }
-        if (sampleSize != null && sampleSize < 30) {
-            factor = ONE.add(factor.subtract(ONE).multiply(new BigDecimal("0.5")));
-        }
-        return factor.setScale(4, RoundingMode.HALF_UP);
+        return RiskMath.teacherStyleFactor(delta, sampleSize, config.getDeltaFuseThreshold(),
+                config.getTeacherStrictFactor(), config.getTeacherLooseFactor());
     }
 
     private TeacherStyle teacherStyleOf(TeachingClass tc) {
@@ -728,29 +727,34 @@ public class RiskEngineService {
                 .last("limit 1"));
     }
 
-    /** 个人前科：已归档的挂科门数（1 门 → prior_1，≥2 门 → prior_2；无历史 → 1.00） */
-    private Map<Long, BigDecimal> personalFactors(List<Enrollment> ens, Set<Long> syntheticTerms,
+    /**
+     * 个人前科：把"挂过的课"按权重累计 —— 同一门课（本课程）重修 ×2，并按时间衰减
+     * （相隔 n 个学期 ×1/(1+0.5n)），再按权重给 prior1 / prior2。大一或从没挂过 → 1.00。
+     */
+    private Map<Long, BigDecimal> personalFactors(List<Enrollment> ens, Long courseId, Long currentTermId,
+                                                  Map<Long, Integer> termOrdinal, Set<Long> syntheticTerms,
                                                   RiskEngineConfig config) {
         Map<Long, BigDecimal> out = new LinkedHashMap<>();
         List<Long> ids = ens.stream().map(Enrollment::getStudentId).distinct().collect(Collectors.toList());
         if (ids.isEmpty()) {
             return out;
         }
-        Map<Long, Integer> failed = new LinkedHashMap<>();
+        int currentOrdinal = termOrdinal.getOrDefault(currentTermId, 0);
+        Map<Long, BigDecimal> weighted = new LinkedHashMap<>();
         for (StudentFailHistory h : failHistoryMapper.selectList(Wrappers.<StudentFailHistory>lambdaQuery()
                 .in(StudentFailHistory::getStudentId, ids)
                 .eq(StudentFailHistory::getIsFail, 1))) {
-            if (h.getTermId() == null || syntheticTerms.contains(h.getTermId())) {
+            if (h.getTermId() == null || h.getTermId().equals(currentTermId)
+                    || syntheticTerms.contains(h.getTermId())) {
                 continue;
             }
-            failed.merge(h.getStudentId(), 1, Integer::sum);
+            int ago = Math.max(0, currentOrdinal - termOrdinal.getOrDefault(h.getTermId(), currentOrdinal));
+            BigDecimal w = RiskMath.priorWeight(courseId != null && courseId.equals(h.getCourseId()), ago);
+            weighted.merge(h.getStudentId(), w, BigDecimal::add);
         }
-        BigDecimal prior1 = config.getPersonalPrior1() == null ? new BigDecimal("1.05") : config.getPersonalPrior1();
-        BigDecimal prior2 = config.getPersonalPrior2() == null ? new BigDecimal("1.10") : config.getPersonalPrior2();
         for (Long sid : ids) {
-            int n = failed.getOrDefault(sid, 0);
-            BigDecimal f = n <= 0 ? ONE : (n == 1 ? prior1 : prior2);
-            out.put(sid, f.setScale(4, RoundingMode.HALF_UP));
+            out.put(sid, RiskMath.personalPriorFactor(weighted.get(sid),
+                    config.getPersonalPrior1(), config.getPersonalPrior2()));
         }
         return out;
     }
@@ -761,6 +765,17 @@ public class RiskEngineService {
                 .filter((t) -> t.getTermCode() != null
                         && t.getTermCode().toUpperCase().startsWith("SYN"))
                 .map(Term::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /** 学期先后序号（按开始日期），用于个人前科的"相隔几个学期"衰减 */
+    private Map<Long, Integer> termOrdinals() {
+        List<Term> terms = termMapper.selectList(Wrappers.<Term>lambdaQuery());
+        terms.sort(Comparator.comparing(Term::getStartDate, Comparator.nullsFirst(Comparator.naturalOrder())));
+        Map<Long, Integer> out = new LinkedHashMap<>();
+        for (int i = 0; i < terms.size(); i++) {
+            out.put(terms.get(i).getId(), i);
+        }
+        return out;
     }
 
     /** data_quality_json：过程分口径 + 四个 C 通道因子都留痕，回归和排查只认这一处 */
