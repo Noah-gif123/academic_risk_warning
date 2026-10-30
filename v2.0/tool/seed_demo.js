@@ -618,9 +618,9 @@ CLASSES.forEach((c) => {
       }
     });
 
-  // ③ 手工项
-  sc.items.filter((it) => it.src === 'manual')
-    .concat(sc.final.src === 'manual' ? [sc.final] : []).forEach((it) => {
+  // ③ 手工项（**期末不录**：学期第 9 周，期末尚未举行。期末需考由引擎按当前平时分测算，
+  //     这样学习评价/预警不会出现"期末成绩"，也不会把未考的期末算进总评）
+  sc.items.filter((it) => it.src === 'manual').forEach((it) => {
       list.forEach((e) => {
         const s = r1(scoreOf(e, it.code));
         ITEM_SCORE[e.id][it.code] = s;
