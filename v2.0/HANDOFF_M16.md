@@ -270,9 +270,18 @@ UPDATE risk_engine_config SET is_active = 1 WHERE engine_version = 'v2.0.0';
   分数型风险最高只到 ~36（绿）；因此**橙档为空**，红=缺课硬线、黄="剩余可扣 1–2 次"的门槛地板。
   若要让"需考高"进入橙/红，需要业务调两个旋钮之一：把 `absoluteRiskScore` 的起点从 `pass` 前移到 `pass − 15` 左右，
   或把"剩余 2 次"的地板从 40 调低（当前 43 人因它进黄）。
-- **剩余待办**：① `score_result` 仍无法按已录项重算（`commitSummary` 有缺项即抛），成绩单页与预警页暂时靠"过程分"错开；
-  ② `v2.0/tool/20_rebuild_demo.sql` 仍含 405 条 term 5 期末分，一键重建会复发（重建后必须再跑 35）；
-  ③ `第二阶段功能演示脚本.md` 里的示例数字（期末需考 67.9 等）仍是旧口径；④ 打包 `git archive` + 推 gitee/origin 未做。
+- **剩余待办**：① ~~`score_result` 仍无法按已录项重算~~ → **本轮已补**：新增
+  `POST /api/admin/scores/recompute?termId=`（`ScoreMatrixService.recomputeByRecorded`），已对本学期跑过 540 条，
+  `score_status` 分 `FINAL`（104，分项齐全）/ `PARTIAL`（405 条，期末未录，不按分数判挂），`engine_version=m16.v1`，
+  AI 事实包与模板报告也改成"分项未齐时说过程分"；
+  ② ~~`20_rebuild_demo.sql` 仍含 405 条期末分~~ → **本轮已重新生成**：`seed_demo.js` 改为不产出 term 5 期末手工分，
+  且 `score_result` 直接写 `PARTIAL/m16.v1`（重建后不必再补跑 35，但跑一次也无害）。**注意**：重新生成改变了随机序列，
+  交付包里的演示数值会与老库不同（分布不变）；
+  ③ `第二阶段功能演示脚本.md` 里的示例数字仍是旧口径（未改）；
+  ④ 打包已做（`学情预警系统_v2.0_交付包.zip`，12 MB，仅版本库文件）；**推送未完成**——本机没有 gitee/GitHub 凭据
+  （`could not read Username`），需要你补一次令牌；另：本机 gitee 必须 `git -c http.sslbackend=openssl` 才能访问
+  （schannel 报 `SEC_E_NO_CREDENTIALS`），GitHub 直连可用、也已配 7890 代理。
+- **本轮提交**：`adb2e84 feat(m16): 判定口径改造…` + `chore(release): 重新打包 v2.0 交付包`。
 
 ## 9. 开工顺序（把风险前置，本轮已全部走完，留档备查）
 
