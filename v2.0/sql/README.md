@@ -133,10 +133,14 @@ mysql -uroot -p study_warning_system_v2 < 21_tidy_after_rebuild.sql
 | 扣分 | `P = 2×缺课 + 1×迟到 + 1×max(0, 请假−3)`；**无上限、不截断**，`T = W − P` 可为负 |
 | 请假免扣 | 每学期每门课 3 次 |
 | 及格 | `T ≥ pass_score` 且 `已缺课 ≤ N_max` |
-| 期末需考 | `x = (pass_score + P − W_其余项) / r_f`；x > 100 → 实际不可达 |
+| 过程分（v2.1.0） | **只取非终结性分支**（平时/测验/作业/项目）按已录项归一：`Σ(得分/满分×100×绝对权重) / Σ已录绝对权重`；绝对权重 = 父.weight × 子.weight/100；覆盖率 `c_proc = Σ已录绝对权重 / Σ非终结绝对权重`，<30% 只给行为预警 |
+| 期末需考（v2.1.0） | `r_f` 取**终结性根分支**权重（期末 60% → 0.6）；`W_est = 过程分 × (1 − r_f)`；`x = (pass_score + P − W_est) / r_f`，x > 满分 → 不可达。终结分支**已录分**（如考查课大作业）改看缺口 `gap = max(0, x − 已得分)` |
 | **点名覆盖率** | 已点名课次 / 应完成课次（应完成＝已过日期且未取消且未作废）；**低于 1/3 → 提醒补录 + 教务督办 + 置信度判低** |
 | 置信度 W | 锚点强度 × 数据完备度 × 样本充足度；≥0.7 完整分档 / 0.4–0.7 带标注 / 0.15–0.4 仅行为 / <0.15 数据不足 |
 | 风险档位 | 红 ≥75 ｜ 橙 60–75 ｜ 黄 40–60 ｜ 绿 <40；取三族规则最高者 |
+| 绝对风险分（v2.1.0） | `clamp(0,100, 100 × (x − pass) / (满分 − pass))` → 需考 60→0、100→100；再乘 C 通道系数（考试 ×1.10 / 考查 ×0.90 / 历史挂科率 / 教师风格 / 个人前科）|
+| 门槛地板（不乘系数） | 缺课硬线 → 95；需考不可达 → 100；剩余可缺 ≤1 → ≥55；剩余 = 2 → ≥40；各项取最大、不连乘 |
+
 | 导员纳入范围 | 风险分 ≥ 40（不出现绿色） |
 | 多科目预警 | ≥3 门 |
 | 班集体提醒 | 第 1–4 周不触发；≥30% 且 ≥5 人 → 班会；≥50% 且 ≥10 人 → 重点关注 + 抄送教务 |
@@ -272,3 +276,14 @@ DOCX 按原文顺序拍平段落与表格（表格行用 `|` 分隔，标题加 
 
 口径：**AI 不写分数**。采纳只更新建议表（留痕），分数仍由教师点「提交批改」走 `POST /api/teacher/submissions/{id}/grade` 写入，
 `submission_answer.marked_by_type = TEACHER`、判卷人与批改时间照旧——审计链路一行没改。
+
+## 十六、M16 判定口径改造：`35_fix_term5_scores.sql` + `36_engine_v2_1_config.sql`
+
+| 脚本 | 用途 |
+| --- | --- |
+| `35_fix_term5_scores.sql` | 数据口径修正：删除本学期（term 5）期末考试的手工分（405 条），期末只作"需考"目标；**只删不建**，重建演示库后需要再跑一次，跑完必须重跑判定 |
+| `36_engine_v2_1_config.sql` | `risk_engine_config` 增加 9 个 C 通道系数列（`course_factor_exam/assess`、`fail_rate_base/step/cap`、`personal_prior_1/2`、`teacher_strict/loose_factor`），并按 v2.0.0 复制出 v2.1.0 配置行（`is_active=0`，阈值沿用 75/60/40，打开 `channel_c_enabled` / `course_factor_enabled` / `delta_enabled`）|
+
+**注意**：36 号脚本的 INSERT 带 `NOT EXISTS(engine_version='v2.1.0')` 守卫。如果库里已经有一条旧演示版 v2.1.0，
+重跑不会覆盖它——必须先 `delete from risk_engine_config where engine_version='v2.1.0' and remark like '示例版本%';`
+再执行脚本，然后 `update ... set is_active=1`（或走 `/api/admin/rules/{id}/activate` 留审计）。

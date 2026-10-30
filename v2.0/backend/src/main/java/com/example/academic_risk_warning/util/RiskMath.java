@@ -2,6 +2,8 @@ package com.example.academic_risk_warning.util;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 风险判定的纯计算口径（不依赖数据库，便于单元测试）。
@@ -102,6 +104,20 @@ public final class RiskMath {
         return BigDecimal.valueOf(c).setScale(3, RoundingMode.HALF_UP);
     }
 
+    /**
+     * M16：把"过程分覆盖率"乘进置信度。
+     *
+     * <p>为什么单独一个方法：`confidence_min_ok` 只允许把"点名覆盖率不足"抬起来，不能把
+     * "分项只录了 5% 权重"也一起抬成"看起来可信"。所以调用方先用本方法把覆盖率乘进去，
+     * 再只对点名覆盖率那一路做 floor。</p>
+     */
+    public static BigDecimal confidenceWithScoreCoverage(double coverage, double completeness,
+                                                         double sampleAdequacy, BigDecimal scoreCoverage) {
+        BigDecimal base = confidence(coverage, completeness, sampleAdequacy);
+        double sc = scoreCoverage == null ? 1.0 : clamp01(scoreCoverage.doubleValue());
+        return base.multiply(BigDecimal.valueOf(sc)).setScale(3, RoundingMode.HALF_UP);
+    }
+
     /** 置信度档位 */
     public static String confidenceLevel(BigDecimal confidence) {
         double c = confidence == null ? 0 : confidence.doubleValue();
@@ -155,6 +171,200 @@ public final class RiskMath {
             return "YELLOW";
         }
         return "GREEN";
+    }
+
+    // ============================================================ M16：过程分 / r_final / 绝对口径
+    /**
+     * 一个叶子评分项在总评里的绝对权重。
+     *
+     * <p>构成是两级的（如「平时成绩 40」下挂「随堂测试 35」），子项权重是父项内部的百分比，
+     * 所以绝对权重 = 父.weight × 子.weight / 100；根项自己就是叶子时直接用它的 weight。</p>
+     *
+     * <p>{@code terminal}：是否挂在终结性分支（根项 category=FINAL）下；
+     * {@code available}：该分项在本教学班是否真有数据来源（手工有录入行 / 自动有试卷或项目）。</p>
+     */
+    public static final class SchemeWeight {
+        public final long itemId;
+        public final BigDecimal absWeight;
+        public final boolean terminal;
+        public final boolean available;
+
+        public SchemeWeight(long itemId, BigDecimal absWeight, boolean terminal, boolean available) {
+            this.itemId = itemId;
+            this.absWeight = absWeight == null ? BigDecimal.ZERO : absWeight;
+            this.terminal = terminal;
+            this.available = available;
+        }
+    }
+
+    /** 过程分结果：{@code score} 为 0–100 加权平均（无可用分项时为 null）；{@code coverage} 为 0–1 */
+    public static final class ProcessScore {
+        public final BigDecimal score;
+        public final BigDecimal coverage;
+        public final BigDecimal recordedWeight;
+        public final BigDecimal totalWeight;
+
+        ProcessScore(BigDecimal score, BigDecimal coverage, BigDecimal recordedWeight, BigDecimal totalWeight) {
+            this.score = score;
+            this.coverage = coverage;
+            this.recordedWeight = recordedWeight;
+            this.totalWeight = totalWeight;
+        }
+    }
+
+    /**
+     * 过程分 = 非终结性分支中"有数据来源"的分项的加权平均（0–100，按已录项归一）。
+     *
+     * <p>单个学生缺某个有来源的分项（缺交/缺考）按 0 分计入分子，分母不变——与成绩矩阵
+     * "缺考未交记 0"的语义一致；真正"没录"的分项（available=false）不参与分母，避免用一项
+     * 课堂表现代表整学期（见 M16 交接说明 §2）。</p>
+     */
+    public static ProcessScore processScore(List<SchemeWeight> leaves, Map<Long, BigDecimal> pctOf) {
+        return branchAverage(leaves, pctOf, false);
+    }
+
+    /**
+     * 终结性分支的加权平均（0–100）：该分支**已经录了分**时用它判断"还差多少"。
+     *
+     * <p>典型场景：考查课的大作业（终结性 60%）早就批完了。这时候再说"还需得 47 分"是错的，
+     * 应该按"需求 X 分、实际拿了 Y 分 → 还差 max(0, X−Y)"来算。无数据时返回 null，仍按"需考"处理。</p>
+     */
+    public static ProcessScore terminalScore(List<SchemeWeight> leaves, Map<Long, BigDecimal> pctOf) {
+        return branchAverage(leaves, pctOf, true);
+    }
+
+    /** 分支加权平均：terminal=true 只算终结性分支，false 只算非终结性分支 */
+    private static ProcessScore branchAverage(List<SchemeWeight> leaves, Map<Long, BigDecimal> pctOf,
+                                              boolean terminal) {
+        BigDecimal recorded = BigDecimal.ZERO;
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal points = BigDecimal.ZERO;
+        for (SchemeWeight w : leaves) {
+            if (w.terminal != terminal) {
+                continue;
+            }
+            total = total.add(w.absWeight);
+            if (!w.available) {
+                continue;
+            }
+            recorded = recorded.add(w.absWeight);
+            BigDecimal pct = pctOf == null ? null : pctOf.get(w.itemId);
+            if (pct != null) {
+                points = points.add(pct.multiply(w.absWeight).divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+            }
+        }
+        BigDecimal score = recorded.signum() > 0
+                ? points.multiply(BigDecimal.valueOf(100)).divide(recorded, 2, RoundingMode.HALF_UP)
+                : null;
+        BigDecimal coverage = total.signum() > 0
+                ? recorded.divide(total, 4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        return new ProcessScore(score, coverage, recorded.setScale(2, RoundingMode.HALF_UP),
+                total.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * 终结性分支占全部分支的权重比（0–1），如期末 60% → 0.60。
+     *
+     * <p>必须按**根分支**的绝对权重算：`FINAL_EXAM` 自己的 weight 是父项内部的 100%，
+     * 拿它当 r_final 会得到 1.0（现有 finalNeed 的 bug），从而把过程分整段丢掉。</p>
+     */
+    public static BigDecimal finalRatio(List<SchemeWeight> leaves) {
+        BigDecimal terminal = BigDecimal.ZERO;
+        BigDecimal all = BigDecimal.ZERO;
+        for (SchemeWeight w : leaves) {
+            all = all.add(w.absWeight);
+            if (w.terminal) {
+                terminal = terminal.add(w.absWeight);
+            }
+        }
+        if (all.signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return terminal.divide(all, 4, RoundingMode.HALF_UP);
+    }
+
+    /** 已得总评分估计 = 过程分 × (1 − r_final)：把过程分按非终结权重占比摊平成百分制点值 */
+    public static BigDecimal estimatedEarned(BigDecimal processScore, BigDecimal finalRatio) {
+        if (processScore == null) {
+            return null;
+        }
+        BigDecimal nonFinal = BigDecimal.ONE.subtract(nz(finalRatio));
+        return processScore.multiply(nonFinal).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 绝对口径风险分：需考 60 → 0、100 → 100（线性），低于及格线一律 0。
+     *
+     * <p>配合 70/55/35 三档阈值即：红 ≈ 需考 ≥88、橙 ≥82、黄 ≥74。</p>
+     */
+    public static BigDecimal absoluteRiskScore(BigDecimal need, BigDecimal passScore, BigDecimal finalFullScore) {
+        if (need == null) {
+            return null;
+        }
+        BigDecimal span = nz(finalFullScore).subtract(nz(passScore));
+        if (span.signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal raw = need.subtract(nz(passScore))
+                .multiply(BigDecimal.valueOf(100))
+                .divide(span, 2, RoundingMode.HALF_UP);
+        return clamp100(raw.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * 叠加 A 通道硬门槛与"再缺即挂"后的风险分：各项取最大，不连乘。
+     *
+     * <ul>
+     *   <li>缺课超限（硬门槛）→ 95；</li>
+     *   <li>期末/大作业不可达（需考 &gt; 满分）→ 100；</li>
+     *   <li>剩余可缺 ≤1（再缺一次即挂）→ 至少 55；剩余 = 2 → 至少 40。</li>
+     * </ul>
+     */
+    public static BigDecimal guardedRiskScore(BigDecimal need, BigDecimal passScore, BigDecimal finalFullScore,
+                                              boolean hardFail, Integer remainingAbsent) {
+        boolean unreachable = need != null && finalFullScore != null && need.compareTo(finalFullScore) > 0;
+        BigDecimal base = absoluteRiskScore(need, passScore, finalFullScore);
+        return clamp100(nz(base).max(guardFloor(hardFail, unreachable, remainingAbsent)));
+    }
+
+    /**
+     * 确定性门槛的"地板分"（与课程/教师/个人乘子无关，不参与连乘）。
+     *
+     * <p>C 通道乘子只校准分数型风险；缺课硬线与"再缺即挂"是确定性判定，不能被 1.10 之类的系数
+     * 抬起档位（否则 95×1.15 顶到 100，硬线基准分就解释不清了）。</p>
+     */
+    public static BigDecimal guardFloor(boolean hardFail, boolean unreachable, Integer remainingAbsent) {
+        if (hardFail) {
+            return BigDecimal.valueOf(95);
+        }
+        if (unreachable) {
+            return BigDecimal.valueOf(100);
+        }
+        if (remainingAbsent != null) {
+            if (remainingAbsent <= 1) {
+                return BigDecimal.valueOf(55);
+            }
+            if (remainingAbsent == 2) {
+                return BigDecimal.valueOf(40);
+            }
+        }
+        return BigDecimal.ZERO;
+    }
+
+
+    /** 截断到 [0, 100] */
+    public static BigDecimal clamp100(BigDecimal v) {
+        if (v == null) {
+            return null;
+        }
+        if (v.signum() < 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        if (v.compareTo(BigDecimal.valueOf(100)) > 0) {
+            return BigDecimal.valueOf(100).setScale(2, RoundingMode.HALF_UP);
+        }
+        return v;
     }
 
     private static BigDecimal nz(BigDecimal v) {

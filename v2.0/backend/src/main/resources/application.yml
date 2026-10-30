@@ -42,6 +42,9 @@ app:
     captcha-enabled: true
     # 验证码调试接口（默认关闭，仅本机联调时临时打开）
     captcha-debug: false
+  alert:
+    # 通知总开关：批量重算（换口径/重建数据）时设 false，预警记录照常生成但不外发消息
+    notify-enabled: ${ALERT_NOTIFY_ENABLED:true}
   bootstrap:
     # 首次启动时为档案建统一账号（幂等，可关掉）
     enabled: true

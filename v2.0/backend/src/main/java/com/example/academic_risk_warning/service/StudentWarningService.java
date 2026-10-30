@@ -27,6 +27,7 @@ import com.example.academic_risk_warning.mapper.TeacherMapper;
 import com.example.academic_risk_warning.mapper.TeachingClassMapper;
 import com.example.academic_risk_warning.mapper.TermMapper;
 import com.example.academic_risk_warning.security.LoginUser;
+import com.example.academic_risk_warning.util.JsonObjects;
 import com.example.academic_risk_warning.vo.StudentWarningVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -215,6 +216,12 @@ public class StudentWarningService {
         i.setChannelBClassSize(s == null ? null : s.getChannelBClassSize());
         i.setEffectiveSessions(sr != null ? sr.getEffectiveSessions() : null);
         i.setTotalScore(sr == null ? null : sr.getTotalScore());
+        // M16：学生端展示"过程分"（与预警判定同一套数），不再用含期末预置分的旧总评
+        if (s != null) {
+            i.setProcessScore(JsonObjects.number(s.getDataQualityJson(), "processScore"));
+            i.setProcessCoverage(JsonObjects.number(s.getDataQualityJson(), "processCoverage"));
+            i.setFinalRatio(JsonObjects.number(s.getDataQualityJson(), "finalRatio"));
+        }
         i.setPassScore(o == null || o.getPassScore() == null ? null : BigDecimal.valueOf(o.getPassScore()));
         i.setLastEvalTime(s == null ? null : s.getLastEvalTime());
         i.setStatus(a == null ? "NONE" : a.getStatus());

@@ -33,6 +33,27 @@ public class RiskRuleRequest {
     private BigDecimal coverageThreshold;
     /** 置信度下限（低于则只输出行为预警） */
     private BigDecimal confidenceMinOk;
+
+    // ---------------- M16：C 通道 / 课程因子系数（未传则沿用当前生效版本） ----------------
+    /** 考试课难度系数（≥1，卷面难 → 风险上调；默认 1.10） */
+    private BigDecimal courseFactorExam;
+    /** 考查课难度系数（≤1，大作业为主 → 风险下调；默认 0.90） */
+    private BigDecimal courseFactorAssess;
+    /** 该科历史挂科率基准（%，默认 5.00） */
+    private BigDecimal failRateBase;
+    /** 历史挂科率每高 5 个百分点的乘数（默认 1.05） */
+    private BigDecimal failRateStep;
+    /** 历史挂科率系数上限（默认 1.20） */
+    private BigDecimal failRateCap;
+    /** 个人历史 1 门前科系数（默认 1.05） */
+    private BigDecimal personalPrior1;
+    /** 个人历史 ≥2 门前科系数（默认 1.10） */
+    private BigDecimal personalPrior2;
+    /** 严格型教师系数（默认 1.05） */
+    private BigDecimal teacherStrictFactor;
+    /** 宽松型教师系数（默认 0.95） */
+    private BigDecimal teacherLooseFactor;
+
     /** 调整说明（会写进审计日志） */
     private String remark;
 }

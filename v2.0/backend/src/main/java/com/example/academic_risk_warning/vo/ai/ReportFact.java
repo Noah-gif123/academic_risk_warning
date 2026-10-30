@@ -41,6 +41,12 @@ public class ReportFact {
     private Integer classRank;
     private Integer classSize;
 
+    /** M16：过程分（非终结性分支加权平均）与它的覆盖率；分项未录齐时报告以它为主口径 */
+    private BigDecimal processScore;
+    private BigDecimal processCoverage;
+    /** 成绩单状态：FINAL（分项齐全）/ PARTIAL（期末或部分分项未录） */
+    private String scoreStatus;
+
     /** 成绩构成分项 */
     private List<Item> items = new ArrayList<>();
 

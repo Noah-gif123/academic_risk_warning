@@ -653,11 +653,16 @@ ENROLL.forEach((e) => {
   const P = 2 * absent + late + Math.max(0, leave - 3);
   const T = r2(weighted - P);
   const isHard = absent > allowed;
+  // M16：第 9 周期末还没考，成绩单只能算"已录项"，状态记 PARTIAL 且不按分数判挂
+  // （只有考查课 D 的大作业已经批完，分项齐全 → FINAL）
+  const complete = items[sc.final.code] != null;
   RESULTS.push({
     id: resId++, enrollmentId: e.id, studentId: e.studentId, no: e.no, offeringId: e.offeringId,
     tcId: e.tcId, acId: e.acId, key: e.key, W: r1(weighted), P: r1(P), T, absent, late, leave,
-    allowed, weeks: course.weeks, hard: isHard ? 1 : 0, fail: isHard || T < 60 ? 1 : 0,
-    reason: isHard ? 'HARD_LINE' : (T < 60 ? 'SCORE' : null)
+    allowed, weeks: course.weeks, hard: isHard ? 1 : 0,
+    fail: isHard || (complete && T < 60) ? 1 : 0,
+    reason: isHard ? 'HARD_LINE' : (complete && T < 60 ? 'SCORE' : null),
+    status: complete ? 'FINAL' : 'PARTIAL', complete
   });
 });
 
@@ -727,8 +732,8 @@ ins('score_result', RESULTS.map((r) => ({
   id: r.id, enrollment_id: r.enrollmentId, student_id: r.studentId, offering_id: r.offeringId, term_id: 5,
   weighted_score: r.W, deduction_points: r.P, total_score: r.T, pass_score: 60, absent_count: r.absent,
   late_count: r.late, leave_count: r.leave, allowed_absent: r.allowed, effective_sessions: r.weeks,
-  hard_fail: r.hard, is_fail: r.fail, fail_reason: r.reason, score_status: 'FINAL', retake_times: 0,
-  engine_version: '1-10.v1', calculated_at: '2026-10-15 18:00:00', is_void: 0,
+  hard_fail: r.hard, is_fail: r.fail, fail_reason: r.reason, score_status: r.status, retake_times: 0,
+  engine_version: 'm16.v1', calculated_at: '2026-10-15 18:00:00', is_void: 0,
   create_time: '2026-10-15 18:00:00', update_time: '2026-10-15 18:00:00'
 })));
 
@@ -1146,13 +1151,15 @@ console.log('生成 20_rebuild_demo.sql：块=' + out.length
   + ' 提交=' + SUBS.length + ' 逐题=' + SUB_ANS.length
   + ' 项目任务=' + TASKS.length + ' 团队=' + TEAMS.length + ' 项目提交=' + TSUBS.length
   + ' 历史成绩=' + H_RESULT.length + '（风险状态与预警由引擎重建后生成）');
-// 生成质量自检：每门课挂科率、综合分区间（用于把数据调到"像真的"）
+// 生成质量自检：每门课挂科率、已得加权分区间（用于把数据调到"像真的"）
 COURSES.forEach((c) => {
   const rows = RESULTS.filter((r) => r.key === c.key);
   const fail = rows.filter((r) => r.fail).length;
   const hard = rows.filter((r) => r.hard).length;
+  const partial = rows.filter((r) => !r.complete).length;
   const ts = rows.map((r) => r.T).sort((a, b) => a - b);
   const pct = (q) => ts[Math.min(ts.length - 1, Math.floor(ts.length * q))];
   console.log('  ' + c.name + '：' + rows.length + ' 人，挂科 ' + fail + '（' + (fail * 100 / rows.length).toFixed(1)
-    + '%），缺课硬线 ' + hard + '，综合分 P10=' + pct(0.1) + ' 中位=' + pct(0.5) + ' P90=' + pct(0.9));
+    + '%，PARTIAL ' + partial + ' 条不计分数挂科），缺课硬线 ' + hard
+    + '，已得加权分 P10=' + pct(0.1) + ' 中位=' + pct(0.5) + ' P90=' + pct(0.9));
 });

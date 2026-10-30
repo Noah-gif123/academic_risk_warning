@@ -1,6 +1,7 @@
 package com.example.academic_risk_warning.service.ai;
 
 import com.example.academic_risk_warning.service.ScoreMatrixService;
+import com.example.academic_risk_warning.util.JsonObjects;
 import com.example.academic_risk_warning.vo.StudentScoreVO;
 import com.example.academic_risk_warning.vo.ai.ReportFact;
 import tools.jackson.databind.JsonNode;
@@ -100,7 +101,7 @@ public class FactPackBuilder {
     // ---------------------------------------------------------------- 总分与班级对比
     private void fillScore(ReportFact f) {
         List<Map<String, Object>> rs = jdbc.queryForList("""
-                select weighted_score, deduction_points, total_score,
+                select weighted_score, deduction_points, total_score, score_status,
                        absent_count, late_count, leave_count, allowed_absent,
                        hard_fail, is_fail, fail_reason
                 from score_result
@@ -112,6 +113,7 @@ public class FactPackBuilder {
             f.setWeightedScore(asDecimal(r.get("weighted_score")));
             f.setDeductionPoints(asDecimal(r.get("deduction_points")));
             f.setTotalScore(asDecimal(r.get("total_score")));
+            f.setScoreStatus(asString(r.get("score_status")));
             f.setAbsentCount(asInt(r.get("absent_count")));
             f.setLateCount(asInt(r.get("late_count")));
             f.setLeaveCount(asInt(r.get("leave_count")));
@@ -134,6 +136,17 @@ public class FactPackBuilder {
                 f.setAllowedAbsent(asInt(st.get(0).get("allowed_absent")));
                 f.setRemainingAbsent(asInt(st.get(0).get("remaining_absent")));
             }
+        }
+
+        // M16：过程分从 risk_state.data_quality_json 取（与预警判定同一套数）
+        List<Map<String, Object>> dq = jdbc.queryForList("""
+                select data_quality_json from risk_state
+                where enrollment_id = ? and is_void = 0 order by id desc limit 1
+                """, f.getEnrollmentId());
+        if (!dq.isEmpty()) {
+            String json = asString(dq.get(0).get("data_quality_json"));
+            f.setProcessScore(JsonObjects.number(json, "processScore"));
+            f.setProcessCoverage(JsonObjects.number(json, "processCoverage"));
         }
 
         List<Map<String, Object>> agg = jdbc.queryForList("""

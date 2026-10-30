@@ -5,11 +5,9 @@ import com.example.academic_risk_warning.dto.ScoreEntryBatchRequest;
 import com.example.academic_risk_warning.dto.ScoreEntryDTO;
 import com.example.academic_risk_warning.entity.AttendanceRecord;
 import com.example.academic_risk_warning.entity.Course;
-import com.example.academic_risk_warning.entity.CourseGroup;
 import com.example.academic_risk_warning.entity.CourseOffering;
 import com.example.academic_risk_warning.entity.Enrollment;
 import com.example.academic_risk_warning.entity.Paper;
-import com.example.academic_risk_warning.entity.ProjectContribution;
 import com.example.academic_risk_warning.entity.ProjectSubmission;
 import com.example.academic_risk_warning.entity.ProjectTask;
 import com.example.academic_risk_warning.entity.ScoreItem;
@@ -23,23 +21,18 @@ import com.example.academic_risk_warning.entity.TeachingClass;
 import com.example.academic_risk_warning.entity.Term;
 import com.example.academic_risk_warning.mapper.AttendanceRecordMapper;
 import com.example.academic_risk_warning.mapper.CourseMapper;
-import com.example.academic_risk_warning.mapper.CourseGroupMapper;
 import com.example.academic_risk_warning.mapper.CourseOfferingMapper;
 import com.example.academic_risk_warning.mapper.EnrollmentMapper;
 import com.example.academic_risk_warning.mapper.PaperMapper;
-import com.example.academic_risk_warning.mapper.ProjectContributionMapper;
 import com.example.academic_risk_warning.mapper.ProjectSubmissionMapper;
 import com.example.academic_risk_warning.mapper.ProjectTaskMapper;
 import com.example.academic_risk_warning.mapper.ScoreItemMapper;
 import com.example.academic_risk_warning.mapper.ScoreResultMapper;
 import com.example.academic_risk_warning.mapper.ScoreSchemeItemMapper;
-import com.example.academic_risk_warning.mapper.ScoreSchemeMapper;
-import com.example.academic_risk_warning.mapper.StudentMapper;
 import com.example.academic_risk_warning.mapper.SubmissionMapper;
 import com.example.academic_risk_warning.mapper.TeacherMapper;
 import com.example.academic_risk_warning.mapper.TeachingClassMapper;
 import com.example.academic_risk_warning.mapper.TermMapper;
-import com.example.academic_risk_warning.util.JsonObjects;
 import com.example.academic_risk_warning.vo.PendingGradingVO;
 import com.example.academic_risk_warning.vo.ScoreCellVO;
 import com.example.academic_risk_warning.vo.ScoreItemColumnVO;
@@ -76,16 +69,15 @@ public class ScoreMatrixService {
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
     private static final String ENGINE_VERSION = "1-10.v1";
+    /** M16 折算口径版本：按已录项重算的成绩单用这个版本号，和旧的 1-10.v1 可区分 */
+    private static final String M16_ENGINE_VERSION = "m16.v1";
 
-    private final ScoreSchemeMapper schemeMapper;
     private final ScoreSchemeItemMapper schemeItemMapper;
     private final ScoreItemMapper scoreItemMapper;
     private final ScoreResultMapper scoreResultMapper;
     private final EnrollmentMapper enrollmentMapper;
-    private final StudentMapper studentMapper;
     private final TeachingClassMapper classMapper;
     private final CourseOfferingMapper offeringMapper;
-    private final CourseGroupMapper groupMapper;
     private final CourseMapper courseMapper;
     private final TeacherMapper teacherMapper;
     private final TermMapper termMapper;
@@ -94,7 +86,7 @@ public class ScoreMatrixService {
     private final SubmissionMapper submissionMapper;
     private final ProjectTaskMapper projectTaskMapper;
     private final ProjectSubmissionMapper projectSubmissionMapper;
-    private final ProjectContributionMapper projectContributionMapper;
+    private final ScoreCalculator scoreCalculator;
     private final CourseContentService contentService;
     private final AuditService auditService;
 
@@ -156,50 +148,15 @@ public class ScoreMatrixService {
     }
 
     private ScoreMatrixVO buildMatrix(TeachingClass tc) {
-        List<ScoreSchemeItem> all = schemeItems(tc);
-        ScoreScheme scheme = schemeOf(tc);
-        List<ScoreSchemeItem> roots = all.stream().filter(i -> i.getParentId() == null).collect(Collectors.toList());
-        List<ScoreItemColumnVO> columns = new ArrayList<>();
-        Map<Long, String> rootNames = new LinkedHashMap<>();
-        for (ScoreSchemeItem r : roots) {
-            rootNames.put(r.getId(), r.getItemName());
-        }
-        for (ScoreSchemeItem it : all) {
-            boolean leaf = all.stream().noneMatch(x -> it.getId().equals(x.getParentId()));
-            if (!leaf) {
-                continue;
-            }
-            ScoreItemColumnVO c = new ScoreItemColumnVO();
-            c.setSchemeItemId(it.getId());
-            c.setItemName(it.getItemName());
-            c.setPath(it.getParentId() == null ? it.getItemName()
-                    : rootNames.getOrDefault(it.getParentId(), "") + " / " + it.getItemName());
-            c.setCategory(it.getCategory());
-            c.setWeight(it.getWeight());
-            c.setDataSource(it.getDataSource());
-            c.setScoreType(it.getScoreType());
-            c.setFullScore(it.getFullScore() == null ? HUNDRED : it.getFullScore());
-            c.setExpectedTimes(it.getExpectedTimes());
-            c.setParentId(it.getParentId());
-            columns.add(c);
-        }
-        List<Enrollment> ens = enrollmentMapper.selectList(Wrappers.<Enrollment>lambdaQuery()
-                .eq(Enrollment::getTeachingClassId, tc.getId())
-                .orderByAsc(Enrollment::getId));
-        List<Long> studentIds = ens.stream().map(Enrollment::getStudentId).distinct().collect(Collectors.toList());
-        Map<Long, Student> students = new LinkedHashMap<>();
-        if (!studentIds.isEmpty()) {
-            for (Student s : studentMapper.selectBatchIds(studentIds)) {
-                students.put(s.getId(), s);
-            }
-        }
-        Map<Long, Map<Long, BigDecimal>> manual = manualScores(tc, ens);
-        Map<Long, Map<Long, ScoreCellVO>> auto = autoScores(tc, columns, studentIds);
+        // 折算统一走 ScoreCalculator：成绩单页与风险判定引擎共用一套，避免两套数
+        ScoreCalculator.ClassScore sc = scoreCalculator.compute(tc);
+        List<ScoreItemColumnVO> columns = sc.columns;
+        List<Enrollment> ens = sc.enrollments;
+        Map<Long, Student> students = sc.students;
         Map<Long, int[]> attendance = attendanceOf(tc, ens);
-        CourseOffering offering = offeringMapper.selectById(tc.getOfferingId());
-        int effective = offering == null || offering.getEffectiveSessions() == null ? 0 : offering.getEffectiveSessions();
+        int effective = sc.effectiveSessions;
         int allowedAbsent = effective / 3;
-        int passScore = offering == null || offering.getPassScore() == null ? 60 : offering.getPassScore();
+        int passScore = sc.passScore;
 
         Map<Long, ScoreResult> persisted = new LinkedHashMap<>();
         if (!ens.isEmpty()) {
@@ -219,58 +176,11 @@ public class ScoreMatrixService {
             Student st = students.get(e.getStudentId());
             row.setStudentNo(st == null ? null : st.getStudentNo());
             row.setStudentName(st == null ? null : st.getStudentName());
-            Map<Long, ScoreCellVO> cells = new LinkedHashMap<>();
-            List<String> missing = new ArrayList<>();
-            BigDecimal weighted = BigDecimal.ZERO;
-            for (ScoreItemColumnVO c : columns) {
-                ScoreCellVO cell = null;
-                Map<Long, ScoreCellVO> autoRow = auto.get(e.getStudentId());
-                if (autoRow != null && autoRow.containsKey(c.getSchemeItemId())) {
-                    cell = autoRow.get(c.getSchemeItemId());
-                } else {
-                    Map<Long, BigDecimal> m = manual.get(e.getStudentId());
-                    BigDecimal v = m == null ? null : m.get(c.getSchemeItemId());
-                    if (v != null) {
-                        cell = new ScoreCellVO();
-                        cell.setScore(v);
-                        cell.setManual(true);
-                        cell.setSource("MANUAL");
-                        cell.setMissing(false);
-                    }
-                }
-                if (cell == null) {
-                    cell = new ScoreCellVO();
-                    cell.setMissing(true);
-                    cell.setManual(true);
-                    missing.add(c.getPath());
-                }
-                cells.put(c.getSchemeItemId(), cell);
-            }
+            ScoreCalculator.StudentScore ss = sc.byEnrollment.get(e.getId());
+            Map<Long, ScoreCellVO> cells = ss == null ? new LinkedHashMap<>() : ss.cells;
+            List<String> missing = ss == null ? new ArrayList<>() : ss.missingPaths;
             row.setCells(cells);
-            // 两级折算
-            for (ScoreSchemeItem r : roots) {
-                boolean isLeaf = all.stream().noneMatch(x -> r.getId().equals(x.getParentId()));
-                BigDecimal rootPct;
-                if (isLeaf) {
-                    ScoreCellVO cell = cells.get(r.getId());
-                    rootPct = cell == null || cell.getScore() == null ? BigDecimal.ZERO : cell.getScore();
-                } else {
-                    BigDecimal acc = BigDecimal.ZERO;
-                    for (ScoreSchemeItem child : all) {
-                        if (!r.getId().equals(child.getParentId())) {
-                            continue;
-                        }
-                        ScoreCellVO cell = cells.get(child.getId());
-                        BigDecimal score = cell == null || cell.getScore() == null ? BigDecimal.ZERO : cell.getScore();
-                        BigDecimal w = child.getWeight() == null ? BigDecimal.ZERO : child.getWeight();
-                        acc = acc.add(score.multiply(w).divide(HUNDRED, 4, RoundingMode.HALF_UP));
-                    }
-                    rootPct = acc;
-                }
-                BigDecimal rootWeight = r.getWeight() == null ? BigDecimal.ZERO : r.getWeight();
-                weighted = weighted.add(rootPct.multiply(rootWeight).divide(HUNDRED, 4, RoundingMode.HALF_UP));
-            }
-            weighted = weighted.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal weighted = ss == null ? BigDecimal.ZERO : ss.weightedScore;
             int[] att = attendance.getOrDefault(e.getStudentId(), new int[]{0, 0, 0});
             int absent = att[0];
             int late = att[1];
@@ -315,7 +225,7 @@ public class ScoreMatrixService {
         vo.setTeacherName(teacher == null ? null : teacher.getTeacherName());
         vo.setItems(columns);
         vo.setRows(rows);
-        vo.setSummary(summary(rows, passScore, scheme, missingGlobal));
+        vo.setSummary(summary(rows, passScore, sc.scheme, missingGlobal));
         return vo;
     }
 
@@ -491,6 +401,90 @@ public class ScoreMatrixService {
         return after;
     }
 
+    // ============================================================ 按已录项重算（M16）
+    /**
+     * 按"已录项"重算成绩单 `score_result`。
+     *
+     * <p>为什么要它：{@link #commitSummary} 要求所有分项齐全才允许汇总，而第 9 周期末还没考，
+     * 于是 `score_result` 长期停在"含期末预置分"的旧值，成绩单与预警判定的数对不上。</p>
+     *
+     * <p>这里的口径：只用**已录项**折算当前已得加权分（未录项按 0，不做归一），总评 = 加权分 − 考勤扣分；
+     * 分项没录齐时 `score_status = PARTIAL` 且**不按分数判挂**（只保留缺课硬线），齐全时才是 `FINAL`。
+     * 折算口径版本记 `m16.v1`，与旧值（`1-10.v1`）可区分。</p>
+     *
+     * @param termId 只重算该学期的开课实例；null 表示全部
+     * @return 写入（新增 + 覆盖）的条数
+     */
+    @Transactional
+    public int recomputeByRecorded(Long termId) {
+        int written = 0;
+        LocalDateTime now = LocalDateTime.now();
+        for (TeachingClass tc : classMapper.selectList(Wrappers.<TeachingClass>lambdaQuery())) {
+            CourseOffering offering = offeringMapper.selectById(tc.getOfferingId());
+            if (offering == null || (termId != null && !termId.equals(offering.getTermId()))) {
+                continue;
+            }
+            ScoreCalculator.ClassScore sc;
+            try {
+                sc = scoreCalculator.compute(tc);
+            } catch (BizException e) {
+                // 该课没配成绩构成，跳过（不能因为一门课没配就把整批重算打断）
+                continue;
+            }
+            Map<Long, int[]> attendance = attendanceOf(tc, sc.enrollments);
+            int passScore = sc.passScore;
+            int allowed = sc.effectiveSessions / 3;
+            for (Enrollment e : sc.enrollments) {
+                ScoreCalculator.StudentScore ss = sc.byEnrollment.get(e.getId());
+                if (ss == null) {
+                    continue;
+                }
+                int[] att = attendance.getOrDefault(e.getStudentId(), new int[]{0, 0, 0});
+                BigDecimal deduction = BigDecimal.valueOf(2L * att[0] + att[1] + Math.max(0, att[2] - 3));
+                BigDecimal weighted = ss.weightedScore == null ? BigDecimal.ZERO : ss.weightedScore;
+                BigDecimal total = weighted.subtract(deduction).setScale(2, RoundingMode.HALF_UP);
+                boolean hardFail = allowed > 0 && att[0] > allowed;
+                boolean complete = ss.missingPaths == null || ss.missingPaths.isEmpty();
+
+                ScoreResult r = scoreResultMapper.selectOne(Wrappers.<ScoreResult>lambdaQuery()
+                        .eq(ScoreResult::getEnrollmentId, e.getId()).last("limit 1"));
+                if (r == null) {
+                    r = new ScoreResult();
+                    r.setEnrollmentId(e.getId());
+                    r.setStudentId(e.getStudentId());
+                    r.setOfferingId(tc.getOfferingId());
+                    r.setTermId(offering.getTermId());
+                    r.setIsVoid(0);
+                }
+                r.setWeightedScore(weighted);
+                r.setDeductionPoints(deduction);
+                r.setTotalScore(total);
+                r.setPassScore(passScore);
+                r.setAbsentCount(att[0]);
+                r.setLateCount(att[1]);
+                r.setLeaveCount(att[2]);
+                r.setAllowedAbsent(allowed);
+                r.setEffectiveSessions(sc.effectiveSessions);
+                r.setHardFail(hardFail ? 1 : 0);
+                boolean fail = hardFail || (complete && total.compareTo(BigDecimal.valueOf(passScore)) < 0);
+                r.setIsFail(fail ? 1 : 0);
+                r.setFailReason(!fail ? null : (hardFail ? "HARD_LINE" : "SCORE"));
+                r.setScoreStatus(complete ? "FINAL" : "PARTIAL");
+                r.setEngineVersion(M16_ENGINE_VERSION);
+                r.setCalculatedAt(now);
+                if (r.getId() == null) {
+                    scoreResultMapper.insert(r);
+                } else {
+                    scoreResultMapper.updateById(r);
+                }
+                written++;
+            }
+        }
+        auditService.record("SCORE_RESULT", termId, "RECOMPUTE", null, null,
+                "按已录项重算成绩单：" + written + " 条（分项未齐记 PARTIAL，不计分数挂科），口径 " + M16_ENGINE_VERSION);
+        return written;
+    }
+
     // ============================================================ 导出
     public String exportCsv(Long teachingClassId, Long teacherId) {
         TeachingClass tc = contentService.requireMyClass(teachingClassId, teacherId);
@@ -631,185 +625,6 @@ public class ScoreMatrixService {
         }
         Course c = courseMapper.selectById(o.getCourseId());
         return c == null ? null : c.getCourseName();
-    }
-
-    private ScoreScheme schemeOf(TeachingClass tc) {
-        CourseOffering o = offeringMapper.selectById(tc.getOfferingId());
-        if (o == null) {
-            return null;
-        }
-        CourseGroup group = groupMapper.selectOne(Wrappers.<CourseGroup>lambdaQuery()
-                .eq(CourseGroup::getCourseId, o.getCourseId())
-                .eq(CourseGroup::getTermId, o.getTermId()).last("limit 1"));
-        if (group == null) {
-            return null;
-        }
-        return schemeMapper.selectOne(Wrappers.<ScoreScheme>lambdaQuery()
-                .eq(ScoreScheme::getGroupId, group.getId())
-                .orderByDesc(ScoreScheme::getVersion).last("limit 1"));
-    }
-
-    private List<ScoreSchemeItem> schemeItems(TeachingClass tc) {
-        ScoreScheme scheme = schemeOf(tc);
-        if (scheme == null) {
-            throw new BizException("该课程的老师还没有配置并锁定成绩构成，不能算分");
-        }
-        return schemeItemMapper.selectList(Wrappers.<ScoreSchemeItem>lambdaQuery()
-                .eq(ScoreSchemeItem::getSchemeId, scheme.getId())
-                .eq(ScoreSchemeItem::getStatus, "ACTIVE")
-                .orderByAsc(ScoreSchemeItem::getSortNo));
-    }
-
-    /** 手工分项：按 (studentId, schemeItemId) 取多批次平均，换算成百分制 */
-    private Map<Long, Map<Long, BigDecimal>> manualScores(TeachingClass tc, List<Enrollment> ens) {
-        Map<Long, Map<Long, BigDecimal>> out = new LinkedHashMap<>();
-        if (ens.isEmpty()) {
-            return out;
-        }
-        List<ScoreItem> rows = scoreItemMapper.selectList(Wrappers.<ScoreItem>lambdaQuery()
-                .in(ScoreItem::getEnrollmentId, ens.stream().map(Enrollment::getId).collect(Collectors.toList()))
-                .eq(ScoreItem::getIsVoid, 0));
-        Map<Long, Map<Long, List<ScoreItem>>> grouped = new LinkedHashMap<>();
-        for (ScoreItem r : rows) {
-            grouped.computeIfAbsent(r.getStudentId(), k -> new LinkedHashMap<>())
-                    .computeIfAbsent(r.getSchemeItemId(), k -> new ArrayList<>()).add(r);
-        }
-        for (Map.Entry<Long, Map<Long, List<ScoreItem>>> byStudent : grouped.entrySet()) {
-            for (Map.Entry<Long, List<ScoreItem>> e : byStudent.getValue().entrySet()) {
-                BigDecimal sum = BigDecimal.ZERO;
-                int n = 0;
-                for (ScoreItem r : e.getValue()) {
-                    BigDecimal full = r.getFullScore() == null || r.getFullScore().signum() == 0
-                            ? HUNDRED : r.getFullScore();
-                    BigDecimal score = r.getScore() == null ? BigDecimal.ZERO : r.getScore();
-                    sum = sum.add(score.multiply(HUNDRED).divide(full, 4, RoundingMode.HALF_UP));
-                    n++;
-                }
-                if (n > 0) {
-                    out.computeIfAbsent(byStudent.getKey(), k -> new LinkedHashMap<>())
-                            .put(e.getKey(), sum.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP));
-                }
-            }
-        }
-        return out;
-    }
-
-    /** 自动分项：测验/作业按试卷均分、项目按个人得分（团队按贡献折算）换算百分制 */
-    private Map<Long, Map<Long, ScoreCellVO>> autoScores(TeachingClass tc, List<ScoreItemColumnVO> columns,
-                                                         List<Long> studentIds) {
-        Map<Long, Map<Long, ScoreCellVO>> out = new LinkedHashMap<>();
-        for (ScoreItemColumnVO c : columns) {
-            if (!"AUTO".equalsIgnoreCase(c.getDataSource())) {
-                continue;
-            }
-            Map<Long, List<BigDecimal>> acc = new LinkedHashMap<>();
-            Map<Long, Integer> absentFlag = new LinkedHashMap<>();
-            // 试卷
-            List<Paper> papers = paperMapper.selectList(Wrappers.<Paper>lambdaQuery()
-                    .eq(Paper::getTeachingClassId, tc.getId())
-                    .eq(Paper::getSchemeItemId, c.getSchemeItemId())
-                    .in(Paper::getStatus, List.of("PUBLISHED", "CLOSED")));
-            for (Paper p : papers) {
-                List<Submission> subs = submissionMapper.selectList(Wrappers.<Submission>lambdaQuery()
-                        .eq(Submission::getPaperId, p.getId()));
-                Map<Long, Submission> byStudent = subs.stream()
-                        .collect(Collectors.toMap(Submission::getStudentId, s -> s, (a, b) -> a));
-                for (Long sid : studentIds) {
-                    Submission s = byStudent.get(sid);
-                    BigDecimal pct;
-                    if (s == null || (s.getIsAbsent() != null && s.getIsAbsent() == 1)) {
-                        pct = BigDecimal.ZERO;
-                        absentFlag.put(sid, 1);
-                    } else {
-                        BigDecimal full = p.getFullScore() == null || p.getFullScore().signum() == 0
-                                ? HUNDRED : p.getFullScore();
-                        BigDecimal got = s.getTotalScore() != null ? s.getTotalScore()
-                                : (s.getObjectiveScore() == null ? BigDecimal.ZERO : s.getObjectiveScore());
-                        pct = got.multiply(HUNDRED).divide(full, 2, RoundingMode.HALF_UP);
-                    }
-                    acc.computeIfAbsent(sid, k -> new ArrayList<>()).add(pct);
-                }
-            }
-            // 项目
-            List<ProjectTask> tasks = projectTaskMapper.selectList(Wrappers.<ProjectTask>lambdaQuery()
-                    .eq(ProjectTask::getTeachingClassId, tc.getId())
-                    .eq(ProjectTask::getSchemeItemId, c.getSchemeItemId())
-                    .in(ProjectTask::getStatus, List.of("PUBLISHED", "CLOSED")));
-            for (ProjectTask t : tasks) {
-                List<ProjectSubmission> subs = projectSubmissionMapper.selectList(
-                        Wrappers.<ProjectSubmission>lambdaQuery()
-                                .eq(ProjectSubmission::getProjectId, t.getId()));
-                for (Long sid : studentIds) {
-                    ProjectSubmission mine = null;
-                    BigDecimal ratio = BigDecimal.ONE;
-                    BigDecimal teamSize = BigDecimal.ONE;
-                    for (ProjectSubmission s : subs) {
-                        if (s.getTeamId() == null && sid.equals(s.getStudentId())) {
-                            mine = s;
-                            break;
-                        }
-                        if (s.getTeamId() != null) {
-                            ProjectContribution pc = projectContributionMapper.selectOne(
-                                    Wrappers.<ProjectContribution>lambdaQuery()
-                                            .eq(ProjectContribution::getProjectId, t.getId())
-                                            .eq(ProjectContribution::getTeamId, s.getTeamId()).last("limit 1"));
-                            if (pc == null) {
-                                continue;
-                            }
-                            List<Map<String, String>> mems = JsonObjects.arrayObjects(pc.getContributionJson());
-                            for (Map<String, String> mem : mems) {
-                                if (String.valueOf(sid).equals(mem.get("studentId"))) {
-                                    mine = s;
-                                    try {
-                                        ratio = new BigDecimal(mem.get("ratio"));
-                                    } catch (RuntimeException ignored) {
-                                        ratio = BigDecimal.ONE;
-                                    }
-                                    // 个人得分 = 团队得分 × 个人占比 × 组员数：等分时等于团队分，超出均值按比例上浮（上限 100）
-                                    teamSize = BigDecimal.valueOf(Math.max(1, mems.size()));
-                                    break;
-                                }
-                            }
-                        }
-                        if (mine != null) {
-                            break;
-                        }
-                    }
-                    BigDecimal pct;
-                    if (mine == null || mine.getProjectScore() == null) {
-                        pct = BigDecimal.ZERO;
-                        absentFlag.put(sid, 1);
-                    } else {
-                        BigDecimal full = t.getFullScore() == null || t.getFullScore().signum() == 0
-                                ? HUNDRED : t.getFullScore();
-                        pct = mine.getProjectScore().multiply(ratio).multiply(teamSize).multiply(HUNDRED)
-                                .divide(full, 2, RoundingMode.HALF_UP);
-                        if (pct.compareTo(HUNDRED) > 0) {
-                            pct = HUNDRED;
-                        }
-                    }
-                    acc.computeIfAbsent(sid, k -> new ArrayList<>()).add(pct);
-                }
-            }
-            if (acc.isEmpty()) {
-                continue;
-            }
-            for (Map.Entry<Long, List<BigDecimal>> e : acc.entrySet()) {
-                BigDecimal sum = e.getValue().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal avg = sum.divide(BigDecimal.valueOf(e.getValue().size()), 2, RoundingMode.HALF_UP);
-                ScoreCellVO cell = new ScoreCellVO();
-                cell.setScore(avg);
-                cell.setSource("AUTO");
-                cell.setManual(false);
-                cell.setMissing(false);
-                cell.setTimes(e.getValue().size());
-                cell.setIsAbsent(absentFlag.getOrDefault(e.getKey(), 0));
-                cell.setNote("按 " + e.getValue().size() + " 次自动汇总");
-                out.computeIfAbsent(e.getKey(), k -> new LinkedHashMap<>())
-                        .put(c.getSchemeItemId(), cell);
-            }
-        }
-        return out;
     }
 
     /** 考勤计数 [缺课, 迟到, 请假] */

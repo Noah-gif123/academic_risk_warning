@@ -4,33 +4,32 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.academic_risk_warning.common.BizException;
 import com.example.academic_risk_warning.entity.AttendanceRecord;
 import com.example.academic_risk_warning.entity.Course;
+import com.example.academic_risk_warning.entity.CourseFailRateHistory;
 import com.example.academic_risk_warning.entity.CourseOffering;
 import com.example.academic_risk_warning.entity.CourseSession;
 import com.example.academic_risk_warning.entity.Enrollment;
 import com.example.academic_risk_warning.entity.RiskEngineConfig;
 import com.example.academic_risk_warning.entity.RiskState;
-import com.example.academic_risk_warning.entity.ScoreItem;
-import com.example.academic_risk_warning.entity.ScoreResult;
-import com.example.academic_risk_warning.entity.ScoreScheme;
-import com.example.academic_risk_warning.entity.ScoreSchemeItem;
 import com.example.academic_risk_warning.entity.Student;
+import com.example.academic_risk_warning.entity.StudentFailHistory;
+import com.example.academic_risk_warning.entity.TeacherStyle;
 import com.example.academic_risk_warning.entity.TeachingClass;
 import com.example.academic_risk_warning.entity.Term;
 import com.example.academic_risk_warning.mapper.AttendanceRecordMapper;
+import com.example.academic_risk_warning.mapper.CourseFailRateHistoryMapper;
 import com.example.academic_risk_warning.mapper.CourseMapper;
 import com.example.academic_risk_warning.mapper.CourseOfferingMapper;
 import com.example.academic_risk_warning.mapper.CourseSessionMapper;
 import com.example.academic_risk_warning.mapper.EnrollmentMapper;
 import com.example.academic_risk_warning.mapper.RiskEngineConfigMapper;
 import com.example.academic_risk_warning.mapper.RiskStateMapper;
-import com.example.academic_risk_warning.mapper.ScoreItemMapper;
-import com.example.academic_risk_warning.mapper.ScoreResultMapper;
-import com.example.academic_risk_warning.mapper.ScoreSchemeItemMapper;
-import com.example.academic_risk_warning.mapper.ScoreSchemeMapper;
+import com.example.academic_risk_warning.mapper.StudentFailHistoryMapper;
 import com.example.academic_risk_warning.mapper.StudentMapper;
+import com.example.academic_risk_warning.mapper.TeacherStyleMapper;
 import com.example.academic_risk_warning.mapper.TeachingClassMapper;
 import com.example.academic_risk_warning.mapper.TermMapper;
 import com.example.academic_risk_warning.security.LoginUser;
+import com.example.academic_risk_warning.util.JsonObjects;
 import com.example.academic_risk_warning.util.RiskMath;
 import com.example.academic_risk_warning.vo.RiskEvaluateResultVO;
 import com.example.academic_risk_warning.vo.RiskRowVO;
@@ -44,17 +43,30 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 风险判定引擎（第二阶段第 1 步）：
+ * 风险判定引擎（第二阶段第 1 步 + M16 口径改造）：
  * 读取选课 / 考勤 / 成绩，按冻结口径算出每个学生每门课的风险，写入 risk_state（一人一课一行，覆盖刷新）。
  *
- * <p>本轮实现 A 通道（1/3 硬门槛、剩余可缺、期末需考可达性）与 B 通道（班内相对风险分）；
- * C 通道（教师尺度 Δ̂ + 课程因子 c 的跨班可比）留到第三阶段，字段置空。</p>
+ * <p>M16 口径：</p>
+ * <ul>
+ *   <li>过程分只取**非终结性分支**分项、按**已录项**归一（成绩折算统一走 {@link ScoreCalculator}，
+ *       与成绩单页同一套数，不再读 {@code score_result} 的历史总评）；</li>
+ *   <li>期末/大作业只作"需考/需得"目标：`需考 = (及格线 + 扣分 − 过程分×(1−r_final)) / r_final`，
+ *       `r_final` 取终结性**根**分支权重（不是子项 100%）；</li>
+ *   <li>等级走绝对口径：需考 60→0 分、100→100 分，再叠 A 通道硬门槛与"再缺即挂"；</li>
+ *   <li>C 通道乘子：课程类型（考试 ×1.10 / 考查 ×0.90）、该科历史挂科率、教师风格（teacher_style.Δ）、
+ *       个人前科（student_fail_history），乘在风险分上；缺历史时一律 1.00，不凭空抬风险。</li>
+ * </ul>
+ *
+ * <p>B 通道（班内相对分）降级为排序字段：{@code channel_b_rank} 只是列表顺序，不是预警结论。</p>
  */
 @Slf4j
 @Service
@@ -62,6 +74,12 @@ import java.util.stream.Collectors;
 public class RiskEngineService {
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
+    private static final BigDecimal ONE = BigDecimal.ONE;
+    /** 过程分覆盖率闸门：低于 30% 只给行为预警，不给"需考"结论 */
+    private static final BigDecimal PROCESS_COVERAGE_GATE = new BigDecimal("0.30");
+    /** 教师风格判别阈值（Δ ≤ −1.0 判严格、Δ ≥ +0.5 判宽松） */
+    private static final BigDecimal STRICT_DELTA = new BigDecimal("-1.0");
+    private static final BigDecimal LOOSE_DELTA = new BigDecimal("0.5");
 
     private final EnrollmentMapper enrollmentMapper;
     private final StudentMapper studentMapper;
@@ -70,16 +88,17 @@ public class RiskEngineService {
     private final CourseMapper courseMapper;
     private final CourseSessionMapper sessionMapper;
     private final AttendanceRecordMapper attendanceMapper;
-    private final ScoreResultMapper scoreResultMapper;
-    private final ScoreItemMapper scoreItemMapper;
-    private final ScoreSchemeMapper schemeMapper;
-    private final ScoreSchemeItemMapper schemeItemMapper;
     private final RiskStateMapper riskStateMapper;
     private final RiskEngineConfigMapper configMapper;
     private final TermMapper termMapper;
+    private final TeacherStyleMapper teacherStyleMapper;
+    private final CourseFailRateHistoryMapper courseFailRateMapper;
+    private final StudentFailHistoryMapper failHistoryMapper;
+    private final ScoreCalculator scoreCalculator;
     private final CourseContentService contentService;
     private final AuditService auditService;
     private final AlertEventService alertEventService;
+
 
     // ============================================================ 判定入口
     /**
@@ -142,74 +161,44 @@ public class RiskEngineService {
         int inserted = 0;
         int updated = 0;
         int levelChanged = 0;
+        LocalDateTime now = LocalDateTime.now();
+        Set<Long> syntheticTerms = syntheticTermIds();
         for (Map.Entry<Long, List<Enrollment>> entry : byClass.entrySet()) {
-            Long tcId = entry.getKey();
-            TeachingClass tc = classMapper.selectById(tcId);
+            TeachingClass tc = classMapper.selectById(entry.getKey());
             if (tc == null) {
                 continue;
             }
             CourseOffering offering = offeringMapper.selectById(tc.getOfferingId());
-            List<CourseSession> sessions = sessionsOf(tcId);
+            List<CourseSession> sessions = sessionsOf(tc.getId());
             List<Long> sessionIds = sessions.stream().map(CourseSession::getId).collect(Collectors.toList());
             int effective = effectiveSessions(offering, sessions);
             Integer allowed = RiskMath.allowedAbsent(effective);
             double coverage = coverageOf(sessions);
 
-            // 班内排名用的总评分
             List<Enrollment> classEnrollments = entry.getValue();
-            Map<Long, ScoreResult> results = resultsOf(classEnrollments.stream()
-                    .map(Enrollment::getId).collect(Collectors.toList()));
+            // M16：成绩折算走 ScoreCalculator（与成绩单页同一套数），不再读 score_result
+            ScoreCalculator.ClassScore sc = scoreCalculator.compute(tc);
+            Course course = offering == null ? null : courseMapper.selectById(offering.getCourseId());
+            ChannelC cc = channelC(tc, offering, course, classEnrollments, syntheticTerms, config);
 
+            List<Decision> decisions = new ArrayList<>();
             for (Enrollment e : classEnrollments) {
                 if (e.getStatus() != null && ("WITHDRAWN".equals(e.getStatus()) || "SUSPENDED".equals(e.getStatus()))) {
                     continue;
                 }
-                ScoreResult sr = results.get(e.getId());
-                int[] att = attendanceCount(e.getId(), sessionIds);
-                int absent = att[0];
-                int late = att[1];
-                int leave = att[2];
+                decisions.add(decide(sc, cc, e, sessionIds, allowed, coverage, effective, config));
+            }
+            // 名次只用于列表排序（风险分从高到低），不参与定级
+            decisions.sort(Comparator.comparing((Decision d) -> d.riskScore,
+                    Comparator.nullsLast(Comparator.reverseOrder())));
+            for (int i = 0; i < decisions.size(); i++) {
+                decisions.get(i).rank = i + 1;
+                decisions.get(i).classSize = decisions.size();
+            }
 
-                int remaining = RiskMath.remainingAbsent(allowed, absent);
-                boolean hardFail = absent > allowed;
-                String aLevel = RiskMath.channelALevel(absent, allowed);
-
-                BigDecimal W = sr == null ? null : sr.getWeightedScore();
-                BigDecimal P = sr == null ? null
-                        : (sr.getDeductionPoints() != null ? sr.getDeductionPoints()
-                        : RiskMath.deductionPoints(absent, late, leave, nz(config.getLeaveFreeTimes())));
-                BigDecimal T = sr == null ? null : sr.getTotalScore();
-                BigDecimal pass = sr != null && sr.getPassScore() != null ? BigDecimal.valueOf(sr.getPassScore())
-                        : (offering != null && offering.getPassScore() != null
-                        ? BigDecimal.valueOf(offering.getPassScore()) : BigDecimal.valueOf(60));
-
-                // 期末需考（仅当能定位到期末评分项时给值）
-                BigDecimal[] need = finalNeed(tc.getOfferingId(), e.getId(), W, P, pass, config);
-                BigDecimal finalNeeded = need == null ? null : need[0];
-                boolean finalUnreachable = need != null && need[1].signum() > 0;
-
-                // B 通道：班内相对风险分
-                BigDecimal bScore = RiskMath.channelBScore(T, absent);
-                int rank = rankOf(classEnrollments, results, T, e.getId());
-                int classSize = classEnrollments.size();
-
-                // 置信度：覆盖率 × 数据完备度 × 样本充足度
-                double completeness = T != null ? 1.0 : (sr != null ? 0.6 : 0.3);
-                double sample = effective >= 8 ? 1.0 : (effective >= 4 ? 0.7 : 0.5);
-                BigDecimal confidence = RiskMath.confidence(coverage, completeness, sample);
-                if (config.getConfidenceMinOk() != null
-                        && confidence.compareTo(config.getConfidenceMinOk()) < 0) {
-                    confidence = config.getConfidenceMinOk();
-                }
-                String outputMode = RiskMath.outputMode(confidence, coverage);
-
-                // 对外风险分与等级：硬门槛直接最高档，否则用 B 通道分
-                BigDecimal riskScore = hardFail ? BigDecimal.valueOf(95) : bScore;
-                String level = RiskMath.riskLevel(riskScore,
-                        config.getThresholdRed(), config.getThresholdOrange(), config.getThresholdYellow());
-
+            for (Decision d : decisions) {
                 RiskState existing = riskStateMapper.selectOne(Wrappers.<RiskState>lambdaQuery()
-                        .eq(RiskState::getEnrollmentId, e.getId()).last("limit 1"));
+                        .eq(RiskState::getEnrollmentId, d.enrollment.getId()).last("limit 1"));
                 String beforeLevel = existing == null ? null : existing.getRiskLevel();
                 // 判定前快照（只看等级，用于事件层判断生成/升级/降级/关闭）
                 RiskState beforeSnapshot = null;
@@ -218,54 +207,20 @@ public class RiskEngineService {
                     beforeSnapshot.setRiskLevel(existing.getRiskLevel());
                 }
                 RiskState state = existing == null ? new RiskState() : existing;
-
-                state.setEnrollmentId(e.getId());
-                state.setStudentId(e.getStudentId());
-                state.setOfferingId(e.getOfferingId() != null ? e.getOfferingId() : tc.getOfferingId());
-                state.setTeachingClassId(tcId);
-                state.setTermId(e.getTermId());
-                state.setAbsentCount(absent);
-                state.setLateCount(late);
-                state.setLeaveCount(leave);
-                state.setAllowedAbsent(allowed);
-                state.setRemainingAbsent(remaining);
-                state.setHardFail(hardFail ? 1 : 0);
-                state.setNearFail(remaining <= 1 ? 1 : 0);
-                state.setFinalExamNeeded(finalNeeded);
-                state.setFinalUnreachable(finalUnreachable ? 1 : 0);
-                state.setChannelALevel(aLevel);
-                state.setChannelBScore(bScore);
-                state.setChannelBRank(rank);
-                state.setChannelBClassSize(classSize);
-                state.setChannelBLevel("SAME_AS_A");
-                state.setChannelCScore(null);
-                state.setDeltaUsed(null);
-                state.setCourseFactorUsed(null);
-                state.setChannelCLevel(null);
-                state.setRiskScore(riskScore);
-                state.setRiskLevel(level);
-                state.setActiveChannel(hardFail ? "A" : "B");
-                state.setConfidence(confidence);
-                state.setConfidenceLevel(RiskMath.confidenceLevel(confidence));
-                state.setOutputMode(outputMode);
-                state.setDataQualityJson(dataQuality(coverage, completeness, sample, effective, absent, allowed, remaining));
-                state.setTriggerSource(result.getTrigger());
-                state.setLastEvalTime(LocalDateTime.now());
-                state.setEngineVersion(config.getEngineVersion());
-                state.setIsVoid(0);
+                applyDecision(state, d, cc, tc, result.getTrigger(), config, now);
                 if (existing == null) {
-                    state.setCreateTime(LocalDateTime.now());
-                    state.setUpdateTime(LocalDateTime.now());
+                    state.setCreateTime(now);
+                    state.setUpdateTime(now);
                     riskStateMapper.insert(state);
                     inserted++;
                 } else {
-                    state.setUpdateTime(LocalDateTime.now());
+                    state.setUpdateTime(now);
                     riskStateMapper.updateById(state);
                     updated++;
                 }
                 // 第 2 步：判定后同步预警事件（生成 / 升级 / 降级 / 自动关闭 + 通知）
                 alertEventService.sync(beforeSnapshot, state);
-                if (beforeLevel != null && !beforeLevel.equals(level)) {
+                if (beforeLevel != null && !beforeLevel.equals(d.level)) {
                     levelChanged++;
                 }
             }
@@ -406,18 +361,6 @@ public class RiskEngineService {
                 .orderByAsc(CourseSession::getSessionNo));
     }
 
-    private Map<Long, ScoreResult> resultsOf(List<Long> enrollmentIds) {
-        Map<Long, ScoreResult> map = new LinkedHashMap<>();
-        if (enrollmentIds.isEmpty()) {
-            return map;
-        }
-        scoreResultMapper.selectList(Wrappers.<ScoreResult>lambdaQuery()
-                        .in(ScoreResult::getEnrollmentId, enrollmentIds)
-                        .eq(ScoreResult::getIsVoid, 0))
-                .forEach((r) -> map.put(r.getEnrollmentId(), r));
-        return map;
-    }
-
     private Map<Long, Student> studentsOf(List<Long> studentIds) {
         Map<Long, Student> map = new LinkedHashMap<>();
         if (studentIds.isEmpty()) {
@@ -489,67 +432,366 @@ public class RiskEngineService {
     }
 
     /**
-     * 期末需考：x = (及格线 + P − 其余项加权) / 期末权重占比。
-     * 找不到期末评分项（item_code=FINAL）或没有分项得分时返回 null（页面显示“—”）。
+     * 期末/大作业需考：x = (及格线 + P − W_est) / r_final，W_est = 过程分 × (1 − r_final)。
+     *
+     * <p>M16 起不再自己找评分项：`r_final` 由 {@link ScoreCalculator} 按**根分支**给出（子项 weight
+     * 是父项内部的 100%，拿它当 r_final 会得到 1.0，把过程分整段丢掉）。</p>
      */
-    private BigDecimal[] finalNeed(Long offeringId, Long enrollmentId, BigDecimal W, BigDecimal P,
-                                   BigDecimal pass, RiskEngineConfig config) {
-        ScoreScheme scheme = schemeMapper.selectOne(Wrappers.<ScoreScheme>lambdaQuery()
-                .eq(ScoreScheme::getGroupId, offeringId).orderByDesc(ScoreScheme::getId).last("limit 1"));
-        if (scheme == null) {
+    private BigDecimal[] finalNeed(BigDecimal pass, BigDecimal deduction, BigDecimal earned,
+                                   BigDecimal finalRatio, BigDecimal finalFull) {
+        if (finalRatio == null || finalRatio.signum() <= 0 || earned == null) {
             return null;
         }
-        ScoreSchemeItem finalItem = schemeItemMapper.selectOne(Wrappers.<ScoreSchemeItem>lambdaQuery()
-                .eq(ScoreSchemeItem::getSchemeId, scheme.getId())
-                .eq(ScoreSchemeItem::getCategory, "FINAL")
-                .isNotNull(ScoreSchemeItem::getParentId)
-                .orderByDesc(ScoreSchemeItem::getId).last("limit 1"));
-        if (finalItem == null) {
-            // 兼容旧构成：终结性项直接挂在根层、code 为 FINAL
-            finalItem = schemeItemMapper.selectOne(Wrappers.<ScoreSchemeItem>lambdaQuery()
-                    .eq(ScoreSchemeItem::getSchemeId, scheme.getId())
-                    .eq(ScoreSchemeItem::getItemCode, "FINAL").last("limit 1"));
-        }
-        if (finalItem == null || finalItem.getWeight() == null || finalItem.getWeight().signum() <= 0) {
-            return null;
-        }
-        BigDecimal ratio = finalItem.getWeight().divide(HUNDRED, 4, RoundingMode.HALF_UP);
-        BigDecimal full = finalItem.getFullScore() == null ? HUNDRED : finalItem.getFullScore();
-        BigDecimal finalWeighted = BigDecimal.ZERO;
-        List<ScoreItem> items = scoreItemMapper.selectList(Wrappers.<ScoreItem>lambdaQuery()
-                .eq(ScoreItem::getEnrollmentId, enrollmentId)
-                .eq(ScoreItem::getSchemeItemId, finalItem.getId())
-                .eq(ScoreItem::getIsVoid, 0));
-        if (!items.isEmpty() && items.get(0).getScore() != null) {
-            BigDecimal got = items.get(0).getScore();
-            BigDecimal itemFull = items.get(0).getFullScore() == null ? HUNDRED : items.get(0).getFullScore();
-            finalWeighted = got.divide(itemFull, 4, RoundingMode.HALF_UP).multiply(ratio).multiply(HUNDRED);
-        }
-        BigDecimal finalFull = RiskMath.finalExamNeeded(pass, P, W, finalWeighted, ratio, full)[0];
-        boolean reachable = finalFull == null || finalFull.compareTo(full) <= 0;
-        return new BigDecimal[] { finalFull, reachable ? BigDecimal.ZERO : BigDecimal.ONE };
+        return RiskMath.finalExamNeeded(pass, deduction, earned, BigDecimal.ZERO, finalRatio, finalFull);
     }
 
-    private int rankOf(List<Enrollment> list, Map<Long, ScoreResult> results, BigDecimal myTotal, Long myEnrollmentId) {
-        List<BigDecimal> totals = new ArrayList<>();
-        for (Enrollment e : list) {
-            ScoreResult r = results.get(e.getId());
-            totals.add(r == null || r.getTotalScore() == null ? BigDecimal.valueOf(Long.MAX_VALUE) : r.getTotalScore());
-        }
-        totals.sort(BigDecimal::compareTo);
-        int idx = totals.indexOf(myTotal == null ? BigDecimal.valueOf(Long.MAX_VALUE) : myTotal);
-        return idx < 0 ? list.size() : idx + 1;
+    // ============================================================ 一条判定的结论
+    /** 一个学生在一门课上的判定结论（先算完再排名，避免边算边排） */
+    private static final class Decision {
+        Enrollment enrollment;
+        int absent;
+        int late;
+        int leave;
+        Integer allowed;
+        Integer remaining;
+        boolean hardFail;
+        String aLevel;
+        BigDecimal processScore;
+        BigDecimal processCoverage;
+        BigDecimal missingWeight;
+        BigDecimal finalRatio;
+        BigDecimal baseScore;
+        BigDecimal need;
+        boolean unreachable;
+        BigDecimal factor;
+        BigDecimal riskScore;
+        String level;
+        String activeChannel;
+        boolean terminalScored;
+        BigDecimal terminalScore;
+        boolean factorApplied;
+        BigDecimal confidence;
+        String outputMode;
+        String dataQuality;
+        int rank;
+        int classSize;
     }
 
-    private String dataQuality(double coverage, double completeness, double sample,
-                               int effective, int absent, int allowed, int remaining) {
+    /** C 通道因子：课程类型 / 历史挂科率 / 教师风格（班级级）+ 个人前科（学生级） */
+    private static final class ChannelC {
+        BigDecimal courseType = ONE;
+        BigDecimal failRate = ONE;
+        BigDecimal teacher = ONE;
+        BigDecimal delta;
+        String failRateNote = "absent";
+        Map<Long, BigDecimal> personal = new LinkedHashMap<>();
+
+        BigDecimal personalOf(Long studentId) {
+            BigDecimal f = personal.get(studentId);
+            return f == null ? ONE : f;
+        }
+    }
+
+    /** 课程历史挂科率因子与取数说明 */
+    private record FailRateFactor(BigDecimal factor, String note) {
+    }
+
+    /** 一个学生的判定（不含名次；名次由调用方统一给） */
+    private Decision decide(ScoreCalculator.ClassScore sc, ChannelC cc, Enrollment e, List<Long> sessionIds,
+                            Integer allowed, double coverage, int effective, RiskEngineConfig config) {
+        Decision d = new Decision();
+        d.enrollment = e;
+        d.allowed = allowed;
+        ScoreCalculator.StudentScore ss = sc.byEnrollment.get(e.getId());
+        int[] att = attendanceCount(e.getId(), sessionIds);
+        d.absent = att[0];
+        d.late = att[1];
+        d.leave = att[2];
+        d.remaining = RiskMath.remainingAbsent(allowed, d.absent);
+        d.hardFail = d.absent > allowed;
+        d.aLevel = RiskMath.channelALevel(d.absent, allowed);
+        d.processScore = ss == null ? null : ss.processScore;
+        d.processCoverage = ss == null || ss.processCoverage == null ? BigDecimal.ZERO : ss.processCoverage;
+        d.missingWeight = ss == null || ss.missingWeight == null ? BigDecimal.ZERO : ss.missingWeight;
+        d.finalRatio = sc.finalRatio;
+
+        BigDecimal pass = BigDecimal.valueOf(sc.passScore);
+        BigDecimal finalFull = config.getFinalFullScore() == null ? HUNDRED : config.getFinalFullScore();
+        BigDecimal deduction = RiskMath.deductionPoints(d.absent, d.late, d.leave, nz(config.getLeaveFreeTimes()));
+        boolean processReady = d.processCoverage.compareTo(PROCESS_COVERAGE_GATE) >= 0;
+        BigDecimal earned = processReady ? RiskMath.estimatedEarned(d.processScore, d.finalRatio) : null;
+        BigDecimal[] need = finalNeed(pass, deduction, earned, d.finalRatio, finalFull);
+        BigDecimal required = need == null ? null : need[0];
+        BigDecimal terminalActual = ss == null ? null : ss.terminalScore;
+        d.terminalScored = terminalActual != null;
+        d.terminalScore = terminalActual;
+        d.unreachable = need != null && need[1].signum() > 0;
+
+        // 分数型风险（不含门槛地板）：后面先乘 C 通道乘子，再和确定性门槛取最大
+        BigDecimal base;
+        if (!processReady || required == null) {
+            d.need = null;
+            base = null;
+        } else if (d.unreachable) {
+            d.need = required;
+            base = null;                       // 门槛地板 100 兜住
+        } else if (d.terminalScored) {
+            // 终结分支已录分（如考查课的大作业批完了）：看"还差多少分"，而不是"还需要考多少分"
+            BigDecimal gap = required.subtract(terminalActual).max(BigDecimal.ZERO);
+            d.need = gap;
+            base = RiskMath.clamp100(gap.multiply(HUNDRED).divide(finalFull, 2, RoundingMode.HALF_UP));
+        } else {
+            d.need = required;
+            base = RiskMath.absoluteRiskScore(required, pass, finalFull);
+        }
+        d.baseScore = base == null ? BigDecimal.ZERO : base;
+        d.factor = cc.courseType.multiply(cc.failRate).multiply(cc.teacher)
+                .multiply(cc.personalOf(e.getStudentId())).setScale(4, RoundingMode.HALF_UP);
+        // C 通道乘子只校准"分数型"风险；确定性门槛（缺课硬线、需考不可达、再缺即挂）取最大、不连乘，
+        // 否则 55×1.15 会把"再缺一次即挂"从黄抬到橙，档位就不可解释了。
+        BigDecimal scorePart = base == null ? BigDecimal.ZERO : base;
+        if (base != null) {
+            scorePart = RiskMath.clamp100(scorePart.multiply(d.factor).setScale(2, RoundingMode.HALF_UP));
+            d.factorApplied = d.factor.compareTo(ONE) != 0;
+        }
+        BigDecimal floor = RiskMath.guardFloor(d.hardFail, d.unreachable, d.remaining);
+        d.riskScore = RiskMath.clamp100(scorePart.max(floor));
+        d.level = RiskMath.riskLevel(d.riskScore,
+                config.getThresholdRed(), config.getThresholdOrange(), config.getThresholdYellow());
+        d.activeChannel = d.hardFail ? "A" : (d.factorApplied ? "C" : "B");
+
+        // 置信度：点名覆盖率 × 完备度 × 样本 × 过程分覆盖率；floor 只抬"点名覆盖率不足"那一路
+        double completeness = d.processScore != null ? 1.0 : (processReady ? 0.6 : 0.3);
+        double sample = effective >= 8 ? 1.0 : (effective >= 4 ? 0.7 : 0.5);
+        BigDecimal confidence = RiskMath.confidenceWithScoreCoverage(coverage, completeness, sample, d.processCoverage);
+        if (config.getCoverageThreshold() != null && coverage < config.getCoverageThreshold().doubleValue()
+                && config.getConfidenceMinOk() != null
+                && confidence.compareTo(config.getConfidenceMinOk()) < 0) {
+            confidence = config.getConfidenceMinOk();
+        }
+        d.confidence = confidence;
+        d.outputMode = processReady ? RiskMath.outputMode(confidence, coverage) : "BEHAVIOR_ONLY";
+        d.dataQuality = dataQuality(d, cc, coverage, completeness, sample, effective);
+        return d;
+    }
+
+    /** 把判定结论写进 risk_state（一人一课一行，覆盖刷新） */
+    private void applyDecision(RiskState state, Decision d, ChannelC cc, TeachingClass tc,
+                              String trigger, RiskEngineConfig config, LocalDateTime now) {
+        state.setEnrollmentId(d.enrollment.getId());
+        state.setStudentId(d.enrollment.getStudentId());
+        state.setOfferingId(d.enrollment.getOfferingId() != null ? d.enrollment.getOfferingId() : tc.getOfferingId());
+        state.setTeachingClassId(tc.getId());
+        state.setTermId(d.enrollment.getTermId());
+        state.setAbsentCount(d.absent);
+        state.setLateCount(d.late);
+        state.setLeaveCount(d.leave);
+        state.setAllowedAbsent(d.allowed);
+        state.setRemainingAbsent(d.remaining);
+        state.setHardFail(d.hardFail ? 1 : 0);
+        state.setNearFail(d.remaining <= 1 ? 1 : 0);
+        state.setFinalExamNeeded(d.need);
+        state.setFinalUnreachable(d.unreachable ? 1 : 0);
+        state.setChannelALevel(d.aLevel);
+        // B 通道只剩排序：绝对口径基础分 + 班内名次
+        state.setChannelBScore(d.baseScore);
+        state.setChannelBRank(d.rank);
+        state.setChannelBClassSize(d.classSize);
+        state.setChannelBLevel("SORT_ONLY");
+        state.setChannelCScore(d.riskScore);
+        state.setDeltaUsed(cc.delta);
+        state.setCourseFactorUsed(cc.courseType.multiply(cc.failRate).setScale(3, RoundingMode.HALF_UP));
+        state.setChannelCLevel(d.level);
+        state.setRiskScore(d.riskScore);
+        state.setRiskLevel(d.level);
+        state.setActiveChannel(d.activeChannel);
+        state.setConfidence(d.confidence);
+        state.setConfidenceLevel(RiskMath.confidenceLevel(d.confidence));
+        state.setOutputMode(d.outputMode);
+        state.setDataQualityJson(d.dataQuality);
+        state.setTriggerSource(trigger);
+        state.setLastEvalTime(now);
+        state.setEngineVersion(config.getEngineVersion());
+        state.setIsVoid(0);
+    }
+
+    // ============================================================ C 通道
+    /** C 通道因子（按开关回退：关了就是 1.00） */
+    private ChannelC channelC(TeachingClass tc, CourseOffering offering, Course course,
+                              List<Enrollment> classEnrollments, Set<Long> syntheticTerms,
+                              RiskEngineConfig config) {
+        ChannelC cc = new ChannelC();
+        boolean cOn = config.getChannelCEnabled() != null && config.getChannelCEnabled() == 1;
+        if (!cOn) {
+            return cc;
+        }
+        boolean courseFactorOn = config.getCourseFactorEnabled() != null && config.getCourseFactorEnabled() == 1;
+        if (courseFactorOn && course != null) {
+            cc.courseType = courseTypeFactor(course.getCourseType(), config);
+        }
+        if (courseFactorOn && course != null && offering != null) {
+            FailRateFactor fr = failRateFactor(course.getId(), offering.getTermId(), syntheticTerms, config);
+            cc.failRate = fr.factor();
+            cc.failRateNote = fr.note();
+        }
+        boolean deltaOn = config.getDeltaEnabled() != null && config.getDeltaEnabled() == 1;
+        if (deltaOn) {
+            TeacherStyle ts = teacherStyleOf(tc);
+            if (ts != null) {
+                cc.delta = ts.getDelta();
+                cc.teacher = teacherFactor(ts.getDelta(), ts.getSampleSize(), config);
+            }
+        }
+        cc.personal = personalFactors(classEnrollments, syntheticTerms, config);
+        return cc;
+    }
+
+    /** 课程类型：考试课更难（默认 ×1.10）、考查课更松（默认 ×0.90） */
+    private BigDecimal courseTypeFactor(String courseType, RiskEngineConfig config) {
+        BigDecimal exam = config.getCourseFactorExam() == null ? new BigDecimal("1.10") : config.getCourseFactorExam();
+        BigDecimal assess = config.getCourseFactorAssess() == null ? new BigDecimal("0.90") : config.getCourseFactorAssess();
+        if ("EXAM".equalsIgnoreCase(courseType)) {
+            return exam;
+        }
+        if ("ASSESS".equalsIgnoreCase(courseType)) {
+            return assess;
+        }
+        return ONE;
+    }
+
+    /**
+     * 该科历史挂科率：只用 `course_fail_rate_history` 里**已结束学期**的数据。
+     *
+     * <p>不能用 `teaching_class_fail_rate` / `admin_class_fail_rate`：那是本期数据、且是旧口径算出来的，
+     * 拿它当"历史"等于用旧结论喂新口径。合成学期（term_code 以 SYN 开头）也必须排除。</p>
+     */
+    private FailRateFactor failRateFactor(Long courseId, Long currentTermId, Set<Long> syntheticTerms,
+                                          RiskEngineConfig config) {
+        List<CourseFailRateHistory> rows = courseFailRateMapper.selectList(
+                Wrappers.<CourseFailRateHistory>lambdaQuery().eq(CourseFailRateHistory::getCourseId, courseId));
+        BigDecimal sum = BigDecimal.ZERO;
+        int n = 0;
+        for (CourseFailRateHistory r : rows) {
+            if (r.getTermId() == null || r.getTermId().equals(currentTermId)
+                    || syntheticTerms.contains(r.getTermId()) || r.getFailRate() == null) {
+                continue;
+            }
+            sum = sum.add(r.getFailRate());
+            n++;
+        }
+        if (n == 0) {
+            return new FailRateFactor(ONE, "absent（库里只有本期数据，按 1.00）");
+        }
+        BigDecimal avg = sum.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP);
+        BigDecimal base = config.getFailRateBase() == null ? new BigDecimal("5.00") : config.getFailRateBase();
+        BigDecimal step = config.getFailRateStep() == null ? new BigDecimal("1.05") : config.getFailRateStep();
+        BigDecimal cap = config.getFailRateCap() == null ? new BigDecimal("1.20") : config.getFailRateCap();
+        // 每高于基准 5 个百分点乘一次（线性近似），下限 0.90、上限 cap
+        BigDecimal dev = avg.subtract(base).divide(new BigDecimal("5"), 4, RoundingMode.HALF_UP);
+        BigDecimal factor = ONE.add(dev.multiply(step.subtract(ONE)));
+        if (factor.compareTo(new BigDecimal("0.90")) < 0) {
+            factor = new BigDecimal("0.90");
+        }
+        if (factor.compareTo(cap) > 0) {
+            factor = cap;
+        }
+        return new FailRateFactor(factor.setScale(4, RoundingMode.HALF_UP),
+                "avg=" + avg.toPlainString() + "% terms=" + n);
+    }
+
+    /** 教师风格：Δ ≤ −1.0 严格、Δ ≥ +0.5 宽松；样本 < 30 按 0.5 向 1.00 收缩；|Δ| 超过熔断阈值直接不用 */
+    private BigDecimal teacherFactor(BigDecimal delta, Integer sampleSize, RiskEngineConfig config) {
+        if (delta == null) {
+            return ONE;
+        }
+        BigDecimal fuse = config.getDeltaFuseThreshold();
+        if (fuse != null && delta.abs().compareTo(fuse) > 0) {
+            return ONE;
+        }
+        BigDecimal factor = ONE;
+        if (delta.compareTo(STRICT_DELTA) <= 0) {
+            factor = config.getTeacherStrictFactor() == null ? new BigDecimal("1.05") : config.getTeacherStrictFactor();
+        } else if (delta.compareTo(LOOSE_DELTA) >= 0) {
+            factor = config.getTeacherLooseFactor() == null ? new BigDecimal("0.95") : config.getTeacherLooseFactor();
+        }
+        if (sampleSize != null && sampleSize < 30) {
+            factor = ONE.add(factor.subtract(ONE).multiply(new BigDecimal("0.5")));
+        }
+        return factor.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private TeacherStyle teacherStyleOf(TeachingClass tc) {
+        return teacherStyleMapper.selectOne(Wrappers.<TeacherStyle>lambdaQuery()
+                .eq(TeacherStyle::getTeacherId, tc.getTeacherId())
+                .eq(TeacherStyle::getOfferingId, tc.getOfferingId())
+                .eq(TeacherStyle::getStatus, "ACTIVE")
+                .last("limit 1"));
+    }
+
+    /** 个人前科：已归档的挂科门数（1 门 → prior_1，≥2 门 → prior_2；无历史 → 1.00） */
+    private Map<Long, BigDecimal> personalFactors(List<Enrollment> ens, Set<Long> syntheticTerms,
+                                                  RiskEngineConfig config) {
+        Map<Long, BigDecimal> out = new LinkedHashMap<>();
+        List<Long> ids = ens.stream().map(Enrollment::getStudentId).distinct().collect(Collectors.toList());
+        if (ids.isEmpty()) {
+            return out;
+        }
+        Map<Long, Integer> failed = new LinkedHashMap<>();
+        for (StudentFailHistory h : failHistoryMapper.selectList(Wrappers.<StudentFailHistory>lambdaQuery()
+                .in(StudentFailHistory::getStudentId, ids)
+                .eq(StudentFailHistory::getIsFail, 1))) {
+            if (h.getTermId() == null || syntheticTerms.contains(h.getTermId())) {
+                continue;
+            }
+            failed.merge(h.getStudentId(), 1, Integer::sum);
+        }
+        BigDecimal prior1 = config.getPersonalPrior1() == null ? new BigDecimal("1.05") : config.getPersonalPrior1();
+        BigDecimal prior2 = config.getPersonalPrior2() == null ? new BigDecimal("1.10") : config.getPersonalPrior2();
+        for (Long sid : ids) {
+            int n = failed.getOrDefault(sid, 0);
+            BigDecimal f = n <= 0 ? ONE : (n == 1 ? prior1 : prior2);
+            out.put(sid, f.setScale(4, RoundingMode.HALF_UP));
+        }
+        return out;
+    }
+
+    /** 合成学期（term_code 以 SYN 开头）——库内备注"合成数据·勿混用"，历史因子一律排除 */
+    private Set<Long> syntheticTermIds() {
+        return termMapper.selectList(Wrappers.<Term>lambdaQuery()).stream()
+                .filter((t) -> t.getTermCode() != null
+                        && t.getTermCode().toUpperCase().startsWith("SYN"))
+                .map(Term::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /** data_quality_json：过程分口径 + 四个 C 通道因子都留痕，回归和排查只认这一处 */
+    private String dataQuality(Decision d, ChannelC cc, double coverage, double completeness, double sample,
+                               int effective) {
         return "{\"coverage\":" + round3(coverage)
                 + ",\"completeness\":" + round3(completeness)
                 + ",\"sample\":" + round3(sample)
+                + ",\"processScore\":" + plain(d.processScore)
+                + ",\"processCoverage\":" + plain(d.processCoverage)
+                + ",\"missingWeight\":" + plain(d.missingWeight)
+                + ",\"finalRatio\":" + plain(d.finalRatio)
+                + ",\"terminalScored\":" + d.terminalScored
+                + ",\"terminalScore\":" + plain(d.terminalScore)
+                + ",\"courseTypeFactor\":" + plain(cc.courseType)
+                + ",\"failRateFactor\":" + plain(cc.failRate)
+                + ",\"failRateHistory\":\"" + cc.failRateNote + "\""
+                + ",\"teacherFactor\":" + plain(cc.teacher)
+                + ",\"delta\":" + plain(cc.delta)
+                + ",\"personalFactor\":" + plain(cc.personalOf(d.enrollment.getStudentId()))
+                + ",\"factor\":" + plain(d.factor)
+                + ",\"factorApplied\":" + d.factorApplied
                 + ",\"effectiveSessions\":" + effective
-                + ",\"absent\":" + absent
-                + ",\"allowedAbsent\":" + allowed
-                + ",\"remainingAbsent\":" + remaining + "}";
+                + ",\"absent\":" + d.absent
+                + ",\"allowedAbsent\":" + d.allowed
+                + ",\"remainingAbsent\":" + d.remaining + "}";
+    }
+
+    /** JSON 里的数值：null 写字面量 null，其余不带多余标度 */
+    private static String plain(BigDecimal v) {
+        return v == null ? "null" : v.toPlainString();
     }
 
     private static double round3(double v) {
@@ -579,6 +821,9 @@ public class RiskEngineService {
         v.setFinalExamNeeded(s.getFinalExamNeeded());
         v.setFinalUnreachable(s.getFinalUnreachable());
         v.setChannelALevel(s.getChannelALevel());
+        // 过程分与覆盖率存在 data_quality_json 里（risk_state 没有这两列）
+        v.setProcessScore(JsonObjects.number(s.getDataQualityJson(), "processScore"));
+        v.setProcessCoverage(JsonObjects.number(s.getDataQualityJson(), "processCoverage"));
         v.setChannelBScore(s.getChannelBScore());
         v.setChannelBRank(s.getChannelBRank());
         v.setChannelBClassSize(s.getChannelBClassSize());

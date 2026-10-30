@@ -34,8 +34,11 @@
     <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
 
     <p class="text-xs text-slate-400">
-      判定口径：先看 A 通道（允许缺课 = 课次 ÷ 3 向下取整，缺课超限即硬性不合格、剩余额度 ≤1 次为危险、期末需考 &gt; 100 分视为不可达），
-      再用 B 通道（加权分 = 100 − 扣分 + 3 × 缺课次数）比对红 75 / 橙 60 / 黄 40 分级；置信度不足时只输出行为预警。
+      判定口径（v2.1.0）：A 通道先看确定性门槛——允许缺课 = 有效课次 ÷ 3 向下取整，缺课超限即硬性不合格（风险分 95），
+      期末需考 &gt; 满分视为不可达（100）；再看过程分——只取<b>非终结性分支</b>（平时/测验/作业/项目）按已录项归一，
+      期末（或考查课的大作业）只作"需考 / 还差多少分"的目标，不再混进已得分。分数型风险分级为红 75 / 橙 60 / 黄 40，
+      再乘课程类型（考试 ×1.10 / 考查 ×0.90）、教师风格等系数；"剩余额度 ≤1 次"至少黄、"≤2 次"至少黄，命中即取最大。
+      置信度不足（分项只录了一小部分）时只输出行为预警。
     </p>
 
     <!-- 总览 -->
@@ -93,7 +96,7 @@
               <th class="text-left py-2">等级</th>
               <th class="text-right py-2">风险分</th>
               <th class="text-right py-2" title="缺课 / 允许缺课 / 剩余额度">缺课额度</th>
-              <th class="text-right py-2">期末需考</th>
+              <th class="text-right py-2" title="期末未考 = 期末需考多少分；大作业已批 = 还差多少分">需考 / 还差</th>
               <th class="text-left py-2">触发规则</th>
               <th class="text-left py-2">状态</th>
               <th class="text-right py-2 pr-2">操作</th>
@@ -241,7 +244,7 @@
               <p>迟到 <span class="font-medium text-slate-800">{{ detail.riskState?.lateCount ?? 0 }}</span> 次</p>
               <p>请假 <span class="font-medium text-slate-800">{{ detail.riskState?.leaveCount ?? 0 }}</span> 次</p>
               <p>
-                期末需考
+                需考 / 还差
                 <span class="font-medium" :class="detail.alert.finalUnreachable ? 'text-red-600' : 'text-slate-800'">
                   {{ detail.alert.finalUnreachable ? '不可达' : (detail.alert.finalExamNeeded == null ? '—' : num(detail.alert.finalExamNeeded)) }}
                 </span>

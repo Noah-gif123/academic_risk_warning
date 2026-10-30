@@ -86,6 +86,34 @@ public class RuleConfigService {
         if (req.getConfidenceMinOk() != null) {
             next.setConfidenceMinOk(req.getConfidenceMinOk());
         }
+        // M16：C 通道 / 课程因子系数（未传则沿用当前生效版本）
+        if (req.getCourseFactorExam() != null) {
+            next.setCourseFactorExam(req.getCourseFactorExam());
+        }
+        if (req.getCourseFactorAssess() != null) {
+            next.setCourseFactorAssess(req.getCourseFactorAssess());
+        }
+        if (req.getFailRateBase() != null) {
+            next.setFailRateBase(req.getFailRateBase());
+        }
+        if (req.getFailRateStep() != null) {
+            next.setFailRateStep(req.getFailRateStep());
+        }
+        if (req.getFailRateCap() != null) {
+            next.setFailRateCap(req.getFailRateCap());
+        }
+        if (req.getPersonalPrior1() != null) {
+            next.setPersonalPrior1(req.getPersonalPrior1());
+        }
+        if (req.getPersonalPrior2() != null) {
+            next.setPersonalPrior2(req.getPersonalPrior2());
+        }
+        if (req.getTeacherStrictFactor() != null) {
+            next.setTeacherStrictFactor(req.getTeacherStrictFactor());
+        }
+        if (req.getTeacherLooseFactor() != null) {
+            next.setTeacherLooseFactor(req.getTeacherLooseFactor());
+        }
         validate(next);
         String version;
         if (blank(req.getEngineVersion())) {
@@ -184,6 +212,16 @@ public class RuleConfigService {
         c.setDeltaMinSample(src.getDeltaMinSample());
         c.setDeltaFuseThreshold(src.getDeltaFuseThreshold());
         c.setConfidenceMinOk(src.getConfidenceMinOk());
+        // M16：不复制这 9 个系数，任何"新增版本"都会把它们静默回退成 DDL 默认值
+        c.setCourseFactorExam(src.getCourseFactorExam());
+        c.setCourseFactorAssess(src.getCourseFactorAssess());
+        c.setFailRateBase(src.getFailRateBase());
+        c.setFailRateStep(src.getFailRateStep());
+        c.setFailRateCap(src.getFailRateCap());
+        c.setPersonalPrior1(src.getPersonalPrior1());
+        c.setPersonalPrior2(src.getPersonalPrior2());
+        c.setTeacherStrictFactor(src.getTeacherStrictFactor());
+        c.setTeacherLooseFactor(src.getTeacherLooseFactor());
         return c;
     }
 
@@ -219,6 +257,32 @@ public class RuleConfigService {
         if (c.getConfidenceMinOk() != null
                 && (c.getConfidenceMinOk().signum() < 0 || c.getConfidenceMinOk().compareTo(BigDecimal.ONE) > 0)) {
             throw new BizException("置信度下限应在 0~1 之间");
+        }
+        // M16：C 通道系数只允许在合理区间内调，乘子 0.5~1.5、上限 ≥1、基准 ≥0
+        requireFactor("考试课难度系数", c.getCourseFactorExam());
+        requireFactor("考查课难度系数", c.getCourseFactorAssess());
+        requireFactor("严格型教师系数", c.getTeacherStrictFactor());
+        requireFactor("宽松型教师系数", c.getTeacherLooseFactor());
+        requireFactor("个人前科系数（1 门）", c.getPersonalPrior1());
+        requireFactor("个人前科系数（≥2 门）", c.getPersonalPrior2());
+        if (c.getFailRateBase() != null && c.getFailRateBase().signum() < 0) {
+            throw new BizException("历史挂科率基准不能为负数");
+        }
+        if (c.getFailRateStep() != null && c.getFailRateStep().compareTo(BigDecimal.ONE) < 0) {
+            throw new BizException("历史挂科率乘数应 ≥ 1（挂科率越高风险越大）");
+        }
+        if (c.getFailRateCap() != null && c.getFailRateCap().compareTo(BigDecimal.ONE) < 0) {
+            throw new BizException("历史挂科率系数上限应 ≥ 1");
+        }
+    }
+
+    /** 乘子类系数校验：允许为空（沿用默认），非空则必须在 0.5~1.5 之间 */
+    private void requireFactor(String name, BigDecimal v) {
+        if (v == null) {
+            return;
+        }
+        if (v.compareTo(new BigDecimal("0.5")) < 0 || v.compareTo(new BigDecimal("1.5")) > 0) {
+            throw new BizException(name + "应在 0.5~1.5 之间");
         }
     }
 
@@ -269,6 +333,19 @@ public class RuleConfigService {
         m.put("finalFullScore", c.getFinalFullScore());
         m.put("coverageThreshold", c.getCoverageThreshold());
         m.put("confidenceMinOk", c.getConfidenceMinOk());
+        // M16：C 通道 / 课程因子系数（版本对比时也要能看到，否则"可审计"是空的）
+        m.put("channelCEnabled", c.getChannelCEnabled());
+        m.put("courseFactorEnabled", c.getCourseFactorEnabled());
+        m.put("deltaEnabled", c.getDeltaEnabled());
+        m.put("courseFactorExam", c.getCourseFactorExam());
+        m.put("courseFactorAssess", c.getCourseFactorAssess());
+        m.put("failRateBase", c.getFailRateBase());
+        m.put("failRateStep", c.getFailRateStep());
+        m.put("failRateCap", c.getFailRateCap());
+        m.put("personalPrior1", c.getPersonalPrior1());
+        m.put("personalPrior2", c.getPersonalPrior2());
+        m.put("teacherStrictFactor", c.getTeacherStrictFactor());
+        m.put("teacherLooseFactor", c.getTeacherLooseFactor());
         m.put("remark", c.getRemark());
         m.put("createTime", c.getCreateTime());
         return m;

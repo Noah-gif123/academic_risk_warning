@@ -71,6 +71,41 @@
         </div>
       </div>
 
+      <!-- M16：C 通道 / 课程因子系数 -->
+      <div class="pt-3 border-t border-slate-100">
+        <div class="flex items-center gap-2 flex-wrap mb-2">
+          <p class="text-xs text-slate-400">M16 口径系数（C 通道 / 课程因子）</p>
+          <span class="tag" :class="active.channelCEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'">
+            {{ active.channelCEnabled ? 'C 通道已开启' : 'C 通道未启用（只算 A/B）' }}
+          </span>
+          <span v-if="!active.courseFactorEnabled" class="text-xs text-slate-400">课程因子未启用</span>
+          <span v-if="!active.deltaEnabled" class="text-xs text-slate-400">Δ 归一未启用</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 text-sm">
+          <div class="rounded-lg bg-slate-50 p-3">
+            <p class="text-xs text-slate-400">考试课 / 考查课</p>
+            <p class="font-medium mt-0.5">×{{ num(active.courseFactorExam) }} / ×{{ num(active.courseFactorAssess) }}</p>
+          </div>
+          <div class="rounded-lg bg-slate-50 p-3">
+            <p class="text-xs text-slate-400">历史挂科率（基准 / 每 5 点 / 上限）</p>
+            <p class="font-medium mt-0.5">
+              {{ num(active.failRateBase) }}% / ×{{ num(active.failRateStep) }} / ×{{ num(active.failRateCap) }}
+            </p>
+          </div>
+          <div class="rounded-lg bg-slate-50 p-3">
+            <p class="text-xs text-slate-400">教师风格（严格 / 宽松）</p>
+            <p class="font-medium mt-0.5">×{{ num(active.teacherStrictFactor) }} / ×{{ num(active.teacherLooseFactor) }}</p>
+          </div>
+          <div class="rounded-lg bg-slate-50 p-3">
+            <p class="text-xs text-slate-400">个人前科（1 门 / ≥2 门）</p>
+            <p class="font-medium mt-0.5">×{{ num(active.personalPrior1) }} / ×{{ num(active.personalPrior2) }}</p>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">
+          系数乘在风险分上（不是需考分）。没有历史挂科率 / 没有个人前科（如大一）时该因子按 1.00，不会凭空抬高风险。
+        </p>
+      </div>
+
       <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
         <button class="btn-ghost text-sm" :disabled="evaluating" @click="reevaluate">
           {{ evaluating ? '判定中…' : '按当前规则重新判定本学期' }}
@@ -129,6 +164,46 @@
         <label class="text-sm">
           <span class="text-slate-500 text-xs">置信度下限（0.15）</span>
           <input v-model="form.confidenceMinOk" type="number" step="0.01" class="input w-full mt-1" />
+        </label>
+        <!-- M16：C 通道 / 课程因子系数（留空沿用当前生效版本） -->
+        <div class="md:col-span-3 xl:col-span-4 pt-2 border-t border-slate-100">
+          <p class="text-xs text-slate-400">M16 系数：留空即沿用当前生效版本；乘子范围 0.5~1.5</p>
+        </div>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">考试课难度系数（≥1）</span>
+          <input v-model="form.courseFactorExam" type="number" step="0.01" class="input w-full mt-1" placeholder="1.10" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">考查课难度系数（≤1）</span>
+          <input v-model="form.courseFactorAssess" type="number" step="0.01" class="input w-full mt-1" placeholder="0.90" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">历史挂科率基准（%）</span>
+          <input v-model="form.failRateBase" type="number" step="0.5" class="input w-full mt-1" placeholder="5" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">挂科率每高 5 点的乘数</span>
+          <input v-model="form.failRateStep" type="number" step="0.01" class="input w-full mt-1" placeholder="1.05" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">挂科率系数上限</span>
+          <input v-model="form.failRateCap" type="number" step="0.01" class="input w-full mt-1" placeholder="1.20" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">个人前科系数（1 门）</span>
+          <input v-model="form.personalPrior1" type="number" step="0.01" class="input w-full mt-1" placeholder="1.05" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">个人前科系数（≥2 门）</span>
+          <input v-model="form.personalPrior2" type="number" step="0.01" class="input w-full mt-1" placeholder="1.10" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">严格型教师系数</span>
+          <input v-model="form.teacherStrictFactor" type="number" step="0.01" class="input w-full mt-1" placeholder="1.05" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-500 text-xs">宽松型教师系数</span>
+          <input v-model="form.teacherLooseFactor" type="number" step="0.01" class="input w-full mt-1" placeholder="0.95" />
         </label>
         <label class="text-sm md:col-span-2 xl:col-span-2">
           <span class="text-slate-500 text-xs">调整说明（写进审计日志）</span>
@@ -222,6 +297,15 @@ const form = reactive({
   finalFullScore: '',
   coverageThreshold: '',
   confidenceMinOk: '',
+  courseFactorExam: '',
+  courseFactorAssess: '',
+  failRateBase: '',
+  failRateStep: '',
+  failRateCap: '',
+  personalPrior1: '',
+  personalPrior2: '',
+  teacherStrictFactor: '',
+  teacherLooseFactor: '',
   remark: ''
 })
 
@@ -279,6 +363,15 @@ function fillForm(c) {
   form.finalFullScore = c?.finalFullScore ?? ''
   form.coverageThreshold = c?.coverageThreshold ?? ''
   form.confidenceMinOk = c?.confidenceMinOk ?? ''
+  form.courseFactorExam = c?.courseFactorExam ?? ''
+  form.courseFactorAssess = c?.courseFactorAssess ?? ''
+  form.failRateBase = c?.failRateBase ?? ''
+  form.failRateStep = c?.failRateStep ?? ''
+  form.failRateCap = c?.failRateCap ?? ''
+  form.personalPrior1 = c?.personalPrior1 ?? ''
+  form.personalPrior2 = c?.personalPrior2 ?? ''
+  form.teacherStrictFactor = c?.teacherStrictFactor ?? ''
+  form.teacherLooseFactor = c?.teacherLooseFactor ?? ''
   form.remark = ''
 }
 
@@ -314,6 +407,15 @@ function bodyOf() {
     finalFullScore: num(form.finalFullScore),
     coverageThreshold: num(form.coverageThreshold),
     confidenceMinOk: num(form.confidenceMinOk),
+    courseFactorExam: num(form.courseFactorExam),
+    courseFactorAssess: num(form.courseFactorAssess),
+    failRateBase: num(form.failRateBase),
+    failRateStep: num(form.failRateStep),
+    failRateCap: num(form.failRateCap),
+    personalPrior1: num(form.personalPrior1),
+    personalPrior2: num(form.personalPrior2),
+    teacherStrictFactor: num(form.teacherStrictFactor),
+    teacherLooseFactor: num(form.teacherLooseFactor),
     remark: form.remark.trim() || undefined
   }
 }

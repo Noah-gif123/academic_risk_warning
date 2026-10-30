@@ -43,6 +43,7 @@ import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,6 +81,15 @@ public class AlertEventService {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyyMMdd");
     /** 人工关闭/忽略后，同等级风险再次判定时的静默天数（避免重复判定刷出重复预警） */
     private static final int REPEAT_ALERT_COOLDOWN_DAYS = 7;
+
+    /**
+     * 通知总开关（app.alert.notify-enabled，默认开）。
+     *
+     * <p>批量重算（换口径、重建数据）时把它关掉：预警记录照常生成/升级/关闭，只是<b>不往外发消息</b>，
+     * 免得一次全量判定给教师和辅导员刷出几百条通知。演示完可以再关掉历史通知。</p>
+     */
+    @Value("${app.alert.notify-enabled:true}")
+    private boolean notifyEnabled;
 
     private final AlertRecordMapper alertMapper;
     private final AlertFlowLogMapper flowMapper;
@@ -667,6 +677,10 @@ public class AlertEventService {
 
     /** 回复通知：只发给学生本人（同一预警只留一条） */
     private void notifyStudentReply(AlertRecord a, String reply) {
+        if (!notifyEnabled) {
+            log.debug("通知总开关已关，跳过回复通知 alert={}", a.getId());
+            return;
+        }
         Student st = studentMapper.selectById(a.getStudentId());
         if (st == null || st.getAccountId() == null) {
             return;
@@ -705,6 +719,10 @@ public class AlertEventService {
 
     /** 申诉通知：任课教师 + 辅导员（同一预警只聚合成一条） */
     private void notifyAppeal(AlertRecord a, String reason) {
+        if (!notifyEnabled) {
+            log.debug("通知总开关已关，跳过申诉通知 alert={}", a.getId());
+            return;
+        }
         TeachingClass tc = classMapper.selectById(a.getTeachingClassId());
         if (tc == null) {
             return;
@@ -780,6 +798,10 @@ public class AlertEventService {
     // ============================================================ 通知
     /** 教师 + 辅导员：按「教学班 + 等级 + 日期」聚合成一条汇总消息 */
     private void notifyTeacherSide(AlertRecord a, RiskState s, String bizType, String label) {
+        if (!notifyEnabled) {
+            log.debug("通知总开关已关，跳过教师侧通知 alert={}", a.getId());
+            return;
+        }
         TeachingClass tc = classMapper.selectById(a.getTeachingClassId());
         if (tc == null) {
             return;
@@ -838,6 +860,10 @@ public class AlertEventService {
 
     /** 学生本人：一条预警一条消息（同一天同一等级去重） */
     private void notifyStudent(AlertRecord a, RiskState s, String bizType, String label) {
+        if (!notifyEnabled) {
+            log.debug("通知总开关已关，跳过学生侧通知 alert={}", a.getId());
+            return;
+        }
         Enrollment e = enrollmentMapper.selectById(a.getEnrollmentId());
         if (e == null) {
             return;

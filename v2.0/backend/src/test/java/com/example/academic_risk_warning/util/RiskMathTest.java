@@ -4,6 +4,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -103,4 +107,162 @@ class RiskMathTest {
         assertEquals("YELLOW", RiskMath.riskLevel(BigDecimal.valueOf(40), red, orange, yellow));
         assertEquals("GREEN", RiskMath.riskLevel(BigDecimal.valueOf(39.9), red, orange, yellow));
     }
+
+    // ============================================================ M16：过程分 / r_final / 绝对口径
+    @Test
+    @DisplayName("M16 过程分：只算非终结分支，按已录权重归一（0–100）")
+    void processScoreExcludesTerminal() {
+        Map<Long, BigDecimal> pct = new LinkedHashMap<>();
+        pct.put(1L, BigDecimal.valueOf(90));   // 随堂，绝对权重 14
+        pct.put(2L, BigDecimal.valueOf(80));   // 项目，8
+        pct.put(3L, BigDecimal.valueOf(100));  // 表现，2
+        pct.put(4L, BigDecimal.valueOf(95));   // 作业，16
+        pct.put(5L, BigDecimal.valueOf(30));   // 期末，60 —— 必须被排除
+
+        RiskMath.ProcessScore ps = RiskMath.processScore(case101(), pct);
+
+        // (90×14 + 80×8 + 100×2 + 95×16) / 100 = 36.2 → 36.2 / 40 × 100 = 90.5
+        assertEquals(0, ps.score.compareTo(new BigDecimal("90.50")));
+        assertEquals(0, ps.coverage.compareTo(new BigDecimal("1.0000")));
+        assertEquals(0, ps.recordedWeight.compareTo(BigDecimal.valueOf(40)));
+        assertEquals(0, ps.totalWeight.compareTo(BigDecimal.valueOf(40)));
+    }
+
+    @Test
+    @DisplayName("M16 过程分：没录的分项不进分母（覆盖率下降，不被一项课堂表现代表）")
+    void processScoreSkipsUnavailable() {
+        List<RiskMath.SchemeWeight> weights = case101();
+        weights.removeIf(w -> w.itemId == 3L);
+        weights.add(new RiskMath.SchemeWeight(3L, BigDecimal.valueOf(2), false, false));
+
+        Map<Long, BigDecimal> pct = new LinkedHashMap<>();
+        pct.put(1L, BigDecimal.valueOf(90));
+        pct.put(2L, BigDecimal.valueOf(80));
+        pct.put(4L, BigDecimal.valueOf(95));
+
+        RiskMath.ProcessScore ps = RiskMath.processScore(weights, pct);
+
+        // (90×14 + 80×8 + 95×16) / 100 = 34.2 → 34.2 / 38 × 100 = 90.00
+        assertEquals(0, ps.score.compareTo(new BigDecimal("90.00")));
+        assertEquals(0, ps.coverage.compareTo(new BigDecimal("0.9500")));
+        assertEquals(0, ps.recordedWeight.compareTo(BigDecimal.valueOf(38)));
+    }
+
+    @Test
+    @DisplayName("M16 过程分：个别学生缺已录分项按 0 分计（分母不缩小）")
+    void processScoreCountsStudentAbsenceAsZero() {
+        Map<Long, BigDecimal> pct = new LinkedHashMap<>();
+        pct.put(1L, BigDecimal.valueOf(90));
+        pct.put(2L, BigDecimal.valueOf(80));
+        pct.put(4L, BigDecimal.valueOf(95));   // 表现（2 分）缺交
+
+        RiskMath.ProcessScore ps = RiskMath.processScore(case101(), pct);
+
+        assertEquals(0, ps.score.compareTo(new BigDecimal("85.50")));
+        assertEquals(0, ps.coverage.compareTo(new BigDecimal("1.0000")));
+    }
+
+    @Test
+    @DisplayName("M16 过程分：一个可用分项都没有时为 null（页面显示—，不能当 0 分）")
+    void processScoreWithoutData() {
+        List<RiskMath.SchemeWeight> weights = new ArrayList<>();
+        weights.add(new RiskMath.SchemeWeight(1L, BigDecimal.valueOf(14), false, false));
+        weights.add(new RiskMath.SchemeWeight(5L, BigDecimal.valueOf(60), true, false));
+
+        RiskMath.ProcessScore ps = RiskMath.processScore(weights, new LinkedHashMap<>());
+
+        assertNull(ps.score);
+        assertEquals(0, ps.coverage.compareTo(BigDecimal.ZERO));
+        assertEquals(0, ps.totalWeight.compareTo(BigDecimal.valueOf(14)));
+    }
+
+    @Test
+    @DisplayName("M16 r_final 取终结性根分支占比：101=0.60、103=0.40")
+    void finalRatioUsesRootBranch() {
+        assertEquals(0, RiskMath.finalRatio(case101()).compareTo(new BigDecimal("0.60")));
+
+        List<RiskMath.SchemeWeight> case103 = new ArrayList<>();
+        case103.add(new RiskMath.SchemeWeight(1L, BigDecimal.valueOf(21), false, true));
+        case103.add(new RiskMath.SchemeWeight(2L, BigDecimal.valueOf(12), false, true));
+        case103.add(new RiskMath.SchemeWeight(3L, BigDecimal.valueOf(24), false, true));
+        case103.add(new RiskMath.SchemeWeight(4L, BigDecimal.valueOf(3), false, true));
+        case103.add(new RiskMath.SchemeWeight(5L, BigDecimal.valueOf(40), true, true));
+        assertEquals(0, RiskMath.finalRatio(case103).compareTo(new BigDecimal("0.40")));
+    }
+
+    @Test
+    @DisplayName("M16 已得总评分 = 过程分 × (1 − r_final)")
+    void estimatedEarned() {
+        assertEquals(0, RiskMath.estimatedEarned(new BigDecimal("90.50"), new BigDecimal("0.6"))
+                .compareTo(new BigDecimal("36.20")));
+        assertEquals(0, RiskMath.estimatedEarned(new BigDecimal("84.70"), new BigDecimal("0.4"))
+                .compareTo(new BigDecimal("50.82")));
+        assertNull(RiskMath.estimatedEarned(null, new BigDecimal("0.6")));
+    }
+
+    @Test
+    @DisplayName("M16 绝对风险分：需考 60→0、80→50、100→100，低于及格线一律 0")
+    void absoluteRiskScore() {
+        BigDecimal pass = BigDecimal.valueOf(60), full = BigDecimal.valueOf(100);
+        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(43.5), pass, full).signum());
+        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(60), pass, full).signum());
+        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(80), pass, full)
+                .compareTo(BigDecimal.valueOf(50)));
+        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(100), pass, full)
+                .compareTo(BigDecimal.valueOf(100)));
+        assertEquals(0, RiskMath.absoluteRiskScore(BigDecimal.valueOf(150), pass, full)
+                .compareTo(BigDecimal.valueOf(100)));
+        assertNull(RiskMath.absoluteRiskScore(null, pass, full));
+    }
+
+    @Test
+    @DisplayName("M16 叠加规则取最大：缺课超限 95、不可达 100、再缺即挂 ≥55、剩余 2 次 ≥40")
+    void guardedRiskScore() {
+        BigDecimal pass = BigDecimal.valueOf(60), full = BigDecimal.valueOf(100);
+        assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(45), pass, full, true, 3)
+                .compareTo(BigDecimal.valueOf(95)));
+        assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(120), pass, full, false, 4)
+                .compareTo(BigDecimal.valueOf(100)));
+        assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(45), pass, full, false, 1)
+                .compareTo(BigDecimal.valueOf(55)));
+        assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(45), pass, full, false, 2)
+                .compareTo(BigDecimal.valueOf(40)));
+        assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(68), pass, full, false, 2)
+                .compareTo(BigDecimal.valueOf(40)));
+        assertEquals(0, RiskMath.guardedRiskScore(BigDecimal.valueOf(45), pass, full, false, 3).signum());
+    }
+
+    @Test
+    @DisplayName("M16 门槛地板分与乘子无关：硬线 95、不可达 100、剩 1 次 55、剩 2 次 40、否则 0")
+    void guardFloorIsIndependentOfFactors() {
+        assertEquals(0, RiskMath.guardFloor(true, false, 5).compareTo(BigDecimal.valueOf(95)));
+        assertEquals(0, RiskMath.guardFloor(false, true, 5).compareTo(BigDecimal.valueOf(100)));
+        assertEquals(0, RiskMath.guardFloor(false, false, 0).compareTo(BigDecimal.valueOf(55)));
+        assertEquals(0, RiskMath.guardFloor(false, false, 1).compareTo(BigDecimal.valueOf(55)));
+        assertEquals(0, RiskMath.guardFloor(false, false, 2).compareTo(BigDecimal.valueOf(40)));
+        assertEquals(0, RiskMath.guardFloor(false, false, 3).signum());
+        assertEquals(0, RiskMath.guardFloor(false, false, null).signum());
+    }
+
+    @Test
+    @DisplayName("M16 等级仍由阈值决定（v2.1.0 的 70 / 55 / 35）")
+    void levelWithV21Thresholds() {
+        BigDecimal red = BigDecimal.valueOf(70), orange = BigDecimal.valueOf(55), yellow = BigDecimal.valueOf(35);
+        assertEquals("RED", RiskMath.riskLevel(BigDecimal.valueOf(74), red, orange, yellow));
+        assertEquals("ORANGE", RiskMath.riskLevel(BigDecimal.valueOf(55), red, orange, yellow));
+        assertEquals("YELLOW", RiskMath.riskLevel(BigDecimal.valueOf(35), red, orange, yellow));
+        assertEquals("GREEN", RiskMath.riskLevel(new BigDecimal("34.99"), red, orange, yellow));
+    }
+
+    /** 101 的绝对权重样本：随堂 14 / 项目 8 / 表现 2 / 作业 16（非终结）+ 期末 60（终结） */
+    private static List<RiskMath.SchemeWeight> case101() {
+        List<RiskMath.SchemeWeight> weights = new ArrayList<>();
+        weights.add(new RiskMath.SchemeWeight(1L, BigDecimal.valueOf(14), false, true));
+        weights.add(new RiskMath.SchemeWeight(2L, BigDecimal.valueOf(8), false, true));
+        weights.add(new RiskMath.SchemeWeight(3L, BigDecimal.valueOf(2), false, true));
+        weights.add(new RiskMath.SchemeWeight(4L, BigDecimal.valueOf(16), false, true));
+        weights.add(new RiskMath.SchemeWeight(5L, BigDecimal.valueOf(60), true, true));
+        return weights;
+    }
 }
+

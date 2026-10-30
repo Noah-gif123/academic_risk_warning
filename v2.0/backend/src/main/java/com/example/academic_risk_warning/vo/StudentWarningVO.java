@@ -81,6 +81,9 @@ public class StudentWarningVO {
 
         private Integer effectiveSessions;
         private BigDecimal totalScore;
+        /** M16：过程分（非终结性分支加权平均，0–100）与它的覆盖率，学生端优先展示这个 */
+        private BigDecimal processScore;
+        private BigDecimal processCoverage;
         private BigDecimal passScore;
         private BigDecimal finalRatio;
 

@@ -72,7 +72,13 @@ public class ReportComposer {
     public Content composeByTemplate(ReportFact f) {
         Content c = new Content();
         String level = levelText(f.getRiskLevel());
-        String summary = "《" + nz(f.getCourseName()) + "》当前总分 " + num(f.getTotalScore()) + " 分"
+        // M16：分项没录齐（期末未考）时不拿"已得加权分"冒充总评，改说过程分
+        boolean partial = f.getProcessScore() != null
+                && !"FINAL".equalsIgnoreCase(f.getScoreStatus() == null ? "" : f.getScoreStatus());
+        String scoreText = partial
+                ? "当前过程分 " + num(f.getProcessScore()) + " 分（期末未计入）"
+                : "当前总分 " + num(f.getTotalScore()) + " 分";
+        String summary = "《" + nz(f.getCourseName()) + "》" + scoreText
                 + (f.getClassAvg() == null ? "" : "，班级均分 " + num(f.getClassAvg()) + " 分")
                 + (f.getClassRank() == null ? "" : "，班内第 " + f.getClassRank() + " / " + nzInt(f.getClassSize()))
                 + "，当前" + level + "。";
@@ -596,6 +602,8 @@ public class ReportComposer {
                 .append("，").append(nzInt(f.getCredit())).append(" 学分，")
                 .append(nzInt(f.getPlannedWeeks())).append(" 周）\n");
         facts.append("总分：").append(num(f.getTotalScore()))
+                .append(f.getProcessScore() == null ? "" : "；过程分（只算非终结性分项）：" + num(f.getProcessScore()))
+                .append(f.getScoreStatus() == null ? "" : "；成绩单状态：" + f.getScoreStatus())
                 .append("；班级均分：").append(num(f.getClassAvg()))
                 .append("；班内排名：").append(nzInt(f.getClassRank())).append(" / ").append(nzInt(f.getClassSize())).append("\n");
         facts.append("考勤：缺勤 ").append(nzInt(f.getAbsentCount())).append("，迟到 ").append(nzInt(f.getLateCount()))

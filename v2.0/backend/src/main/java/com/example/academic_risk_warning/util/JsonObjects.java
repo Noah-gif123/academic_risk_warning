@@ -41,6 +41,42 @@ public final class JsonObjects {
         return parseFrom(json, lb);
     }
 
+    /**
+     * 取扁平对象里的一个数值字段（如 data_quality_json 里的 processScore）。
+     *
+     * <p>只认我们自己的格式：键必须带引号、值必须是裸数字或 null。取不到 / 解析失败一律返回 null，
+     * 调用方按"没有这个数"处理，不会把业务带崩。</p>
+     */
+    public static java.math.BigDecimal number(String json, String key) {
+        if (json == null) {
+            return null;
+        }
+        int colon = indexOfKey(json, key);
+        if (colon < 0) {
+            return null;
+        }
+        int start = colon + 1;
+        while (start < json.length() && Character.isWhitespace(json.charAt(start))) {
+            start++;
+        }
+        if (start >= json.length() || json.charAt(start) == '"' || json.startsWith("null", start)) {
+            return null;
+        }
+        int end = start;
+        while (end < json.length() && ",}\n\r\t ".indexOf(json.charAt(end)) < 0) {
+            end++;
+        }
+        String raw = json.substring(start, end).trim();
+        if (raw.isEmpty()) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(raw);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     private static List<Map<String, String>> parseFrom(String json, int lb) {
         List<Map<String, String>> out = new ArrayList<>();
         int i = lb + 1;

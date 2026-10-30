@@ -29,12 +29,16 @@ public class RiskRowVO {
     /** A 通道：是否触发 1/3 硬门槛、是否临近门槛 */
     private Integer hardFail;
     private Integer nearFail;
-    /** A 通道：期末需考分与是否可达 */
+    /** M16：期末/大作业需考分与是否可达（过程分口径算出来的） */
     private BigDecimal finalExamNeeded;
     private Integer finalUnreachable;
     private String channelALevel;
 
-    /** B 通道：班内相对风险分与排名 */
+    /** M16：过程分（非终结性分支加权平均，0–100）与它的覆盖率 */
+    private BigDecimal processScore;
+    private BigDecimal processCoverage;
+
+    /** B 通道：绝对口径基础分与班内排名（排名只用于排序，不是预警结论） */
     private BigDecimal channelBScore;
     private Integer channelBRank;
     private Integer channelBClassSize;

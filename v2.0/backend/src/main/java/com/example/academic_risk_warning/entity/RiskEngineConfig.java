@@ -1,6 +1,7 @@
 package com.example.academic_risk_warning.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
@@ -111,6 +112,36 @@ public class RiskEngineConfig {
 
     /** 置信度硬规则：覆盖率达标且锚点为A/A′时，W 不得低于此值 */
     private BigDecimal confidenceMinOk;
+
+    // ---------------- M16：C 通道 / 课程因子系数（见 sql/36_engine_v2_1_config.sql） ----------------
+    /** 考试课难度系数（默认 1.10） */
+    private BigDecimal courseFactorExam;
+
+    /** 考查课难度系数（默认 0.90） */
+    private BigDecimal courseFactorAssess;
+
+    /** 该科历史挂科率基准（%，默认 5.00） */
+    private BigDecimal failRateBase;
+
+    /** 历史挂科率每高 5 个百分点的乘数（默认 1.05） */
+    private BigDecimal failRateStep;
+
+    /** 历史挂科率系数上限（默认 1.20） */
+    private BigDecimal failRateCap;
+
+    /** 个人历史 1 门前科系数（默认 1.05） */
+    @TableField("personal_prior_1")
+    private BigDecimal personalPrior1;
+
+    /** 个人历史 ≥2 门前科系数（默认 1.10） */
+    @TableField("personal_prior_2")
+    private BigDecimal personalPrior2;
+
+    /** 严格型教师系数（默认 1.05） */
+    private BigDecimal teacherStrictFactor;
+
+    /** 宽松型教师系数（默认 0.95） */
+    private BigDecimal teacherLooseFactor;
 
     private String remark;
 

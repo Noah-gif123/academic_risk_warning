@@ -62,11 +62,13 @@
             <p class="text-slate-700 font-medium">{{ it.absentCount ?? 0 }} / {{ it.allowedAbsent ?? '—' }}</p>
           </div>
           <div>
-            <p class="text-slate-400">综合分</p>
-            <p class="text-slate-700 font-medium">{{ it.totalScore == null ? '—' : num(it.totalScore) }}</p>
+            <p class="text-slate-400">过程分</p>
+            <p class="text-slate-700 font-medium">
+              {{ it.processScore == null ? (it.totalScore == null ? '—' : num(it.totalScore)) : num(it.processScore) }}
+            </p>
           </div>
           <div>
-            <p class="text-slate-400">期末需考</p>
+            <p class="text-slate-400">需考 / 还差</p>
             <p class="font-medium" :class="it.finalUnreachable ? 'text-red-600' : 'text-slate-700'">
               {{ it.finalUnreachable ? '不可达' : (it.finalExamNeeded == null ? '—' : num(it.finalExamNeeded)) }}
             </p>
@@ -135,11 +137,13 @@
               <p class="text-lg font-semibold">{{ detail.item.lateCount ?? 0 }} / {{ detail.item.leaveCount ?? 0 }}</p>
             </div>
             <div class="rounded-lg bg-slate-50 p-3">
-              <p class="text-xs text-slate-400">综合分</p>
-              <p class="text-lg font-semibold">{{ detail.item.totalScore == null ? '—' : num(detail.item.totalScore) }}</p>
+              <p class="text-xs text-slate-400">过程分</p>
+              <p class="text-lg font-semibold">
+                {{ detail.item.processScore == null ? (detail.item.totalScore == null ? '—' : num(detail.item.totalScore)) : num(detail.item.processScore) }}
+              </p>
             </div>
             <div class="rounded-lg bg-slate-50 p-3">
-              <p class="text-xs text-slate-400">期末需考</p>
+              <p class="text-xs text-slate-400">需考 / 还差</p>
               <p class="text-lg font-semibold" :class="detail.item.finalUnreachable ? 'text-red-600' : ''">
                 {{ detail.item.finalUnreachable ? '不可达' : (detail.item.finalExamNeeded == null ? '—' : num(detail.item.finalExamNeeded)) }}
               </p>
