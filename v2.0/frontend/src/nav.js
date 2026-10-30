@@ -7,10 +7,7 @@ export const NAV = {
       { text: '我的考试', path: '/student/exams' },
       { text: '问卷调查', path: '/student/questionnaires' }
     ] },
-    { text: '学情预警', path: '/student/warnings' },
-    // 2026-12 补：学习评价（AI 报告）页早已存在（/student/reports），但导航漏了入口，
-    // 只能手敲 URL 才能进，验收时看不见——这里补上
-    { text: '学习评价', path: '/student/reports' }
+    { text: '学情预警', path: '/student/warnings' }
   ],
   // 教师端：口径只有「首页 / 预警监控」两项；因新增「全部课程」独立页，补一项「课程」
   TEACHER: [

@@ -10,6 +10,7 @@
       </div>
       <div class="flex items-center gap-2">
         <button class="btn-ghost text-sm" :disabled="loading" @click="load">{{ loading ? '刷新中…' : '刷新' }}</button>
+        <button class="btn-primary text-sm" @click="$router.push('/student/reports')">学习评价</button>
         <button class="btn-ghost text-sm" @click="$router.push('/student/notifications')">消息中心</button>
       </div>
     </div>
