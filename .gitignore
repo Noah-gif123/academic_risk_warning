@@ -102,4 +102,5 @@ v2.0/backend/build-verify-lib/
 v2.0/backend/build-verify-test/
 v2.0/backend/javac*.args
 v2.0/tool/.npm-cache/
-.tmp-render/
+.tmp-render/# AI 密钥（本地注入，勿入库）
+v2.0/backend/ai.env

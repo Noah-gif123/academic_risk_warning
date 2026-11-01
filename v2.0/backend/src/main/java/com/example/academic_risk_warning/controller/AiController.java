@@ -38,10 +38,44 @@ public class AiController {
         m.put("model", props.getModel());
         m.put("reportWorkflowReady", props.reportReady());
         m.put("questionWorkflowReady", props.getQuestionAppKey() != null && !props.getQuestionAppKey().isBlank());
+        // 直连通道（Dify 没配时的主力）：缺 key 时这里一眼能看出来
+        m.put("directReady", props.directReady());
+        m.put("directBaseUrl", props.directBaseUrl());
+        m.put("directModel", props.directModel());
         m.put("dailyLimit", props.getDailyLimit());
         m.put("reachable", props.isEnabled() && difyClient.reachable());
+        // 只报"缺哪个变量名"，不回显任何密钥值
+        m.put("missingKeys", missingKeys());
         m.put("usage", runService.summary());
         return Result.ok(m);
+    }
+
+    /** 当前缺哪些注入项（变量名清单，给部署体检与手册用） */
+    private java.util.List<String> missingKeys() {
+        java.util.List<String> miss = new java.util.ArrayList<>();
+        if (!props.directReady()) {
+            miss.add("AI_LLM_KEY（或 AI_DASHSCOPE_KEY）");
+        }
+        if (blank(props.getReportAppKey())) {
+            miss.add("AI_REPORT_APP_KEY");
+        }
+        if (blank(props.getQuestionAppKey())) {
+            miss.add("AI_QUESTION_APP_KEY");
+        }
+        if (blank(props.getChatAppKey())) {
+            miss.add("AI_CHAT_APP_KEY");
+        }
+        if (blank(props.getAlertExplainAppKey())) {
+            miss.add("AI_ALERT_APP_KEY");
+        }
+        if (blank(props.getGroupReportAppKey())) {
+            miss.add("AI_GROUP_REPORT_APP_KEY");
+        }
+        return miss;
+    }
+
+    private static boolean blank(String s) {
+        return s == null || s.isBlank();
     }
 
     @GetMapping("/usage")
