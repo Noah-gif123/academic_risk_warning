@@ -52,11 +52,31 @@ public class DashScopeClient {
     }
 
     public ChatResult chat(String system, String user) {
-        return chat(system, user, 0.5, 1600);
+        return chat(system, user, 0.5, 2400);
     }
 
-    /** 可调温度与最大输出长度（出题需要更多 token、报告需要更稳的语气） */
+    /**
+     * 可调温度与最大输出长度（出题需要更多 token、报告需要更稳的语气）。
+     *
+     * <p>推理型模型（如 deepseek-flash）会先花 completion 预算做 reasoning：提示一长就可能把预算烧光、
+     * 返回空 content（finish_reason=length）。这里遇到这种情况自动把预算翻倍重试一次，
+     * 仍不行再如实报错，避免"白花 token 又退回模板"。</p>
+     */
     public ChatResult chat(String system, String user, double temperature, int maxTokens) {
+        ChatResult first = once(system, user, temperature, maxTokens);
+        if (!first.isOk() && first.getError() != null && first.getError().contains("finish_reason=length")) {
+            int retryBudget = Math.min(8000, Math.max(maxTokens, 1600) * 2);
+            log.info("[DashScope] 输出被长度截断，按 max_tokens={} 重试一次", retryBudget);
+            ChatResult second = once(system, user, temperature, retryBudget);
+            if (second.isOk()) {
+                return second;
+            }
+            return second;
+        }
+        return first;
+    }
+
+    private ChatResult once(String system, String user, double temperature, int maxTokens) {
         if (!props.directReady()) {
             return new ChatResult(false, null, 0, "未配置 DashScope Key");
         }
@@ -84,9 +104,18 @@ public class DashScopeClient {
             }
             JsonNode root = MAPPER.readTree(resp.body());
             String text = root.path("choices").path(0).path("message").path("content").asText("");
+            String finish = root.path("choices").path(0).path("finish_reason").asText("");
             int tokens = root.path("usage").path("total_tokens").asInt(0);
+            int reasoningTokens = root.path("usage").path("completion_tokens_details")
+                    .path("reasoning_tokens").asInt(0);
             if (text.isBlank()) {
-                return new ChatResult(false, null, tokens, "模型返回空内容");
+                return new ChatResult(false, null, tokens,
+                        "模型返回空内容(finish_reason=" + finish + ", reasoning_tokens=" + reasoningTokens
+                                + ", max_tokens=" + maxTokens + ")");
+            }
+            if ("length".equals(finish)) {
+                // 有内容但被截断：先用着，但留痕方便排查
+                log.warn("[DashScope] 输出被截断(finish_reason=length)，tokens={}", tokens);
             }
             return new ChatResult(true, text, tokens, null);
         } catch (Exception e) {
