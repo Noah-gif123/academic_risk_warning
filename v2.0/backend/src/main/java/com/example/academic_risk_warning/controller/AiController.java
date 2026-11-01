@@ -46,8 +46,32 @@ public class AiController {
         m.put("reachable", props.isEnabled() && difyClient.reachable());
         // 只报"缺哪个变量名"，不回显任何密钥值
         m.put("missingKeys", missingKeys());
+        // 每个场景实际会走哪条通道（DIFY / DIRECT / TEMPLATE），排查"为什么是模板"最直接
+        m.put("scenes", scenes());
         m.put("usage", runService.summary());
         return Result.ok(m);
+    }
+
+    /**
+     * 六个 AI 场景的通道规划：Dify 只接了报告 / 解释卡 / 群体报告，
+     * 批改建议、AI 出题、课程问答只有直连（没有 Dify 分支），所以这三项必须有直接的模型 Key。
+     */
+    private Map<String, Object> scenes() {
+        Map<String, Object> s = new LinkedHashMap<>();
+        s.put("report", pick(props.reportReady()));
+        s.put("alertExplain", pick(props.getAlertExplainAppKey() != null && !props.getAlertExplainAppKey().isBlank()));
+        s.put("groupReport", pick(props.getGroupReportAppKey() != null && !props.getGroupReportAppKey().isBlank()));
+        s.put("grading", props.directReady() ? "DIRECT" : "TEMPLATE");
+        s.put("question", props.directReady() ? "DIRECT" : "TEMPLATE");
+        s.put("qa", props.directReady() ? "DIRECT" : "TEMPLATE");
+        return s;
+    }
+
+    private String pick(boolean difyReady) {
+        if (difyReady) {
+            return "DIFY";
+        }
+        return props.directReady() ? "DIRECT" : "TEMPLATE";
     }
 
     /** 当前缺哪些注入项（变量名清单，给部署体检与手册用） */
