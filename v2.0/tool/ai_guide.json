@@ -73,7 +73,7 @@
     [
      "应用 API Key",
      "**已创建**",
-     "`app-QuSV6iZg2lpkuPj3JCiQspEw`（可在 Dify 应用「访问 API」页随时重建）"
+     "`app-****`（真实 Key 只存本机 ai.env，不入库；Dify 应用「访问 API」页可查看或重建）"
     ],
     [
      "后端 M1 底座",
@@ -144,7 +144,7 @@
     ],
     [
      "报告应用 API Key",
-     "`app-QuSV6iZg2lpkuPj3JCiQspEw`",
+     "`app-****`",
      "Dify → 该应用 → 访问 API → 重新生成"
     ],
     [
@@ -359,7 +359,7 @@
   },
   {
    "t": "note",
-   "x": "POST http://localhost:8090/v1/workflows/run ，Header: Authorization: Bearer app-QuSV6iZg2lpkuPj3JCiQspEw ，body: {\"inputs\":{\"facts\":\"……\"},\"response_mode\":\"blocking\",\"user\":\"probe\"}"
+   "x": "POST http://localhost:8090/v1/workflows/run ，Header: Authorization: Bearer app-**** ，body: {\"inputs\":{\"facts\":\"……\"},\"response_mode\":\"blocking\",\"user\":\"probe\"}"
   },
   {
    "t": "p",
@@ -376,7 +376,7 @@
   {
    "t": "ul",
    "x": [
-    "**IDEA 里跑**：Run Configuration → Environment variables 加 `AI_DASHSCOPE_KEY=sk-xxx;AI_REPORT_APP_KEY=app-QuSV6iZg2lpkuPj3JCiQspEw;AI_DIFY_BASE_URL=http://localhost:8090`（注意 IDEA 里多项用分号分隔）；",
+    "**IDEA 里跑**：Run Configuration → Environment variables 加 `AI_DASHSCOPE_KEY=sk-xxx;AI_REPORT_APP_KEY=app-****;AI_DIFY_BASE_URL=http://localhost:8090`（注意 IDEA 里多项用分号分隔）；",
     "**命令行跑**：PowerShell 里先 `$env:AI_REPORT_APP_KEY=\"app-QuSV...\"` 再 `java -jar ...`。"
    ]
   },

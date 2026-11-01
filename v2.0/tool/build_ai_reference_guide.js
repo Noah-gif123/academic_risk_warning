@@ -172,7 +172,7 @@ children.push(table(
     ['C1', 'Dify 只接了 3 个场景，其余仅直连', '纯 Dify 部署时批改/出题/问答无法真跑', '已说明', 'P2'],
     ['C2', '缺少 2 个 Dify 应用（解释卡、群体报告）', '这两场景暂时只能走直连', '待建', 'P2'],
     ['L1', '日限额只覆盖 3 个场景', '学生端问答等入口不限流，存在被刷风险', '待改', 'P1'],
-    ['D1', '手册文件里存着真实 Dify App Key', '密钥入版本库并已推送两个远端', '待处理', 'P0'],
+    ['D1', '手册文件里存着真实 Dify App Key', '密钥曾入版本库并已推送两个远端', '仓库内已清（2026-11-01），待吊销旧 Key', 'P0'],
     ['D2', '交付包（约 50MB）进入 Git 历史', 'GitHub 报大文件告警，仓库变重', '待处理', 'P2'],
     ['D3', 'Dify 控制台凭据未提供', '我无法代建应用，只能给 DSL 或由人操作', '待配合', 'P2']
   ],
@@ -228,7 +228,7 @@ children.push(para('建议：在事实包里定义唯一展示指标 metric（PR
 
 children.push(h2('D1：密钥安全（最高优先，动动手就能修）'));
 children.push(para('现象：v2.0/tool/ai_guide.json 这个入库文件里明文保存着真实的 Dify 报告应用 App Key，且已随本次推送上了 Gitee 与 GitHub。'));
-children.push(para('建议：① 立刻把文档内容中的 Key 换成占位（app-****），真值只放 ai.env（已 gitignore）；② 重新生成对应文档；③ 到 Dify 控制台吊销并重建该应用 Key；④ 之后所有文档/PPT 一律不写真实密钥。'));
+children.push(para('进度（2026-11-01）：① 已完成——gen_ai_guide.js 与 ai_guide.json 中的真实 Key 已全部替换为 app-****，重新生成后全仓库已无任何已入库文件包含真实 Key；② 已完成——ai_guide.json 已重新生成；③ 待执行——请到 Dify 控制台吊销并重建该应用 Key（旧 Key 仍在 Git 历史与两个远端中）；④ 之后所有文档/PPT 一律不写真实密钥，真值只放本机 ai.env。'));
 children.push(para('另：DeepSeek Key 曾在对话中出现，建议演示验收后轮换一次，代码侧只需改 ai.env 一行。'));
 
 children.push(h2('D2：仓库体积'));

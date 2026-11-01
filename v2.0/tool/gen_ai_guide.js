@@ -27,7 +27,7 @@ table('已完成清单',
     ['管理员账号', '**已创建**', 'admin@campus.local / Dify@2026demo'],
     ['报告工作流', '**已导入并发布**', '应用「学习评价报告（学生端）」，app_id `0922a164-d2f9-4c82-b485-97eabcd60891`'],
     ['工作流 DSL 源文件', '**已入库**', '`v2.0/ai/dify-workflows/report-student.yml`（0.3.1 格式，导入时自动升到 0.7.0）'],
-    ['应用 API Key', '**已创建**', '`app-QuSV6iZg2lpkuPj3JCiQspEw`（可在 Dify 应用「访问 API」页随时重建）'],
+    ['应用 API Key', '**已创建**', '`app-****`（真实 Key 只存本机 ai.env，不入库；Dify 应用「访问 API」页可查看或重建）'],
     ['后端 M1 底座', '**已完成**', '`ai_*` 7 张表、`/api/ai/health`、`ai_run/ai_run_step/ai_usage`、日限额'],
     ['学生端报告功能', '**已跑通**', '5 门课生成 5 份，其中 4 份 AI 撰写（source=LLM）、1 份按设计退模板'],
     ['三层降级链', '**已验证**', 'Dify 失败 → DashScope 直连 → 规则模板；实测 Dify 报错时自动落到直连，页面无感'],
@@ -43,7 +43,7 @@ table('账号 / 地址 / 密钥',
     ['Dify 控制台', 'http://localhost:8090', '—'],
     ['Dify 管理账号', 'admin@campus.local / Dify@2026demo', 'Dify → 个人设置'],
     ['报告应用 app_id', '`0922a164-d2f9-4c82-b485-97eabcd60891`', 'Dify → 工作室 → 学习评价报告（学生端）'],
-    ['报告应用 API Key', '`app-QuSV6iZg2lpkuPj3JCiQspEw`', 'Dify → 该应用 → 访问 API → 重新生成'],
+    ['报告应用 API Key', '`app-****`', 'Dify → 该应用 → 访问 API → 重新生成'],
     ['后端 AI 地址', '`AI_DIFY_BASE_URL=http://localhost:8090`', '`v2.0/backend/src/main/resources/application.yml` 或环境变量'],
     ['报告工作流 Key', '`AI_REPORT_APP_KEY=<上表 Key>`', '同上'],
     ['直连兜底 Key', '`AI_DASHSCOPE_KEY=<DashScope Key>`', '同上（v1.0 那把仍有效）'],
@@ -110,12 +110,12 @@ ol([
   '点运行，右侧应返回四段：【结论】【你的强项】【需要补的地方】【下一步做什么】。'
 ]);
 h3('方式二：命令行直接打 Service API');
-note('POST http://localhost:8090/v1/workflows/run ，Header: Authorization: Bearer app-QuSV6iZg2lpkuPj3JCiQspEw ，body: {"inputs":{"facts":"……"},"response_mode":"blocking","user":"probe"}');
+note('POST http://localhost:8090/v1/workflows/run ，Header: Authorization: Bearer app-**** ，body: {"inputs":{"facts":"……"},"response_mode":"blocking","user":"probe"}');
 p('成功返回里 `data.status` 为 `succeeded`，`data.outputs.text` 就是正文，`data.total_tokens` 是本次用量。失败时 `data.error` 会写"模型未配置""provider not found"之类，按 2.6 排查。');
 h2('2.4 第四步：把 Key 交给后端');
 p('后端只认环境变量，**不要写进代码**。两种方式选一种：');
 ul([
-  '**IDEA 里跑**：Run Configuration → Environment variables 加 `AI_DASHSCOPE_KEY=sk-xxx;AI_REPORT_APP_KEY=app-QuSV6iZg2lpkuPj3JCiQspEw;AI_DIFY_BASE_URL=http://localhost:8090`（注意 IDEA 里多项用分号分隔）；',
+  '**IDEA 里跑**：Run Configuration → Environment variables 加 `AI_DASHSCOPE_KEY=sk-xxx;AI_REPORT_APP_KEY=app-****;AI_DIFY_BASE_URL=http://localhost:8090`（注意 IDEA 里多项用分号分隔）；',
   '**命令行跑**：PowerShell 里先 `$env:AI_REPORT_APP_KEY="app-QuSV..."` 再 `java -jar ...`。'
 ]);
 p('`AI_REPORT_APP_KEY` 一配上，后端就会优先走 Dify；Dify 挂了会自动退直连，不会白屏。');
