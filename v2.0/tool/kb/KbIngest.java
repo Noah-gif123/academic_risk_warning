@@ -57,6 +57,23 @@ public class KbIngest {
     private static final int OVERLAP = 60;
     private static final int MIN_CHUNK = 40;
 
+    /**
+     * 入库前的口径修正（以「课程导学」为准）。
+     *
+     * <p>原始资料里的课程大纲是教务处模板，学分与导学不一致（大纲 3 学分 / 导学 2.0 学分）。
+     * 不改用户原件，而是在入库时统一到导学口径，并在这里留痕，任何一次重建都会得到一致的语料。</p>
+     */
+    private static final List<Correction> CORRECTIONS = List.of(
+            // 大学计算机基础：大纲写 3 学分，导学写 2.0 学分 → 以导学为准
+            new Correction("课程大纲_大学计算机基础", "学　　分：3　　总学时", "学　　分：2　　总学时"),
+            // 大纲正文里的"3 学分"提法（若有）
+            new Correction("课程大纲_大学计算机基础", "3 学分", "2 学分")
+    );
+
+    /** 一条入库修正：命中某一文档时，把 before 替换成 after */
+    private record Correction(String docNameContains, String before, String after) {
+    }
+
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
             System.out.println("用法: java -cp ... KbIngest <kb-source 根目录> [--dry-run]");
@@ -97,6 +114,7 @@ public class KbIngest {
                     continue;
                 }
                 String docName = stripExt(p.getFileName().toString());
+                text = applyCorrections(docName, text);
                 List<String> chunks = chunk(text);
                 docs.add(new Doc(courseId, docName, rel, sha256(text), text.length(), chunks));
                 System.out.printf("READ %-58s %5d 字 → %2d 块%n", rel, text.length(), chunks.size());
@@ -307,6 +325,18 @@ public class KbIngest {
     }
 
     // ================================================================ 小工具
+
+    /** 应用 {@link #CORRECTIONS} 里登记的口径修正，命中就打印，便于核对 */
+    private static String applyCorrections(String docName, String text) {
+        String out = text;
+        for (Correction c : CORRECTIONS) {
+            if (docName.contains(c.docNameContains()) && out.contains(c.before())) {
+                out = out.replace(c.before(), c.after());
+                System.out.println("  ↳ 口径修正：" + c.before() + " → " + c.after());
+            }
+        }
+        return out;
+    }
     private static Long courseOf(String relPath) {
         String dir = relPath.contains("\\") ? relPath.substring(0, relPath.indexOf('\\'))
                 : relPath.contains("/") ? relPath.substring(0, relPath.indexOf('/')) : "";

@@ -115,12 +115,15 @@ public class DifyVectorClient {
         body.put("query", query);
         body.put("retrieval_model", retrieval);
         if (filterByCourse && courseId != null) {
+            // Dify 要的是「条件字典」而不是条件数组：{logical_operator, conditions:[...]}
             Map<String, Object> cond = new LinkedHashMap<>();
             cond.put("name", "course_id");
             cond.put("comparison_operator", "is");
             cond.put("value", String.valueOf(courseId));
-            cond.put("logical_operator", "and");
-            retrieval.put("metadata_filtering_conditions", List.of(cond));
+            Map<String, Object> filter = new LinkedHashMap<>();
+            filter.put("logical_operator", "and");
+            filter.put("conditions", List.of(cond));
+            retrieval.put("metadata_filtering_conditions", filter);
         }
         try {
             return MAPPER.writeValueAsString(body);
