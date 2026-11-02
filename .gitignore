@@ -110,3 +110,6 @@ v2.0/backend/ai.env
 ### 交付包与压缩件（不入库；交付时直接给磁盘文件或挂 Release 附件） ###
 *.zip
 学情预警系统_v2.0_交付包.zip
+### 课程资料原件（体积/版权原因不入库，只提交解析后的分块数据） ###
+v2.0/ai/kb-source/*
+!v2.0/ai/kb-source/README.md
