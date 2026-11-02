@@ -31,20 +31,13 @@ public class StudentQaService {
 
     private final JdbcTemplate jdbc;
     private final KbService kbService;
+    private final RetrievalService retrievalService;
     private final DashScopeClient dashScopeClient;
     private final AiRunService runService;
     private final AiProperties props;
 
-    /** 低于该相关度视为"没有依据" */
-    /** 低于该相关度视为"没有依据"（ngram 打分会随语料规模下降，取绝对下限） */
-    private static final double MIN_SCORE = 0.10;
-
-    /**
-     * 词面支撑度下限：查询的 2 字片段出现在最佳片段里的比例。
-     * ngram 分值会随语料规模放大（同一问题从 0.3 变到 20+），单看分值不能判断"有没有依据"，
-     * 所以再加一道与语料规模无关的护栏：连 2 字片段都对不上，就认定没有依据。
-     */
-    private static final double MIN_LEX_SUPPORT = 0.10;
+    // 拒答阈值（MIN_SCORE / MIN_LEX_SUPPORT / MIN_VECTOR_SCORE）统一放在 RetrievalService，
+    // 因为 RAG 评测要复用同一套判据；这里不再重复定义，避免两把尺子。
 
     public Map<String, Object> ask(Long studentId, Long courseId, Long teachingClassId, String question) {
         String q = question == null ? "" : question.trim();
@@ -69,26 +62,39 @@ public class StudentQaService {
         long t0 = System.currentTimeMillis();
         int tokens = 0;
 
-        // ---- R：检索
-        List<Map<String, Object>> hits = kbService.retrieve(courseId, q, 4);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("question", q);
+        out.put("courseId", courseId);
+        out.put("courseName", courseName);
+
+        // ---- R：检索（R2 混合检索：全文 + 向量 + RRF；向量没配置时自动只用全文路）
+        RetrievalService.Outcome retrieval = retrievalService.retrieve(courseId, q, 4);
+        List<Map<String, Object>> hits = RetrievalService.toMaps(retrieval.hits());
+        Map<String, Object> retrievalDiag = retrievalService.diagnostics(retrieval);
+        out.put("hits", hits);
+        out.put("retrievalMode", retrieval.effective().name());
+        if (retrieval.degraded() != null) {
+            out.put("retrievalNote", retrieval.degraded());
+        }
         double topScore = 0d;
         if (!hits.isEmpty()) {
             Object s = hits.get(0).get("score");
             topScore = s == null ? 0d : Double.parseDouble(String.valueOf(s));
         }
         double lexSupport = hits.isEmpty() ? 0d : lexicalSupport(q, String.valueOf(hits.get(0).get("content")));
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("question", q);
-        out.put("courseId", courseId);
-        out.put("courseName", courseName);
-        out.put("hits", hits);
+
+        // 拒答判据统一由 RetrievalService.guard 给出：线上问答与 RAG 评测必须用同一把尺子，
+        // 否则评测里"拒答准确率"会跟线上真实行为对不上。
+        RetrievalService.Guard guard = retrievalService.guard(retrieval, q);
+        boolean noEvidence = guard.refuse();
 
         // ---- 拒答分支：没检索到 / 相关度太低 / 连 2 字片段都对不上
-        if (hits.isEmpty() || topScore < MIN_SCORE || lexSupport < MIN_LEX_SUPPORT) {
+        if (noEvidence) {
             String answer = "这个问题在《" + courseName + "》的资料里没有检索到足够可靠的依据，我先不给结论，避免给你错的信息。"
                     + "建议换个问法（比如直接问某一章的名词或公式），或把问题带到课堂上问任课老师。";
             Map<String, Object> res = finish(out, runId, studentId, courseId, teachingClassId, q,
-                    answer, List.of(), hits.size(), topScore, true, "REFUSAL", "TEMPLATE", 0, t0);
+                    answer, List.of(), hits.size(), topScore, true, "REFUSAL", "TEMPLATE", 0, t0,
+                    retrieval.effective().name(), retrievalDiag);
             out.put("lexSupport", lexSupport);
             return res;
         }
@@ -146,7 +152,8 @@ public class StudentQaService {
         }
 
         Map<String, Object> res = finish(out, runId, studentId, courseId, teachingClassId, q, answer, citations,
-                hits.size(), topScore, false, "OK", source, tokens, t0);
+                hits.size(), topScore, false, "OK", source, tokens, t0,
+                retrieval.effective().name(), retrievalDiag);
         res.put("lexSupport", lexSupport);
         return res;
     }
@@ -184,7 +191,8 @@ public class StudentQaService {
     private Map<String, Object> finish(Map<String, Object> out, Long runId, Long studentId, Long courseId,
                                        Long teachingClassId, String question, String answer,
                                        List<Map<String, Object>> citations, int hitCount, double topScore,
-                                       boolean refused, String status, String source, int tokens, long t0) {
+                                       boolean refused, String status, String source, int tokens, long t0,
+                                       String retrievalMode, Map<String, Object> retrievalDiag) {
         out.put("answer", answer);
         out.put("citations", citations);
         out.put("refused", refused);
@@ -192,21 +200,30 @@ public class StudentQaService {
         out.put("status", status);
         out.put("hitCount", hitCount);
         out.put("topScore", topScore);
+        out.put("retrievalJson", retrievalDiag);
 
         String citationsJson = "[]";
+        String retrievalJson = null;
         try {
             citationsJson = MAPPER.writeValueAsString(citations);
         } catch (Exception ignore) {
             // 忽略
         }
         try {
+            retrievalJson = MAPPER.writeValueAsString(retrievalDiag);
+        } catch (Exception ignore) {
+            // 忽略
+        }
+        try {
             jdbc.update("""
                     insert into ai_qa_log(student_id, course_id, teaching_class_id, question, answer,
-                                          citations_json, hit_count, top_score, refused, status, source, tokens, cost)
-                    values (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                          citations_json, hit_count, top_score, refused, retrieval_mode,
+                                          retrieval_json, status, source, tokens, cost)
+                    values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """, studentId, courseId, teachingClassId, question,
                     answer == null ? null : (answer.length() > 4000 ? answer.substring(0, 3999) : answer),
-                    citationsJson, hitCount, BigDecimal.valueOf(topScore), refused ? 1 : 0, status, source, tokens,
+                    citationsJson, hitCount, BigDecimal.valueOf(topScore), refused ? 1 : 0, retrievalMode,
+                    retrievalJson, status, source, tokens,
                     BigDecimal.valueOf(props.costOf(tokens)));
         } catch (Exception e) {
             log.warn("[QA] 落库失败: {}", e.getMessage());

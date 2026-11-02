@@ -60,6 +60,18 @@ ai:
   base-url: ${AI_DIFY_BASE_URL:http://localhost:8090}
   # 学习评价报告工作流的 App API Key（在 Dify 控制台创建应用后复制到这里）
   report-app-key: ${AI_REPORT_APP_KEY:}
+  # ---- RAG 混合检索（R2）：全文(MySQL ngram) + 向量(Dify 知识库) + RRF 融合 ----
+  retrieval:
+    # FULLTEXT / VECTOR / HYBRID；知识库 key 没配时 HYBRID 会自动降级为 FULLTEXT
+    mode: ${AI_RAG_MODE:HYBRID}
+    # 每路召回池大小（融合前），最终给模型的条数由调用方决定
+    pool-size: 20
+    vector-top-k: 20
+    # Dify 知识库 API Key 与知识库 ID（控制台「知识库 → API」创建；不是应用 App Key）
+    dataset-key: ${AI_RAG_DATASET_KEY:}
+    dataset-id: ${AI_RAG_DATASET_ID:}
+    # 按 metadata.course_id 过滤，避免跨课程串答案
+    filter-by-course: true
   # AI 出题工作流的 App API Key（M2 使用）
   question-app-key: ${AI_QUESTION_APP_KEY:}
   # 预警解释卡工作流 App Key（M9 使用）
