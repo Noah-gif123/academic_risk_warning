@@ -288,3 +288,18 @@ DOCX 按原文顺序拍平段落与表格（表格行用 `|` 分隔，标题加 
 **注意**：36 号脚本的 INSERT 带 `NOT EXISTS(engine_version='v2.1.0')` 守卫。如果库里已经有一条旧演示版 v2.1.0，
 重跑不会覆盖它——必须先 `delete from risk_engine_config where engine_version='v2.1.0' and remark like '示例版本%';`
 再执行脚本，然后 `update ... set is_active=1`（或走 `/api/admin/rules/{id}/activate` 留审计）。
+
+## 十七、RAG 检索与评测：`37_kb_retrieval_log.sql` + `38_seed_rag_eval.sql` + `39_archive_old_reports.sql`
+
+| 脚本 | 用途 |
+| --- | --- |
+| `37_kb_retrieval_log.sql` | `ai_qa_log` 增加 `retrieval_mode`（FULLTEXT / VECTOR / HYBRID）与 `retrieval_json`（每路命中数、top 分、名次、融合分、耗时、降级原因）；并新建 `ai_rag_eval_case`（评测集）与 `ai_rag_eval_run`（评测结果，三行对比表的数据源） |
+| `38_seed_rag_eval.sql` | 评测集种子：**54 条可答 + 10 条不可答**，题目全部取自真实语料，`gold_doc` 支持 `|` 分隔多个等价出处（同一份导学发了多个教学班时命中任一都算对）；按 `note='seed38'` 先删后插，可反复执行 |
+| `39_archive_old_reports.sql` | A5 旧数据清理：归档正文含「当前总分」（M16 前的错误表述）的报告；同一学生+选课+类型只留最新一份；解释卡、群体报告同理。**只归档不删除**（`status='ARCHIVED'`，列表只取 `PUBLISHED`） |
+
+口径要点：
+
+- 检索评测**只检索不生成**，不消耗模型 token，可随时跑：`POST /api/admin/ai/rag-eval?mode=HYBRID&k=4`
+- 拒答判据在 `RetrievalService.guard`，线上问答与评测共用同一套阈值，避免"评测好看、线上不一致"
+- 词面支撑度取 top-k 最大值（不是只看第一名），阈值 `min-lex-support` 默认 **0.25**（HYBRID 拐点：拒答 0.90 / 误拒 9.3%）
+- 指标定义与实测数据见 `v2.0/ai/rag-eval.md`
