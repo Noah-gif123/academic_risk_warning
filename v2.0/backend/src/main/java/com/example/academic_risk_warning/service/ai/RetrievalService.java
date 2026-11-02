@@ -383,7 +383,13 @@ public class RetrievalService {
             return new Guard(true, "无检索结果", 0d, 0d);
         }
         Hit top = o.hits().get(0);
-        double lex = lexicalSupport(question, top.content());
+        // 词面支撑度取 top-k 里的最大值：只看第一名会被"表格碎片 / 分段边界"误伤
+        // （实例：问"总评成绩由哪几部分构成"，命中的是表 3 碎片，单看它只有 0.176，
+        //  但同一批命中里导学那段覆盖了全部关键词，按 top-1 判会把这个核心问题误拒）
+        double lex = 0d;
+        for (Hit h : o.hits()) {
+            lex = Math.max(lex, lexicalSupport(question, h.content()));
+        }
         double topScore = top.ftScore() != null ? top.ftScore()
                 : (top.vecScore() == null ? 0d : top.vecScore());
         if (top.ftRank() != null) {

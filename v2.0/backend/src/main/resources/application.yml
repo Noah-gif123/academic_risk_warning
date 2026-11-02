@@ -74,8 +74,8 @@ ai:
     filter-by-course: true
     # 同一份文档最多占几个结果名额（抑制同源分块占满 top-k）
     max-per-doc: 2
-    # 词面支撑度下限：0.10 在 40 块语料下够用，扩到 200+ 块后必须抬到 0.20（扫参曲线见 ai/rag-eval.md）
-    min-lex-support: ${AI_RAG_MIN_LEX:0.20}
+    # 词面支撑度下限：取 top-k 最大值后，HYBRID 下 0.25 是拐点（拒答 0.90 / 误拒 9.3%，见 ai/rag-eval.md）
+    min-lex-support: ${AI_RAG_MIN_LEX:0.25}
   # AI 出题工作流的 App API Key（M2 使用）
   question-app-key: ${AI_QUESTION_APP_KEY:}
   # 预警解释卡工作流 App Key（M9 使用）
