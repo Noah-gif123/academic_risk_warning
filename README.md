@@ -148,6 +148,8 @@ java -cp ".;../../backend/build-verify-lib/*" KbIngest ../../../kb-source   # �
 | `v2.0/tool/demo_stage2.ps1` | 端到端演示（规则 → 判定 → 教师端 → 学生端） |
 | `v2.0/tool/rebuild_demo.ps1` | 一键重建演示库（含判定与演示痕迹） |
 | `POST /api/admin/ai/rag-eval?mode=HYBRID&k=4` | 检索评测（只检索不生成，不消耗 token） |
+| `v2.0/tool/rag-blind-eval.ps1` | 盲测集 vs 自编集对比（回应「自编自测」质疑，见 rag-eval.md §11） |
+| `v2.0/tool/kb/AblationTool.java` | 判定引擎四因子消融与阈值敏感性（离线复算，自检 540/540） |
 | `GET /api/ai/health` | AI 通道自检：逐场景 DIFY/DIRECT/TEMPLATE、缺哪个 Key |
 | `java -cp "build-verify;build-test;<libs>" RunTest` | 单测（`TriggerGateTest` 5 + `RiskMathTest` 20） |
 

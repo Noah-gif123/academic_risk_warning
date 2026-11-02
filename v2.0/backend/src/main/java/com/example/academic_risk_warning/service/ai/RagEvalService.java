@@ -44,23 +44,30 @@ public class RagEvalService {
 
     /** 跑一种模式，返回指标并落库 */
     public Map<String, Object> run(RetrievalService.Mode mode, int k) {
-        return run(mode, k, 0, 0);
+        return run(mode, k, 0, 0, null);
+    }
+
+    public Map<String, Object> run(RetrievalService.Mode mode, int k, double minLexSupport, int maxPerDoc) {
+        return run(mode, k, minLexSupport, maxPerDoc, null);
     }
 
     /**
-     * 跑一种模式，可临时指定词面支撑度阈值与同源上限（扫参用，不改全局配置）。
+     * 跑一种模式，可临时指定词面支撑度阈值、同源上限与用例分组（扫参 / 盲测用，不改全局配置）。
      *
      * @param minLexSupport 0 表示用配置值
      * @param maxPerDoc     0 表示用配置值
+     * @param note          只跑 {@code ai_rag_eval_case.note} 等于该值的用例；null 表示全部
      */
-    public Map<String, Object> run(RetrievalService.Mode mode, int k, double minLexSupport, int maxPerDoc) {
+    public Map<String, Object> run(RetrievalService.Mode mode, int k, double minLexSupport, int maxPerDoc, String note) {
         RetrievalService retriever = (minLexSupport > 0 || maxPerDoc > 0)
                 ? retrievalService.copyWith(minLexSupport, maxPerDoc)
                 : retrievalService;
         int topK = Math.max(1, Math.min(k, 10));
-        List<Case> cases = loadCases();
+        List<Case> cases = loadCases(note);
         if (cases.isEmpty()) {
-            throw new IllegalStateException("评测集为空：先执行 sql/38_seed_rag_eval.sql");
+            throw new IllegalStateException(note == null
+                    ? "评测集为空：先执行 sql/38_seed_rag_eval.sql"
+                    : "没有 note=" + note + " 的用例：盲测集还没录入（见 ai/rag-eval.md §11）");
         }
         double recallSum = 0, mrrSum = 0, ndcgSum = 0;
         int answerable = 0, unanswerable = 0, refuseRight = 0, refuseWrong = 0, hitRight = 0;
@@ -122,6 +129,7 @@ public class RagEvalService {
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("mode", mode.name());
+        out.put("noteFilter", note);
         out.put("k", topK);
         out.put("cases", cases.size());
         out.put("answerable", answerable);
@@ -152,7 +160,8 @@ public class RagEvalService {
                     """, mode.name(), topK, cases.size(),
                     BigDecimal.valueOf(recall), BigDecimal.valueOf(mrr), BigDecimal.valueOf(ndcg),
                     BigDecimal.valueOf(refuseAcc), BigDecimal.valueOf(falseRefuse), avgMs,
-                    toJson(Map.of("cases", detail, "effectiveFallback", fallbacks)));
+                    toJson(Map.of("cases", detail, "effectiveFallback", fallbacks,
+                            "noteFilter", note == null ? "" : note)));
         } catch (Exception e) {
             log.warn("[RAG-EVAL] 结果落库失败：{}", e.getMessage());
         }
@@ -174,11 +183,13 @@ public class RagEvalService {
         return table;
     }
 
-    private List<Case> loadCases() {
+    private List<Case> loadCases(String note) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 select id, course_id, question, answerable, gold_doc, gold_section
-                from ai_rag_eval_case order by course_id, id
-                """);
+                from ai_rag_eval_case
+                where (? is null or note = ?)
+                order by course_id, id
+                """, note, note);
         List<Case> out = new ArrayList<>();
         for (Map<String, Object> r : rows) {
             String gold = r.get("gold_doc") == null ? null : String.valueOf(r.get("gold_doc"));
