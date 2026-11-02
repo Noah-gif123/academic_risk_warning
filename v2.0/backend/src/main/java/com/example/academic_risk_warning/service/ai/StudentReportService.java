@@ -33,6 +33,7 @@ public class StudentReportService {
 
     private final FactPackBuilder factPackBuilder;
     private final ReportComposer composer;
+    private final RetrievalService retrievalService;
     private final DifyClient difyClient;
     private final DashScopeClient dashScopeClient;
     private final AiRunService runService;
@@ -55,6 +56,9 @@ public class StudentReportService {
     public StudentReportVO generate(Long studentId, Long enrollmentId, String reportType) {
         String type = (reportType == null || reportType.isBlank()) ? "STAGE" : reportType.toUpperCase();
         ReportFact fact = factPackBuilder.build(studentId, enrollmentId);
+        // R1：检索本课程资料，报告末尾附「参考依据」，让学生知道依据哪份资料的哪一段
+        List<RetrievalService.Hit> evidence = retrieveEvidence(fact);
+        String evidenceBlock = evidenceBlock(evidence);
 
         Long runId = runService.start("REPORT", "ENROLLMENT", enrollmentId, studentId);
         long t0 = System.currentTimeMillis();
@@ -70,6 +74,9 @@ public class StudentReportService {
                 note.append("已达当日调用上限；");
             } else {
                 Map<String, Object> inputs = composer.promptInputs(fact);
+                if (!evidenceBlock.isEmpty()) {
+                    inputs.put("facts", String.valueOf(inputs.get("facts")) + evidenceBlock);
+                }
                 DifyClient.WorkflowResult res = difyClient.runWorkflow(props.getReportAppKey(), inputs, "student-" + studentId);
                 tokens += res.getTotalTokens();
                 if (!res.isOk()) {
@@ -128,7 +135,7 @@ public class StudentReportService {
 
         // 通道二：DashScope 直连（Dify 不可用或未配时兜底）
         if (content == null && props.directReady() && !runService.overLimit(studentId, "REPORT")) {
-            DashScopeClient.ChatResult res = dashScopeClient.chat(composer.promptSystem(), composer.promptUser(fact));
+            DashScopeClient.ChatResult res = dashScopeClient.chat(composer.promptSystem(), composer.promptUser(fact) + evidenceBlock);
             long t1 = System.currentTimeMillis();
             tokens += res.getTotalTokens();
             if (!res.isOk()) {
@@ -148,7 +155,7 @@ public class StudentReportService {
                     String corrective = composer.promptUser(fact)
                             + "\n\n上一版出现了事实之外的数字：" + String.join("、", bad.stream().distinct().toList())
                             + "。请只使用给定事实中的数字重写；确实需要给出训练时长/题量时，用文字表述（如「每天若干道」）。";
-                    DashScopeClient.ChatResult retry = dashScopeClient.chat(composer.promptSystem(), corrective);
+                    DashScopeClient.ChatResult retry = dashScopeClient.chat(composer.promptSystem(), corrective + evidenceBlock);
                     tokens += retry.getTotalTokens();
                     if (retry.isOk()) {
                         List<String> bad2 = composer.invalidNumbersForReport(retry.getText(), fact);
@@ -183,6 +190,9 @@ public class StudentReportService {
         } else {
             note.append("ok");
         }
+
+        // R1：不论走哪条通道，都在末尾补「参考依据」段落（检索为空时如实说明）
+        appendEvidence(content, evidence);
 
         String error = status.equals("SUCCESS") ? null : note.toString();
         // 即使成功，也把"主通道为什么没用上"留痕：报告配了 Dify 却走了直连时，ai_run 里要能看出原因
@@ -272,6 +282,84 @@ public class StudentReportService {
             throw new BizException("你不在该教学班，或选课已失效");
         }
         return generate(studentId, ids.get(0), reportType);
+    }
+
+    // ================================================================ R1：课程资料检索
+    /**
+     * 为这份报告检索支撑资料。
+     *
+     * <p>查询串取「课程名 + 成绩单状态 + 分项里最弱的两项」：报告要讲的"需要补的地方"往往正对应
+     * 某份课件/习题集里的知识点，而不是随便一篇文档。</p>
+     */
+    private List<RetrievalService.Hit> retrieveEvidence(ReportFact fact) {
+        if (fact.getCourseId() == null) {
+            return List.of();
+        }
+        StringBuilder q = new StringBuilder();
+        q.append(fact.getCourseName() == null ? "" : fact.getCourseName()).append(' ');
+        q.append("期末未计入".equals(fact.getScoreStatus()) || "PARTIAL".equals(fact.getScoreStatus())
+                ? "过程分 成绩构成 " : "考核方式 成绩构成 ");
+        List<ReportFact.Item> items = fact.getItems() == null ? List.of() : fact.getItems();
+        items.stream()
+                .filter(i -> i.getScore() != null && !Boolean.TRUE.equals(i.getMissing()))
+                .sorted(java.util.Comparator.comparing(ReportFact.Item::getScore))
+                .limit(2)
+                .forEach(i -> q.append(i.getName()).append(' '));
+        try {
+            RetrievalService.Outcome out = retrievalService.retrieve(fact.getCourseId(), q.toString().trim(), 3);
+            RetrievalService.Guard guard = retrievalService.guard(out, q.toString());
+            if (guard.refuse()) {
+                log.debug("[Report] 资料检索无足够依据：{}", guard.reason());
+                return List.of();
+            }
+            return out.hits();
+        } catch (Exception e) {
+            log.warn("[Report] 资料检索失败，报告照常生成：{}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** 给模型看的依据块：要求把文档名与段号写进正文末尾，但不得编造资料名 */
+    private String evidenceBlock(List<RetrievalService.Hit> evidence) {
+        if (evidence == null || evidence.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("\n\n【可引用的课程资料】（原文照抄文档名与段号，不得编造）\n");
+        int i = 1;
+        for (RetrievalService.Hit h : evidence) {
+            String t = h.content() == null ? "" : h.content().replace('\n', ' ').replaceAll("\\s{2,}", " ").trim();
+            if (t.length() > 120) {
+                t = t.substring(0, 120) + "…";
+            }
+            sb.append(i++).append("）").append(h.docName()).append(" 第").append(h.sectionNo()).append("段：").append(t).append("\n");
+        }
+        return sb.toString();
+    }
+
+    /** 往报告末尾追加「参考依据」段落；检索为空时如实说明，不假装有依据 */
+    private void appendEvidence(ReportComposer.Content content, List<RetrievalService.Hit> evidence) {
+        if (content == null) {
+            return;
+        }
+        String text;
+        if (evidence == null || evidence.isEmpty()) {
+            text = "本课程的课程资料库里暂未检索到与本次评价直接对应的条款。";
+        } else {
+            StringBuilder sb = new StringBuilder();
+            for (RetrievalService.Hit h : evidence) {
+                if (sb.length() > 0) {
+                    sb.append("；");
+                }
+                sb.append(h.docName()).append(" 第").append(h.sectionNo()).append("段");
+            }
+            text = "课程资料：" + sb;
+        }
+        List<ReportComposer.Section> sections = content.getSections();
+        if (sections == null) {
+            sections = new ArrayList<>();
+            content.setSections(sections);
+        }
+        sections.add(new ReportComposer.Section("参考依据", text));
     }
 
     // ================================================================ 查询

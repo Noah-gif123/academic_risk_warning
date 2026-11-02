@@ -38,6 +38,7 @@ public class AlertExplainService {
 
     private final JdbcTemplate jdbc;
     private final ReportComposer composer;
+    private final RetrievalService retrievalService;
     private final DifyClient difyClient;
     private final DashScopeClient dashScopeClient;
     private final AiRunService runService;
@@ -56,6 +57,8 @@ public class AlertExplainService {
         Map<String, Object> fact = buildFact(alertId);
         String triggerType = String.valueOf(fact.get("triggerType"));
         List<Map<String, Object>> actions = actionsFor(triggerType, fact);
+        // R1：把课程资料检索进解释卡——学生看到"为什么预警"时，还能看到对应的课程口径依据
+        List<RetrievalService.Hit> evidence = retrieveEvidence(fact, triggerType);
 
         Long runId = runService.start("ALERT_EXPLAIN", "ALERT", alertId, operatorId);
         long t0 = System.currentTimeMillis();
@@ -66,7 +69,7 @@ public class AlertExplainService {
         int tokens = 0;
 
         String systemPrompt = systemPrompt();
-        String userPrompt = userPrompt(fact, actions);
+        String userPrompt = userPrompt(fact, actions, evidence);
 
         if (props.isEnabled() && props.getAlertExplainAppKey() != null && !props.getAlertExplainAppKey().isBlank()) {
             Map<String, Object> inputs = new LinkedHashMap<>();
@@ -119,6 +122,8 @@ public class AlertExplainService {
             sections = templateSections(fact, actions);
             note.append("已使用规则模板");
         }
+        // 依据段落统一追加（AI 与模板两条路都带），检索为空就只注明"未检索到对应资料"
+        sections = withEvidence(sections, evidence);
 
         String summary = sections.isEmpty() ? "" : sections.get(0).getText();
         Long id = persist(fact, triggerType, sections, actions, summary, source, runId, tokens, operatorId);
@@ -400,7 +405,7 @@ public class AlertExplainService {
                 """;
     }
 
-    private String userPrompt(Map<String, Object> f, List<Map<String, Object>> actions) {
+    private String userPrompt(Map<String, Object> f, List<Map<String, Object>> actions, List<RetrievalService.Hit> evidence) {
         StringBuilder sb = new StringBuilder();
         sb.append("课程：").append(str(f.get("courseName"))).append("，班级：").append(str(f.get("className")))
                 .append("，学生：").append(str(f.get("studentName"))).append("\n");
@@ -440,8 +445,95 @@ public class AlertExplainService {
         for (Map<String, Object> a : actions) {
             sb.append("(").append(i++).append(") ").append(a.get("label")).append("；");
         }
+        if (evidence != null && !evidence.isEmpty()) {
+            sb.append("\n\n【可引用的课程资料】（写进「数据与口径说明」，原文照抄文档名与段号，不得编造）\n");
+            int k = 1;
+            for (RetrievalService.Hit h : evidence) {
+                sb.append(k++).append("）").append(h.docName()).append(" 第").append(h.sectionNo()).append("段：")
+                        .append(snippet(h.content(), 120)).append("\n");
+            }
+        }
         sb.append("\n请据此写这张预警解释卡。");
         return sb.toString();
+    }
+
+    // ============================================================ R1：课程资料检索
+    /**
+     * 为这张解释卡检索支撑资料。
+     *
+     * <p>查询串由「触发类型 + 薄弱项 + 课程名」拼成：预警原因往往是"课堂测试低""缺勤超限"，
+     * 对应的资料是导学里的考核口径、习题集里的知识点，而不是随机文档。</p>
+     */
+    private List<RetrievalService.Hit> retrieveEvidence(Map<String, Object> fact, String triggerType) {
+        Long courseId = asLong(fact.get("courseId"));
+        if (courseId == null) {
+            return List.of();
+        }
+        StringBuilder q = new StringBuilder();
+        q.append(str(fact.get("courseName"))).append(' ');
+        q.append(switch (triggerType) {
+            case "ABSENT" -> "缺勤 允许缺勤 考勤 纪律";
+            case "HOMEWORK" -> "作业 提交 缺交 平时成绩";
+            case "PROJECT" -> "项目 三级项目 大作业 提交要求";
+            case "SCORE" -> "成绩构成 总评 考核方式 及格线";
+            case "EXAM" -> "期末考试 题型 复习范围";
+            default -> "考核方式 成绩构成 及格线";
+        });
+        Object weak = fact.get("weakGroups");
+        if (weak instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> m && m.get("name") != null) {
+                    q.append(' ').append(m.get("name"));
+                }
+            }
+        }
+        try {
+            RetrievalService.Outcome out = retrievalService.retrieve(courseId, q.toString().trim(), 3);
+            RetrievalService.Guard guard = retrievalService.guard(out, q.toString());
+            if (guard.refuse()) {
+                log.debug("[AlertExplain] 资料检索无足够依据：{}", guard.reason());
+                return List.of();
+            }
+            return out.hits();
+        } catch (Exception e) {
+            // 检索失败不影响解释卡生成（三级降级的既有约定）
+            log.warn("[AlertExplain] 资料检索失败，解释卡照常生成：{}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** 追加「依据」段落；检索为空时明确写"未检索到"，而不是假装有依据 */
+    private List<Content.Section> withEvidence(List<Content.Section> sections, List<RetrievalService.Hit> evidence) {
+        List<Content.Section> out = new ArrayList<>(sections);
+        if (evidence == null || evidence.isEmpty()) {
+            out.add(new Content.Section("依据", "本课程的课程资料库里暂未检索到与本次预警直接对应的条款，建议以任课教师说明为准。"));
+            return out;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (RetrievalService.Hit h : evidence) {
+            if (sb.length() > 0) {
+                sb.append("；");
+            }
+            sb.append(h.docName()).append(" 第").append(h.sectionNo()).append("段");
+        }
+        out.add(new Content.Section("依据", "课程资料：" + sb));
+        return out;
+    }
+
+    private static String snippet(String s, int max) {
+        if (s == null) {
+            return "";
+        }
+        String t = s.replace('\n', ' ').replaceAll("\\s{2,}", " ").trim();
+        return t.length() <= max ? t : t.substring(0, max) + "…";
+    }
+
+    private static Long asLong(Object v) {
+        try {
+            return v == null ? null : Long.parseLong(String.valueOf(v));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private List<Content.Section> templateSections(Map<String, Object> f, List<Map<String, Object>> actions) {

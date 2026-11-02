@@ -34,6 +34,7 @@ public class GroupReportService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final GroupFactBuilder factBuilder;
+    private final RetrievalService retrievalService;
     private final ReportComposer composer;
     private final DifyClient difyClient;
     private final DashScopeClient dashScopeClient;
@@ -53,12 +54,19 @@ public class GroupReportService {
         long t0 = System.currentTimeMillis();
         int tokens = 0;
 
-        String userPrompt = classPrompt(fact);
+        // R1：群体报告也给「参考依据」——教师看到的是"本班薄弱项对应的课程资料"
+        List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(), fact);
+        String evidenceBlock = evidenceBlock(evidence);
+        String userPrompt = classPrompt(fact) + evidenceBlock;
         String systemPrompt = groupSystemPrompt("教学班");
 
         if (props.isEnabled() && props.getGroupReportAppKey() != null && !props.getGroupReportAppKey().isBlank()) {
+            Map<String, Object> inputs = classInputs(fact);
+            if (!evidenceBlock.isEmpty()) {
+                inputs.put("facts", String.valueOf(inputs.get("facts")) + evidenceBlock);
+            }
             DifyClient.WorkflowResult res = difyClient.runWorkflow(props.getGroupReportAppKey(),
-                    classInputs(fact), "teacher-" + operatorId);
+                    inputs, "teacher-" + operatorId);
             tokens += res.getTotalTokens();
             if (res.isOk()) {
                 String text = pickText(res.getOutputs());
@@ -107,6 +115,7 @@ public class GroupReportService {
             content = classTemplate(fact);
             note.append("已使用规则模板");
         }
+        appendEvidence(content, evidence);
 
         Long id = persist("CLASS", teachingClassId, fact.getTeachingClassId(), null,
                 fact.getOfferingId(), fact.getCourseId(), fact.getTermId(), title,
@@ -567,6 +576,63 @@ public class GroupReportService {
         }
     }
 
+    // ============================================================ R1：课程资料检索
+    /** 按「课程 + 本班薄弱项」检索支撑资料；检索不足就不硬凑 */
+    private List<RetrievalService.Hit> retrieveEvidence(Long courseId, ClassFact fact) {
+        if (courseId == null) {
+            return List.of();
+        }
+        StringBuilder q = new StringBuilder();
+        q.append(nz(fact.getCourseName())).append(" 考核方式 成绩构成 及格线");
+        try {
+            RetrievalService.Outcome out = retrievalService.retrieve(courseId, q.toString().trim(), 3);
+            RetrievalService.Guard guard = retrievalService.guard(out, q.toString());
+            if (guard.refuse()) {
+                return List.of();
+            }
+            return out.hits();
+        } catch (Exception e) {
+            log.warn("[GroupReport] 资料检索失败，报告照常生成：{}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private String evidenceBlock(List<RetrievalService.Hit> evidence) {
+        if (evidence == null || evidence.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("\n\n【可引用的课程资料】（原文照抄文档名与段号，不得编造）\n");
+        int i = 1;
+        for (RetrievalService.Hit h : evidence) {
+            String t = h.content() == null ? "" : h.content().replace('\n', ' ').replaceAll("\\s{2,}", " ").trim();
+            if (t.length() > 120) {
+                t = t.substring(0, 120) + "…";
+            }
+            sb.append(i++).append("）").append(h.docName()).append(" 第").append(h.sectionNo()).append("段：").append(t).append("\n");
+        }
+        return sb.toString();
+    }
+
+    /** 末尾补「参考依据」段落（AI 与模板两条路都带） */
+    private void appendEvidence(ReportContent content, List<RetrievalService.Hit> evidence) {
+        if (content == null) {
+            return;
+        }
+        String text;
+        if (evidence == null || evidence.isEmpty()) {
+            text = "本课程的课程资料库里暂未检索到与本次分析直接对应的条款。";
+        } else {
+            StringBuilder sb = new StringBuilder();
+            for (RetrievalService.Hit h : evidence) {
+                if (sb.length() > 0) {
+                    sb.append("；");
+                }
+                sb.append(h.docName()).append(" 第").append(h.sectionNo()).append("段");
+            }
+            text = "课程资料：" + sb;
+        }
+        content.sections.add(new ReportContent.Section("参考依据", text));
+    }
     /** 报告内容内部结构（段落 + 动作） */
     static class ReportContent {
         private String summary;
