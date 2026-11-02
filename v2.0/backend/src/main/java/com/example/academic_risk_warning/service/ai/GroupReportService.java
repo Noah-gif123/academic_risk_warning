@@ -245,8 +245,11 @@ public class GroupReportService {
 
     public GroupReportVO detail(Long id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "select id, scope, target_id, teaching_class_id, admin_class_id, title, summary, content_json, source, create_time "
-                        + "from ai_group_report where id = ?", id);
+                "select g.id, g.scope, g.target_id, g.teaching_class_id, g.admin_class_id, g.title, g.summary, "
+                        + "g.content_json, g.source, g.create_time, "
+                        + "(select max(rs.last_eval_time) from risk_state rs "
+                        + "   where (g.teaching_class_id is not null and rs.teaching_class_id = g.teaching_class_id)) as last_eval_time "
+                        + "from ai_group_report g where g.id = ?", id);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("报告不存在：" + id);
         }
@@ -261,6 +264,14 @@ public class GroupReportService {
         vo.setSummary(r.get("summary") == null ? null : String.valueOf(r.get("summary")));
         vo.setSource(String.valueOf(r.get("source")));
         vo.setCreateTime(r.get("create_time") == null ? null : String.valueOf(r.get("create_time")));
+        // Q2：班级数据重判过就标记过期，避免"旧报告 + 新判定"同时展示
+        java.time.LocalDateTime created = toLdt(r.get("create_time"));
+        java.time.LocalDateTime lastEval = toLdt(r.get("last_eval_time"));
+        if (created != null && lastEval != null && lastEval.isAfter(created)) {
+            vo.setStale(true);
+            vo.setStaleReason("该报告生成于 " + created.toLocalDate() + "，班级数据在 "
+                    + lastEval.toString().replace('T', ' ').substring(0, 16) + " 重新判定过，建议重新生成");
+        }
         parseInto(String.valueOf(r.get("content_json")), vo);
         return vo;
     }
@@ -576,6 +587,23 @@ public class GroupReportService {
         }
     }
 
+    /** 各种 JDBC 时间类型统一转 LocalDateTime */
+    private static java.time.LocalDateTime toLdt(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof java.time.LocalDateTime t) {
+            return t;
+        }
+        if (v instanceof java.sql.Timestamp ts) {
+            return ts.toLocalDateTime();
+        }
+        try {
+            return java.time.LocalDateTime.parse(String.valueOf(v).replace(' ', 'T'));
+        } catch (Exception e) {
+            return null;
+        }
+    }
     // ============================================================ R1：课程资料检索
     /** 按「课程 + 本班薄弱项」检索支撑资料；检索不足就不硬凑 */
     private List<RetrievalService.Hit> retrieveEvidence(Long courseId, ClassFact fact) {

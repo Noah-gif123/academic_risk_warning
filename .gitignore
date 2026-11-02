@@ -118,3 +118,6 @@ v2.0/ai/kb-source/*
 /kb-source/
 ### 入库工具的编译产物 ###
 v2.0/tool/kb/*.class
+
+### 单测编译产物（本机无 gradlew 时的替代跑法） ###
+v2.0/backend/build-test/

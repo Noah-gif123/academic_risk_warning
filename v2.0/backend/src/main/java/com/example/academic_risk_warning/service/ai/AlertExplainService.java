@@ -52,6 +52,48 @@ public class AlertExplainService {
             "MULTI", "多门联动",
             "DATA", "数据不足");
 
+    /**
+     * Q1 第三道闸门：触发类型一致性。
+     *
+     * <p>同一张预警两次生成，模型可能一次说"分数临界"、一次说"缺勤超限"——数字都对、结构也对，
+     * 但结论指向的规则不是同一条。这里按触发类型的关键词做交叉检查：</p>
+     * <ul>
+     *   <li>正文命中了本类型关键词 → 通过（不苛求措辞完全一致）；</li>
+     *   <li>没命中本类型、却命中了别的类型 → 判为串了口径，退回重写；</li>
+     *   <li>两者都没命中（纯定性描述）→ 放行，避免把正常表述误伤。</li>
+     * </ul>
+     */
+    private static final Map<String, List<String>> TRIGGER_WORDS = Map.of(
+            "ABSENCE", List.of("缺勤", "旷课", "考勤", "出勤", "迟到", "请假"),
+            "HOMEWORK", List.of("作业", "缺交", "未交", "补交"),
+            "PROJECT", List.of("项目", "大作业", "实验"),
+            "SCORE", List.of("分数", "总分", "成绩", "临界", "排名"),
+            "EXAM", List.of("期末", "考试", "卷面"));
+
+    /** 返回 null 表示一致；否则返回给用户/重试提示看的问题描述 */
+    private static String triggerMismatch(String text, String triggerType) {
+        if (text == null || text.isBlank()) {
+            return "输出为空";
+        }
+        List<String> expect = TRIGGER_WORDS.get(triggerType);
+        if (expect == null) {
+            return null;   // MULTI / DATA 不参与一致性校验
+        }
+        if (expect.stream().anyMatch(text::contains)) {
+            return null;
+        }
+        for (Map.Entry<String, List<String>> e : TRIGGER_WORDS.entrySet()) {
+            if (e.getKey().equals(triggerType)) {
+                continue;
+            }
+            if (e.getValue().stream().anyMatch(text::contains)) {
+                return "预警触发类型是「" + TYPE_TEXT.getOrDefault(triggerType, triggerType)
+                        + "」，但正文通篇在讲「" + TYPE_TEXT.getOrDefault(e.getKey(), e.getKey()) + "」";
+            }
+        }
+        return null;
+    }
+
     // ============================================================ 生成
     public AlertExplainVO generate(Long alertId, Long operatorId) {
         Map<String, Object> fact = buildFact(alertId);
@@ -102,14 +144,39 @@ public class AlertExplainService {
             tokens += res.getTotalTokens();
             if (res.isOk()) {
                 List<String> bad = composer.invalidNumbersAgainst(res.getText(), fact);
+                String mismatch = TriggerGate.mismatch(res.getText(), triggerType);
                 runService.step(runId, 2, "direct-chat", "alert-explain", res.getText(),
-                        bad.isEmpty() ? "PASS" : "WARN",
-                        bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
+                        bad.isEmpty() && mismatch == null ? "PASS" : "WARN",
+                        bad.isEmpty() && mismatch == null ? null
+                                : (bad.isEmpty() ? mismatch : "越界数字 " + bad.stream().distinct().limit(6).toList()),
                         System.currentTimeMillis() - t1);
-                if (bad.isEmpty() && composer.looksLikeSections(res.getText(), 2)) {
+                if (bad.isEmpty() && mismatch == null && composer.looksLikeSections(res.getText(), 2)) {
                     sections = mapSections(composer.parseAnySections(res.getText()));
                     source = "LLM";
                     status = "SUCCESS";
+                } else if (bad.isEmpty() && mismatch != null) {
+                    // Q1：触发类型说错了（例如缺勤卡写成"分数临界"），带批评重写一次再判
+                    String fixPrompt = userPrompt + "\n\n【上一版的问题】" + mismatch
+                            + "\n请重写，必须把预警原因写成「" + TriggerGate.typeText(triggerType)
+                            + "」这一种，不要混入其它触发类型的说法。";
+                    long t2 = System.currentTimeMillis();
+                    DashScopeClient.ChatResult fix = dashScopeClient.chat(systemPrompt, fixPrompt);
+                    tokens += fix.getTotalTokens();
+                    if (fix.isOk()) {
+                        List<String> bad2 = composer.invalidNumbersAgainst(fix.getText(), fact);
+                        String mismatch2 = TriggerGate.mismatch(fix.getText(), triggerType);
+                        runService.step(runId, 3, "direct-chat-trigger-retry", "alert-explain", fix.getText(),
+                                bad2.isEmpty() && mismatch2 == null ? "PASS" : "FAIL",
+                                bad2.isEmpty() ? mismatch2 : "越界数字 " + bad2.stream().distinct().limit(6).toList(),
+                                System.currentTimeMillis() - t2);
+                        if (bad2.isEmpty() && mismatch2 == null && composer.looksLikeSections(fix.getText(), 2)) {
+                            sections = mapSections(composer.parseAnySections(fix.getText()));
+                            source = "LLM";
+                            status = "SUCCESS";
+                        } else {
+                            note.append("触发类型仍不一致；");
+                        }
+                    }
                 } else {
                     note.append("直连输出不可用；");
                 }
@@ -657,7 +724,8 @@ public class AlertExplainService {
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 select e.id, e.alert_id, e.enrollment_id, e.student_id, e.alert_level, e.trigger_type,
                        e.summary, e.content_json, e.source, e.create_time,
-                       s.student_name, c.course_name, tc.class_name
+                       s.student_name, c.course_name, tc.class_name,
+                       (select max(rs.last_eval_time) from risk_state rs where rs.enrollment_id = e.enrollment_id) as last_eval_time
                 from ai_alert_explain e
                          left join student s on s.id = e.student_id
                          left join course c on c.id = e.course_id
@@ -681,8 +749,43 @@ public class AlertExplainService {
         vo.setStudentName(str(r.get("student_name")));
         vo.setSource(str(r.get("source")));
         vo.setCreateTime(r.get("create_time") == null ? null : String.valueOf(r.get("create_time")));
+        // Q2：判定口径变了就得让旧卡片显式过期，不能让"数据已更新"和"卡片说旧结论"并存
+        markStale(vo, toLocalDateTime(r.get("create_time")), toLocalDateTime(r.get("last_eval_time")));
         parseContent(str(r.get("content_json")), vo);
         return vo;
+    }
+
+    /** 生成时间早于最近一次判定 → 标记过期，并给出可展示的原因 */
+    private static void markStale(AlertExplainVO vo, java.time.LocalDateTime created, java.time.LocalDateTime lastEval) {
+        if (created == null || lastEval == null) {
+            vo.setStale(false);
+            return;
+        }
+        if (lastEval.isAfter(created)) {
+            vo.setStale(true);
+            vo.setStaleReason("该卡片生成于 " + created.toLocalDate() + "，系统在 "
+                    + lastEval.toString().replace('T', ' ').substring(0, 16)
+                    + " 重新判定过，结论与口径可能已变化，建议重新生成");
+        } else {
+            vo.setStale(false);
+        }
+    }
+
+    private static java.time.LocalDateTime toLocalDateTime(Object v) {
+        if (v == null) {
+            return null;
+        }
+        if (v instanceof java.time.LocalDateTime t) {
+            return t;
+        }
+        if (v instanceof java.sql.Timestamp ts) {
+            return ts.toLocalDateTime();
+        }
+        try {
+            return java.time.LocalDateTime.parse(String.valueOf(v).replace(' ', 'T'));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private void parseContent(String json, AlertExplainVO vo) {

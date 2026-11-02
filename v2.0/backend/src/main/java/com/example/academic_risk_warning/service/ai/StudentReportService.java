@@ -91,25 +91,30 @@ public class StudentReportService {
                             bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                             System.currentTimeMillis() - t0);
 
-                    // 数字回验没过时，不整篇丢弃：追加"只用已给数字"的硬约束再要一次（Dify 是主通道，尽量救回来）
-                    if (!bad.isEmpty() && bad.size() <= 4) {
+                    // Q3：数字回验不做"一票否决"，改成定点修复——把越界的**具体数字**回给模型，
+                    // 要求只改这些地方，其余保持不变。整篇重写既浪费 token 又容易把写好的段落改坏。
+                    if (!bad.isEmpty() && bad.size() <= 6) {
                         long tRetry = System.currentTimeMillis();
                         Map<String, Object> retryInputs = new java.util.LinkedHashMap<>(inputs);
                         Object facts = retryInputs.get("facts");
+                        List<String> distinctBad = bad.stream().distinct().limit(6).toList();
                         retryInputs.put("facts", (facts == null ? "" : String.valueOf(facts))
-                                + "\n\n【硬性约束】上面没有出现过的数字一律不许出现，禁止自行计算或换算；分秒、页码、名次等若不在上面，就不要写具体数字。");
+                                + "\n\n【上一版出现的事实之外的数字】" + String.join("、", distinctBad)
+                                + "\n【修复要求】只改这几处：把上述数字删除，或替换成上面已经出现过的数字；"
+                                + "其余段落、结构、措辞尽量保持不变。上面没有出现过的数字一律不许再出现，"
+                                + "禁止自行计算或换算；确实要表达训练时长/题量时，用文字表述（如「每天若干道」）。");
                         DifyClient.WorkflowResult res2 = difyClient.runWorkflow(props.getReportAppKey(), retryInputs,
                                 "student-" + studentId + "-retry");
                         tokens += res2.getTotalTokens();
                         if (res2.isOk()) {
                             String text2 = pickText(res2.getOutputs());
                             List<String> bad2 = composer.invalidNumbersForReport(text2, fact);
-                            runService.step(runId, 2, "dify-workflow-retry", "report-student", text2,
+                            runService.step(runId, 2, "dify-workflow-repair", "report-student", text2,
                                     bad2.isEmpty() ? "PASS" : "WARN",
-                                    bad2.isEmpty() ? "首轮越界数字 " + bad.stream().distinct().limit(4).toList().toString()
-                                            : "仍越界 " + bad2.stream().distinct().limit(4).toList().toString(),
+                                    bad2.isEmpty() ? "定点修复成功，已消除 " + distinctBad
+                                            : "修复后仍越界 " + bad2.stream().distinct().limit(4).toList(),
                                     System.currentTimeMillis() - tRetry);
-                            if (bad2.isEmpty()) {
+                            if (bad2.isEmpty() && composer.looksLikeReport(text2)) {
                                 text = text2;
                                 bad = bad2;
                             }

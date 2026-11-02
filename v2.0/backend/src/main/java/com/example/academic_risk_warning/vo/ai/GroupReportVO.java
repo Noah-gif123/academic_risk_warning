@@ -23,6 +23,11 @@ public class GroupReportVO {
     private String source;
     private String createTime;
 
+    /** Q2：报告生成后班级数据又被重判过 → 结论过期，前端应提示重新生成 */
+    private Boolean stale = false;
+    /** 过期原因（整句，前端直接展示） */
+    private String staleReason;
+
     @Data
     public static class Section {
         private String title;
