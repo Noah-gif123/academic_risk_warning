@@ -45,12 +45,12 @@ public class DifyVectorClient {
             .build();
 
     public DifyVectorClient(
-            @Value("${app.ai.base-url:http://localhost:8090}") String baseUrl,
-            @Value("${app.ai.retrieval.dataset-key:}") String datasetKey,
-            @Value("${app.ai.retrieval.dataset-id:}") String datasetId,
-            @Value("${app.ai.retrieval.vector-top-k:20}") int topK,
-            @Value("${app.ai.retrieval.filter-by-course:true}") boolean filterByCourse,
-            @Value("${app.ai.timeout-seconds:120}") int timeoutSeconds) {
+            @Value("${ai.base-url:http://localhost:8090}") String baseUrl,
+            @Value("${ai.retrieval.dataset-key:}") String datasetKey,
+            @Value("${ai.retrieval.dataset-id:}") String datasetId,
+            @Value("${ai.retrieval.vector-top-k:20}") int topK,
+            @Value("${ai.retrieval.filter-by-course:true}") boolean filterByCourse,
+            @Value("${ai.timeout-seconds:120}") int timeoutSeconds) {
         this.baseUrl = trimSlash(baseUrl);
         this.datasetKey = datasetKey == null ? "" : datasetKey.trim();
         this.datasetId = datasetId == null ? "" : datasetId.trim();

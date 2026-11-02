@@ -113,3 +113,8 @@ v2.0/backend/ai.env
 ### 课程资料原件（体积/版权原因不入库，只提交解析后的分块数据） ###
 v2.0/ai/kb-source/*
 !v2.0/ai/kb-source/README.md
+
+### 课程资料原件（用户提供，体积与版权原因不入库） ###
+/kb-source/
+### 入库工具的编译产物 ###
+v2.0/tool/kb/*.class

@@ -43,15 +43,32 @@ public class RetrievalService {
     private final DifyVectorClient vectorClient;
     private final String mode;
     private final int poolSize;
+    /** 单次结果里同一份文档最多占几个名额（抑制同源分块占满 top-k） */
+    private final int maxPerDoc;
+    /** 词面支撑度下限（全文路护栏；做成字段是为了能扫参做实验） */
+    private final double minLexSupport;
 
     public RetrievalService(JdbcTemplate jdbc,
                             DifyVectorClient vectorClient,
-                            @Value("${app.ai.retrieval.mode:HYBRID}") String mode,
-                            @Value("${app.ai.retrieval.pool-size:20}") int poolSize) {
+                            @Value("${ai.retrieval.mode:HYBRID}") String mode,
+                            @Value("${ai.retrieval.pool-size:20}") int poolSize,
+                            @Value("${ai.retrieval.max-per-doc:2}") int maxPerDoc,
+                            @Value("${ai.retrieval.min-lex-support:0.10}") double minLexSupport) {
         this.jdbc = jdbc;
         this.vectorClient = vectorClient;
         this.mode = mode == null ? "HYBRID" : mode.trim().toUpperCase();
         this.poolSize = Math.max(4, Math.min(poolSize, 50));
+        this.maxPerDoc = Math.max(1, Math.min(maxPerDoc, 10));
+        this.minLexSupport = minLexSupport <= 0 ? 0.10 : minLexSupport;
+        log.info("[RAG] 检索配置：mode={} poolSize={} maxPerDoc={} minLexSupport={} vectorConfigured={}",
+                this.mode, this.poolSize, this.maxPerDoc, this.minLexSupport, vectorClient.configured());
+    }
+
+    /** 用另一组参数克隆一份（评测扫参用，避免为一个参数重启服务） */
+    public RetrievalService copyWith(double minLexSupport, int maxPerDoc) {
+        return new RetrievalService(jdbc, vectorClient, mode, poolSize,
+                maxPerDoc > 0 ? maxPerDoc : this.maxPerDoc,
+                minLexSupport > 0 ? minLexSupport : this.minLexSupport);
     }
 
     public enum Mode { FULLTEXT, VECTOR, HYBRID }
@@ -247,23 +264,55 @@ public class RetrievalService {
         out.sort(Comparator.comparingDouble(Hit::fused).reversed()
                 .thenComparing(h -> h.ftRank() == null ? Integer.MAX_VALUE : h.ftRank()));
         List<Hit> ranked = new ArrayList<>();
-        for (int i = 0; i < Math.min(topK, out.size()); i++) {
-            Hit h = out.get(i);
+        for (Hit h : diversify(out, topK)) {
             ranked.add(new Hit(h.chunkId(), h.docName(), h.sectionNo(), h.sourceType(), h.content(),
-                    h.ftScore(), h.ftRank(), h.vecScore(), h.vecRank(), h.fused(), i + 1));
+                    h.ftScore(), h.ftRank(), h.vecScore(), h.vecRank(), h.fused(), ranked.size() + 1));
         }
         return ranked;
     }
 
     private List<Hit> topOf(List<Hit> hits, int topK) {
         List<Hit> ranked = new ArrayList<>();
-        for (int i = 0; i < Math.min(topK, hits.size()); i++) {
-            Hit h = hits.get(i);
+        for (Hit h : diversify(hits, topK)) {
             double f = h.ftScore() != null ? h.ftScore() : (h.vecScore() == null ? 0d : h.vecScore());
             ranked.add(new Hit(h.chunkId(), h.docName(), h.sectionNo(), h.sourceType(), h.content(),
-                    h.ftScore(), h.ftRank(), h.vecScore(), h.vecRank(), f, i + 1));
+                    h.ftScore(), h.ftRank(), h.vecScore(), h.vecRank(), f, ranked.size() + 1));
         }
         return ranked;
+    }
+
+    /**
+     * 同源抑制：按分数顺序挑，但同一份文档最多占 {@code maxPerDoc} 个名额。
+     *
+     * <p>语料只有 40 块时，一条命中就代表一份文档；扩到 200+ 块之后，同一份课件/习题集会有十几个分块，
+     * 分数接近，很容易把 top-4 全占满，导致"别的文档压根没机会出现"——实测 recall@4 从 0.97 掉到 0.78
+     * 主要就是这个原因，不是检索不到，而是选不出。</p>
+     */
+    private List<Hit> diversify(List<Hit> hits, int topK) {
+        List<Hit> picked = new ArrayList<>();
+        Map<String, Integer> perDoc = new LinkedHashMap<>();
+        List<Hit> overflow = new ArrayList<>();
+        for (Hit h : hits) {
+            String doc = h.docName() == null ? "" : h.docName();
+            int used = perDoc.getOrDefault(doc, 0);
+            if (used < maxPerDoc) {
+                picked.add(h);
+                perDoc.put(doc, used + 1);
+                if (picked.size() >= topK) {
+                    return picked;
+                }
+            } else {
+                overflow.add(h);
+            }
+        }
+        // 名额没用满（候选文档不够多）就按原顺序补回来，宁可同源也不留空
+        for (Hit h : overflow) {
+            if (picked.size() >= topK) {
+                break;
+            }
+            picked.add(h);
+        }
+        return picked;
     }
 
     /** 同一条资料在两条路里的身份：优先本地块 ID，其次「文档名#段号」，最后用内容前缀 */
@@ -341,8 +390,8 @@ public class RetrievalService {
             if (topScore < MIN_SCORE) {
                 return new Guard(true, "全文相关度低于阈值 " + MIN_SCORE, topScore, lex);
             }
-            if (lex < MIN_LEX_SUPPORT) {
-                return new Guard(true, "词面支撑度低于阈值 " + MIN_LEX_SUPPORT, topScore, lex);
+            if (lex < minLexSupport) {
+                return new Guard(true, "词面支撑度低于阈值 " + minLexSupport, topScore, lex);
             }
             return new Guard(false, null, topScore, lex);
         }

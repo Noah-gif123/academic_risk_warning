@@ -33,12 +33,24 @@ public class AdminRagEvalController {
 
     @PostMapping
     public Result<Map<String, Object>> run(@RequestParam(defaultValue = "HYBRID") String mode,
-                                           @RequestParam(defaultValue = "4") int k) {
-        return Result.ok(evalService.run(RetrievalService.parseMode(mode), k));
+                                           @RequestParam(defaultValue = "4") int k,
+                                           @RequestParam(required = false) Double minLex,
+                                           @RequestParam(required = false) Integer maxPerDoc) {
+        return Result.ok(evalService.run(RetrievalService.parseMode(mode), k,
+                minLex == null ? 0 : minLex, maxPerDoc == null ? 0 : maxPerDoc));
     }
 
     @GetMapping("/compare")
-    public Result<Map<String, Object>> compare(@RequestParam(defaultValue = "4") int k) {
-        return Result.ok(evalService.compareAll(k));
+    public Result<Map<String, Object>> compare(@RequestParam(defaultValue = "4") int k,
+                                               @RequestParam(required = false) Double minLex,
+                                               @RequestParam(required = false) Integer maxPerDoc) {
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        for (RetrievalService.Mode m : RetrievalService.Mode.values()) {
+            Map<String, Object> r = evalService.run(m, k,
+                    minLex == null ? 0 : minLex, maxPerDoc == null ? 0 : maxPerDoc);
+            r.remove("detail");
+            out.put(m.name(), r);
+        }
+        return Result.ok(out);
     }
 }

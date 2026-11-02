@@ -44,6 +44,19 @@ public class RagEvalService {
 
     /** 跑一种模式，返回指标并落库 */
     public Map<String, Object> run(RetrievalService.Mode mode, int k) {
+        return run(mode, k, 0, 0);
+    }
+
+    /**
+     * 跑一种模式，可临时指定词面支撑度阈值与同源上限（扫参用，不改全局配置）。
+     *
+     * @param minLexSupport 0 表示用配置值
+     * @param maxPerDoc     0 表示用配置值
+     */
+    public Map<String, Object> run(RetrievalService.Mode mode, int k, double minLexSupport, int maxPerDoc) {
+        RetrievalService retriever = (minLexSupport > 0 || maxPerDoc > 0)
+                ? retrievalService.copyWith(minLexSupport, maxPerDoc)
+                : retrievalService;
         int topK = Math.max(1, Math.min(k, 10));
         List<Case> cases = loadCases();
         if (cases.isEmpty()) {
@@ -57,8 +70,8 @@ public class RagEvalService {
 
         for (Case c : cases) {
             long t0 = System.currentTimeMillis();
-            RetrievalService.Outcome o = retrievalService.retrieve(c.courseId(), c.question(), topK, mode);
-            RetrievalService.Guard g = retrievalService.guard(o, c.question());
+            RetrievalService.Outcome o = retriever.retrieve(c.courseId(), c.question(), topK, mode);
+            RetrievalService.Guard g = retriever.guard(o, c.question());
             long ms = System.currentTimeMillis() - t0;
             totalMs += ms;
             if (o.effective() != mode) {
@@ -120,6 +133,11 @@ public class RagEvalService {
         out.put("falseRefuse", round4(falseRefuse));
         out.put("avgMs", avgMs);
         out.put("effectiveFallback", fallbacks);
+        if (minLexSupport > 0 || maxPerDoc > 0) {
+            // 扫参跑出来的临时结果：标明参数，避免和线上默认配置的数据混着看
+            out.put("tunedMinLexSupport", minLexSupport > 0 ? minLexSupport : null);
+            out.put("tunedMaxPerDoc", maxPerDoc > 0 ? maxPerDoc : null);
+        }
         if (fallbacks > 0) {
             // 三行对比表里必须写明这一行其实是什么路跑出来的，不能拿"配置未生效"的数字当结论
             out.put("note", fallbacks + "/" + cases.size()
