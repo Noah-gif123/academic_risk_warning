@@ -149,6 +149,33 @@ public class FactPackBuilder {
             f.setProcessCoverage(JsonObjects.number(json, "processCoverage"));
         }
 
+        // ===== A5：班级对比必须和学生本人的主口径一致 =====
+        // 分项没录齐（PARTIAL）时，报告讲的是过程分；此时若还拿 score_result.total_score 算班级均分与排名，
+        // 就会出现"过程分 97.2 高于班级均分 31.2"这种两把尺子（实测某班过程分均值 82.97，总评分均值 30.9）。
+        boolean processCaliber = "PARTIAL".equalsIgnoreCase(f.getScoreStatus()) && f.getProcessScore() != null;
+        if (processCaliber) {
+            f.setScoreCaliber("PROCESS");
+            List<Map<String, Object>> pAgg = jdbc.queryForList("""
+                    select avg(json_extract(rs.data_quality_json, '$.processScore')) as avg_score,
+                           count(*) as size
+                    from risk_state rs
+                    where rs.teaching_class_id = ? and rs.is_void = 0
+                      and json_extract(rs.data_quality_json, '$.processScore') is not null
+                    """, f.getTeachingClassId());
+            if (!pAgg.isEmpty() && pAgg.get(0).get("avg_score") != null) {
+                f.setClassAvg(asDecimal(pAgg.get(0).get("avg_score")));
+                f.setClassSize(asInt(pAgg.get(0).get("size")));
+            }
+            Integer better = jdbc.queryForObject("""
+                    select count(*) from risk_state rs
+                    where rs.teaching_class_id = ? and rs.is_void = 0
+                      and json_extract(rs.data_quality_json, '$.processScore') > ?
+                    """, Integer.class, f.getTeachingClassId(), f.getProcessScore());
+            f.setClassRank((better == null ? 0 : better) + 1);
+            return;
+        }
+
+        f.setScoreCaliber("TOTAL");
         List<Map<String, Object>> agg = jdbc.queryForList("""
                 select avg(sr.total_score) as avg_score, count(*) as size
                 from score_result sr

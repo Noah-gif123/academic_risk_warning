@@ -523,6 +523,13 @@ public class ReportComposer {
         return out;
     }
 
+    /** 班级对比口径的中文说法（A5：让读者一眼看出均分是按哪把尺子算的） */
+    private static String caliberText(String caliber) {
+        if ("PROCESS".equalsIgnoreCase(caliber)) {
+            return "过程分";
+        }
+        return "总评";
+    }
     private void addRate(List<BigDecimal> out, BigDecimal rate) {
         if (rate == null) {
             return;
@@ -609,8 +616,8 @@ public class ReportComposer {
         facts.append("总分：").append(num(f.getTotalScore()))
                 .append(f.getProcessScore() == null ? "" : "；过程分（只算非终结性分项）：" + num(f.getProcessScore()))
                 .append(f.getScoreStatus() == null ? "" : "；成绩单状态：" + f.getScoreStatus())
-                .append("；班级均分：").append(num(f.getClassAvg()))
-                .append("；班内排名：").append(nzInt(f.getClassRank())).append(" / ").append(nzInt(f.getClassSize())).append("\n");
+                .append("；班级均分（").append(caliberText(f.getScoreCaliber())).append("口径）：").append(num(f.getClassAvg()))
+                .append("；班内排名（").append(caliberText(f.getScoreCaliber())).append("口径）：").append(nzInt(f.getClassRank())).append(" / ").append(nzInt(f.getClassSize())).append("\n");
         facts.append("考勤：缺勤 ").append(nzInt(f.getAbsentCount())).append("，迟到 ").append(nzInt(f.getLateCount()))
                 .append("，请假 ").append(nzInt(f.getLeaveCount()))
                 .append("，允许缺勤 ").append(nzInt(f.getAllowedAbsent())).append("\n");

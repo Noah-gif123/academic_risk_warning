@@ -46,6 +46,13 @@ public class ReportFact {
     private BigDecimal processCoverage;
     /** 成绩单状态：FINAL（分项齐全）/ PARTIAL（期末或部分分项未录） */
     private String scoreStatus;
+    /**
+     * 班级对比用的口径：TOTAL（总评分）/ PROCESS（过程分）。
+     *
+     * <p>分项没录齐时报告主口径是过程分，班级均分与排名必须同步换成过程分口径，
+     * 否则会出现"过程分 97.2 高于班级均分 31.2"这种两把尺子。</p>
+     */
+    private String scoreCaliber;
 
     /** 成绩构成分项 */
     private List<Item> items = new ArrayList<>();
