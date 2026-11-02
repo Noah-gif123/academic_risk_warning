@@ -59,9 +59,38 @@ public class AiRunService {
             return;
         }
         double cost = props.costOf(tokens);
-        jdbc.update("update ai_run set status=?, source=?, total_tokens=?, total_cost=?, error_message=?, finish_time=? where id=?",
-                status, source, tokens == null ? 0 : tokens, BigDecimal.valueOf(cost),
+        // model 要跟着实际通道走：写成配置里的演示标签（qwen-plus）会把"其实走的是 Dify/deepseek"记错
+        String model = modelLabel(source);
+        jdbc.update("update ai_run set status=?, source=?, model=?, total_tokens=?, total_cost=?, error_message=?, finish_time=? where id=?",
+                status, source, model, tokens == null ? 0 : tokens, BigDecimal.valueOf(cost),
                 error == null ? null : truncate(error, 480), LocalDateTime.now(), runId);
+        // usage 通常先于 finish 落库（那时还不知道通道），这里按实际通道回填一次
+        try {
+            jdbc.update("update ai_usage set model=? where run_id=?", model, runId);
+        } catch (Exception e) {
+            log.debug("[ai_usage] 回填模型失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 实际使用的模型标签。
+     *
+     * <p>DIFY 通道的模型由 Dify 工作流自己决定，后端并不知道具体名字，因此记 {@code dify-workflow}
+     * 而不是配置里的演示标签；直连通道记真实模型名；规则模板没有模型，记 null。</p>
+     */
+    public String modelLabel(String source) {
+        if (source == null) {
+            return props.getModel();
+        }
+        return switch (source) {
+            case "DIFY" -> "dify-workflow";
+            case "LLM" -> {
+                String m = props.directModel();
+                yield (m == null || m.isBlank()) ? props.getModel() : m;
+            }
+            case "TEMPLATE" -> null;
+            default -> props.getModel();
+        };
     }
 
     /** 记录一步 */
@@ -83,8 +112,14 @@ public class AiRunService {
     /** 计费明细 */
     public void usage(Long runId, String scene, Integer tokens, Long operatorId) {
         try {
+            String source = null;
+            try {
+                source = jdbc.queryForObject("select source from ai_run where id=?", String.class, runId);
+            } catch (Exception ignore) {
+                // 运行还没落 source 时退回配置标签
+            }
             jdbc.update("insert into ai_usage(run_id, scene, model, prompt_tokens, completion_tokens, cost, operator_id) values (?,?,?,?,?,?,?)",
-                    runId, scene, props.getModel(), null, tokens,
+                    runId, scene, modelLabel(source), null, tokens,
                     BigDecimal.valueOf(props.costOf(tokens)), operatorId);
         } catch (Exception e) {
             log.debug("[ai_usage] 写入失败: {}", e.getMessage());

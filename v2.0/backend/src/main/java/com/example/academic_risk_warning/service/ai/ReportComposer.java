@@ -223,15 +223,20 @@ public class ReportComposer {
         return best;
     }
 
-    /** 像不像一份四段式报告（至少 2 个段落标题，且正文不空） */
+    /**
+     * 像不像一份四段式报告：四个段落概念里至少命中 2 个。
+     *
+     * <p>兼容两种写法：带书名号的【结论】式标题，以及"结论：/结论\n"这种裸标题——模型经常不用【】，
+     * 之前只认【】会把可用输出误判成"不含四段标题"而整篇丢弃。</p>
+     */
     public boolean looksLikeReport(String raw) {
         String text = stripReasoning(raw);
         if (text == null || text.isBlank()) {
             return false;
         }
         int hits = 0;
-        for (String mark : new String[]{"【结论】", "【你的强项】", "【需要补的地方】", "【下一步做什么】"}) {
-            if (text.contains(mark)) {
+        for (String name : new String[]{"结论", "你的强项", "强项", "需要补的地方", "需要补", "下一步做什么", "下一步"}) {
+            if (text.contains("【" + name + "】") || text.contains(name + "：") || text.contains(name + ":")) {
                 hits++;
             }
         }
@@ -626,6 +631,9 @@ public class ReportComposer {
         facts.append("\n预警：等级=").append(levelText(f.getRiskLevel()))
                 .append("，置信度=").append(confidenceText(f.getConfidenceLevel()))
                 .append("，期末需考=").append(num(f.getFinalExamNeeded()));
+        // 硬性约束：数字必须来自上面，别算、别推、别猜——这是 Dify 报告能否被后端接受的关键
+        facts.append("\n\n【硬性约束】只能使用上面已经出现的数字；禁止自行计算、换算、求平均、算占比或推断任何新数字；")
+                .append("需要表达程度时请用定性描述（如“偏低”“接近上限”），不要补一个具体数字。");
         in.put("facts", facts.toString());
         in.put("course", nz(f.getCourseName()));
         in.put("student", nz(f.getStudentName()));

@@ -68,9 +68,10 @@ ai:
   group-report-app-key: ${AI_GROUP_REPORT_APP_KEY:}
   # 课程问答 App API Key（M4 使用）
   chat-app-key: ${AI_CHAT_APP_KEY:}
-  timeout-seconds: 120
-  # 每个用户每日调用上限（防跑飞）
-  daily-limit: 30
+  timeout-seconds: ${AI_TIMEOUT_SECONDS:120}
+  # 每个用户每日调用上限（防跑飞）；演示/答辩那天可以用 AI_DAILY_LIMIT=0 关掉上限
+  daily-limit: ${AI_DAILY_LIMIT:30}
+  # 仅用于记录/占位；真实通道的模型名由 AiRunService.modelLabel 按 source 决定
   model: qwen-plus
   # 计费估算：元 / 千 token
   yuan-per-k-token: 0.0015

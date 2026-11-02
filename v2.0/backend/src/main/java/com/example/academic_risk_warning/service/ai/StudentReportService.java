@@ -83,12 +83,38 @@ public class StudentReportService {
                             bad.isEmpty() ? "PASS" : "WARN",
                             bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                             System.currentTimeMillis() - t0);
+
+                    // 数字回验没过时，不整篇丢弃：追加"只用已给数字"的硬约束再要一次（Dify 是主通道，尽量救回来）
+                    if (!bad.isEmpty() && bad.size() <= 4) {
+                        long tRetry = System.currentTimeMillis();
+                        Map<String, Object> retryInputs = new java.util.LinkedHashMap<>(inputs);
+                        Object facts = retryInputs.get("facts");
+                        retryInputs.put("facts", (facts == null ? "" : String.valueOf(facts))
+                                + "\n\n【硬性约束】上面没有出现过的数字一律不许出现，禁止自行计算或换算；分秒、页码、名次等若不在上面，就不要写具体数字。");
+                        DifyClient.WorkflowResult res2 = difyClient.runWorkflow(props.getReportAppKey(), retryInputs,
+                                "student-" + studentId + "-retry");
+                        tokens += res2.getTotalTokens();
+                        if (res2.isOk()) {
+                            String text2 = pickText(res2.getOutputs());
+                            List<String> bad2 = composer.invalidNumbersForReport(text2, fact);
+                            runService.step(runId, 2, "dify-workflow-retry", "report-student", text2,
+                                    bad2.isEmpty() ? "PASS" : "WARN",
+                                    bad2.isEmpty() ? "首轮越界数字 " + bad.stream().distinct().limit(4).toList().toString()
+                                            : "仍越界 " + bad2.stream().distinct().limit(4).toList().toString(),
+                                    System.currentTimeMillis() - tRetry);
+                            if (bad2.isEmpty()) {
+                                text = text2;
+                                bad = bad2;
+                            }
+                        }
+                    }
+
                     if (bad.isEmpty() && composer.looksLikeReport(text)) {
                         content = composer.composeByDify(fact, text);
                         source = "DIFY";
                         status = "SUCCESS";
                     } else if (!bad.isEmpty()) {
-                        note.append("Dify 数字回验未通过；");
+                        note.append("Dify 数字回验未通过（已重试一次）；");
                     } else {
                         note.append("Dify 输出不含四段标题（可能全被推理块吞掉）；");
                     }
@@ -159,9 +185,17 @@ public class StudentReportService {
         }
 
         String error = status.equals("SUCCESS") ? null : note.toString();
+        // 即使成功，也把"主通道为什么没用上"留痕：报告配了 Dify 却走了直连时，ai_run 里要能看出原因
+        String channelNote = null;
+        if (status.equals("SUCCESS") && note.length() > 0) {
+            String n = note.toString().replaceAll("；?ok$", "");
+            if (!n.isBlank()) {
+                channelNote = "主通道降级说明：" + n;
+            }
+        }
         Long reportId = persist(fact, type, content, source, runId, tokens);
         runService.usage(runId, "REPORT", tokens, studentId);
-        runService.finish(runId, status, source, tokens, error);
+        runService.finish(runId, status, source, tokens, error != null ? error : channelNote);
         return detail(studentId, reportId);
     }
 
@@ -213,7 +247,7 @@ public class StudentReportService {
             ps.setString(i++, content.getSummary());
             ps.setString(i++, "PUBLISHED");
             ps.setString(i++, source);
-            ps.setString(i++, props.getModel());
+            ps.setString(i++, runService.modelLabel(source));
             ps.setString(i++, props.getReportAppKey() == null ? null : maskKey(props.getReportAppKey()));
             ps.setString(i++, props.getReportPromptVersion());
             if (runId == null) {

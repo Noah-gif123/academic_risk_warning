@@ -91,6 +91,8 @@ public class ReportFact {
         add(out, totalScore);
         add(out, weightedScore);
         add(out, deductionPoints);
+        // M16：过程分是「期末未计入」时的主口径，报告里必须能引用；漏了它会把正确输出判成越界数字
+        add(out, processScore);
         add(out, classAvg);
         add(out, finalExamNeeded);
         add(out, passScore);

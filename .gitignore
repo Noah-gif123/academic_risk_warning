@@ -102,5 +102,11 @@ v2.0/backend/build-verify-lib/
 v2.0/backend/build-verify-test/
 v2.0/backend/javac*.args
 v2.0/tool/.npm-cache/
-.tmp-render/# AI 密钥（本地注入，勿入库）
+### 本地临时脚本/抓包（诊断用，勿入库） ###
+.tmp-*/
+.tmp-*
+### AI 密钥（本地注入，勿入库） ###
 v2.0/backend/ai.env
+### 交付包与压缩件（不入库；交付时直接给磁盘文件或挂 Release 附件） ###
+*.zip
+学情预警系统_v2.0_交付包.zip
