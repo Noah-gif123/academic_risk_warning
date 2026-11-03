@@ -766,6 +766,9 @@ public class QuestionGenService {
                 + (p.sectionNo == null ? "" : " 第" + p.sectionNo + "段")
                 + (p.pageNo == null ? "" : "（第" + p.pageNo + "页）"));
         m.put("quality", Map.of("passed", p.passed, "checks", p.checks));
+        // 前端按 drafts[].passed 统计「通过闸门 / 被拦下」，这里必须给顶层字段，
+        // 否则它读到 undefined，界面会显示「10 题全部被拦下」而后端其实全通过
+        m.put("passed", p.passed);
         m.put("fullScore", p.fullScore);
         m.put("status", "DRAFT");
         return m;

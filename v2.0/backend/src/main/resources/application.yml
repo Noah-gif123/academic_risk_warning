@@ -8,6 +8,15 @@ server:
 spring:
   application:
     name: academic-risk-warning
+  # 让「IDEA 直接 Run」也能读到密钥：把 ai.env（git 忽略、不入库）当 properties 导入。
+  # 三个候选路径覆盖不同工作目录（IDEA 默认 $MODULE_WORKING_DIR$ 或项目根），都不存在时不报错。
+  # ai.env 是 KEY=VALUE 格式，天然符合 properties 语法；[.properties] 是扩展名提示——
+  # 没有它 Spring 不认识 .env 这种后缀，会当成"无法解析"直接跳过（踩过这个坑）。
+  config:
+    import:
+      - optional:file:./ai.env[.properties]
+      - optional:file:./backend/ai.env[.properties]
+      - optional:file:./v2.0/backend/ai.env[.properties]
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/study_warning_system_v2?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: ${DB_USERNAME:root}

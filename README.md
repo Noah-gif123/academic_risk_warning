@@ -75,8 +75,11 @@ cd v2.0/backend
 # 端口 8080；数据源见 src/main/resources/application.yml（DB_USERNAME / DB_PASSWORD 可覆盖）
 ```
 
-AI 相关密钥走环境变量，不写进仓库：把 `v2.0/backend/ai.env.example` 复制成 `ai.env` 填好后
-用 `powershell -NoProfile -File v2.0/backend/run-ai.ps1` 启动（会注入密钥并打印脱敏日志）。
+AI 相关密钥走环境变量，不写进仓库：把 `v2.0/backend/ai.env.example` 复制成 `v2.0/backend/ai.env` 填好即可。
+`application.yml` 已配置 `spring.config.import: optional:file:./ai.env[.properties]`，
+所以 **IDEA 直接 Run、`gradlew bootRun`、`java -jar` 都能自动读到密钥，不必手动配环境变量**；
+也可以用 `powershell -NoProfile -File v2.0/backend/run-ai.ps1`（会注入并打印脱敏日志）。
+配好与否看启动日志的 `[AI] 直连通道就绪：…` 或 `/api/ai/health` 的 `directReady`。
 
 3）前端（Node 18+）
 

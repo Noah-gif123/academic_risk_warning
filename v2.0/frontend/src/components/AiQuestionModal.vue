@@ -102,7 +102,7 @@
         <div class="space-y-3 max-h-[60vh] overflow-auto pr-1">
           <div v-for="(d, i) in drafts" :key="d.id || i"
                class="border rounded-lg p-3 space-y-2"
-               :class="d.passed ? 'border-slate-200' : 'border-amber-300 bg-amber-50/40'">
+               :class="isPassed(d) ? 'border-slate-200' : 'border-amber-300 bg-amber-50/40'">
             <div class="flex flex-wrap items-center gap-2">
               <input type="checkbox" v-model="d.checked" />
               <span class="text-xs text-slate-400 w-10">第 {{ i + 1 }} 题</span>
@@ -110,8 +110,8 @@
               <span class="tag bg-slate-100 text-slate-500">{{ difficultyLabel(d.difficulty) }}</span>
               <input v-model.number="d.fullScore" type="number" class="input w-16" />
               <span class="text-xs text-slate-400">分</span>
-              <span class="tag" :class="d.passed ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-100 text-amber-700'">
-                {{ d.passed ? '五道闸门通过' : '未通过：' + failText(d.quality) }}
+              <span class="tag" :class="isPassed(d) ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-100 text-amber-700'">
+                {{ isPassed(d) ? '五道闸门通过' : '未通过：' + failText(d.quality) }}
               </span>
               <button class="text-xs text-slate-400 hover:text-red-500 ml-auto"
                       :disabled="d.rejected"
@@ -180,7 +180,9 @@ const adopting = ref(false)
 const error = ref('')
 const genMeta = ref('')
 
-const passedCount = computed(() => drafts.value.filter((d) => d.passed).length)
+const passedCount = computed(() => drafts.value.filter((d) => isPassed(d)).length)
+// 闸门结果以后端为准：顶层 passed 与 quality.passed 都认，避免字段契约漂移导致界面误报
+function isPassed(d) { return d?.passed === true || d?.quality?.passed === true }
 const checkedCount = computed(() => drafts.value.filter((d) => d.checked && !d.rejected).length)
 
 onMounted(loadSources)
@@ -228,7 +230,7 @@ async function generate() {
     if (!list.length) {
       error.value = r.message || '模型没有按约定格式返回题目，请重试一次'
     } else {
-      notify(r.message || `已生成 ${list.length} 道草稿题`, list.some((d) => d.passed))
+      notify(r.message || `已生成 ${list.length} 道草稿题`, list.some((d) => isPassed(d)))
     }
   } catch (e) {
     error.value = e?.message || '出题失败'
