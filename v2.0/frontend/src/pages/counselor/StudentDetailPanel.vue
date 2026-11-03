@@ -1,12 +1,16 @@
 <template>
-  <div class="card p-4 space-y-3">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h3 class="font-medium text-slate-700">{{ detail.studentName }}（{{ detail.studentNo }}）</h3>
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-slate-400">{{ detail.majorName }} ｜ {{ detail.adminClassName }} ｜ 入学 {{ detail.enrollYear }}</span>
-        <button class="text-sm text-slate-400 hover:text-slate-600" @click="$emit('close')">收起</button>
+  <!-- 右侧抽屉：与教师端「预警监控」、学生端「学情预警」的详情保持一致 -->
+  <div class="fixed inset-0 z-40 bg-slate-900/30 flex justify-end" @click.self="$emit('close')">
+    <div class="w-full max-w-3xl h-full bg-white shadow-xl overflow-y-auto">
+      <div class="sticky top-0 z-10 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 flex-wrap min-w-0">
+          <h3 class="font-medium text-slate-700 truncate">{{ detail.studentName }}（{{ detail.studentNo }}）</h3>
+          <span class="text-xs text-slate-400">{{ detail.majorName }} ｜ {{ detail.adminClassName }} ｜ 入学 {{ detail.enrollYear }}</span>
+        </div>
+        <button class="text-slate-400 hover:text-slate-600 shrink-0" title="关闭" @click="$emit('close')">✕</button>
       </div>
-    </div>
+
+      <div class="p-5 space-y-4">
 
     <div>
       <h4 class="text-sm font-medium text-slate-600 mb-2">各科情况<span v-if="detail.termName" class="text-slate-400 font-normal">（{{ detail.termName }} · {{ detail.courses.length }} 门）</span></h4>
@@ -100,6 +104,8 @@
         </label>
       </div>
       <button class="btn-primary text-sm mt-2" @click="save">保存处理记录</button>
+      </div>
+      </div>
     </div>
   </div>
 </template>
