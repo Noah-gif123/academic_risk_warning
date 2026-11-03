@@ -266,7 +266,7 @@ public class ReportComposer {
     }
 
     private static final Pattern GROUP_HEAD = Pattern.compile(
-            "【(风险概览|共性难点|重点关注|教学建议|班级画像|集中风险课程|多门预警学生|干预建议)】");
+            "【(风险概览|共性难点|重点关注|教学建议|班级画像|集中风险课程|多门预警学生|干预建议|整体概览|教学班对比)】");
 
     /** 切分群体报告的四段 */
     public java.util.List<GroupSection> parseGroupSections(String raw) {

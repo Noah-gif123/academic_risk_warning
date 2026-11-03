@@ -42,12 +42,19 @@ public class DashScopeClient {
         private final String text;
         private final int totalTokens;
         private final String error;
+        /** 是否被 max_tokens 截断（finish_reason=length）：群体报告遇到短内容要重试 */
+        private final boolean truncated;
 
         ChatResult(boolean ok, String text, int totalTokens, String error) {
+            this(ok, text, totalTokens, error, false);
+        }
+
+        ChatResult(boolean ok, String text, int totalTokens, String error, boolean truncated) {
             this.ok = ok;
             this.text = text;
             this.totalTokens = totalTokens;
             this.error = error;
+            this.truncated = truncated;
         }
     }
 
@@ -64,14 +71,17 @@ public class DashScopeClient {
      */
     public ChatResult chat(String system, String user, double temperature, int maxTokens) {
         ChatResult first = once(system, user, temperature, maxTokens);
-        if (!first.isOk() && first.getError() != null && first.getError().contains("finish_reason=length")) {
+        // 两种要重试的情况：
+        //   1) 预算被 reasoning 燒光、content 完全为空；
+        //   2) content 非空但被截断得很短（群体报告要求四段，几十个字的残句等于废稿）。
+        boolean burned = !first.isOk() && first.getError() != null && first.getError().contains("finish_reason=length");
+        boolean halfDone = first.isOk() && first.isTruncated()
+                && (first.getText() == null || first.getText().trim().length() < 200);
+        if (burned || halfDone) {
             int retryBudget = Math.min(8000, Math.max(maxTokens, 1600) * 2);
-            log.info("[DashScope] 输出被长度截断，按 max_tokens={} 重试一次", retryBudget);
-            ChatResult second = once(system, user, temperature, retryBudget);
-            if (second.isOk()) {
-                return second;
-            }
-            return second;
+            log.info("[DashScope] 输出被长度截断（{}），按 max_tokens={} 重试一次",
+                    burned ? "空内容" : "残句", retryBudget);
+            return once(system, user, temperature, retryBudget);
         }
         return first;
     }
@@ -117,7 +127,7 @@ public class DashScopeClient {
                 // 有内容但被截断：先用着，但留痕方便排查
                 log.warn("[DashScope] 输出被截断(finish_reason=length)，tokens={}", tokens);
             }
-            return new ChatResult(true, text, tokens, null);
+            return new ChatResult(true, text, tokens, null, "length".equals(finish));
         } catch (Exception e) {
             log.warn("[DashScope] 调用失败: {}", e.getMessage());
             return new ChatResult(false, null, 0, truncate(e.getClass().getSimpleName() + ": " + e.getMessage(), 300));

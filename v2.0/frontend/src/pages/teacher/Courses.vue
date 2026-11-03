@@ -55,14 +55,22 @@
           <div class="flex items-center justify-between pt-2 border-t border-slate-100">
             <button class="text-sm text-brand-600 hover:underline font-medium"
                     @click="$router.push({ path: '/teacher/course/' + c.offeringId })">课程详情 →</button>
-            <button class="text-sm text-slate-500 hover:underline"
-                    @click="$router.push({ path: '/teacher/teaching', query: { teachingClassId: (c.classes && c.classes[0] || {}).teachingClassId, offeringId: c.offeringId } })">
-              教学详情
-            </button>
+            <div class="flex items-center gap-3">
+              <button class="text-sm text-brand-600 hover:underline font-medium" @click="openReport(c)">
+                课程总报告
+              </button>
+              <button class="text-sm text-slate-500 hover:underline"
+                      @click="$router.push({ path: '/teacher/teaching', query: { teachingClassId: (c.classes && c.classes[0] || {}).teachingClassId, offeringId: c.offeringId } })">
+                教学详情
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <GroupReportModal :open="reportOpen" scope="OFFERING" :target-id="reportTarget.id"
+                      :title="reportTarget.title" @close="reportOpen = false" />
   </div>
 </template>
 
@@ -70,6 +78,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { teacherPortalApi } from '../../api/teacherPortal'
 import { courseTypeLabel } from '../../labels'
+import GroupReportModal from '../../components/GroupReportModal.vue'
 
 const terms = ref([])
 const courses = ref([])
@@ -78,6 +87,16 @@ const status = ref('')
 const keyword = ref('')
 const message = ref('')
 const ok = ref(true)
+const reportOpen = ref(false)
+const reportTarget = ref({ id: null, title: '' })
+
+function openReport(c) {
+  reportTarget.value = {
+    id: c.offeringId,
+    title: (c.courseName || '课程') + ' · 课程学情报告'
+  }
+  reportOpen.value = true
+}
 
 const shown = computed(() => {
   const k = keyword.value.trim()

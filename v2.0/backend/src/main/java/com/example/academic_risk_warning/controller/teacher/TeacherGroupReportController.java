@@ -61,4 +61,26 @@ public class TeacherGroupReportController {
         groupReportService.assertTeacherOwns(teachingClassId, me());
         return Result.ok(groupReportService.list("CLASS", teachingClassId, Math.min(limit, 50)));
     }
+
+    // ============================================================ 课程维度（一门课 × 我教的多个班）
+    /** 生成一份「课程总报告」：把这门课下我教的全部教学班汇总成一份（P3） */
+    @PostMapping("/offering/{offeringId}")
+    public Result<GroupReportVO> generateOffering(@PathVariable Long offeringId) {
+        Long teacherId = me();
+        groupReportService.assertTeacherOwnsOffering(offeringId, teacherId);
+        return Result.ok(groupReportService.generateOfferingReport(offeringId, teacherId));
+    }
+
+    @GetMapping("/offering/{offeringId}/latest")
+    public Result<GroupReportVO> latestOffering(@PathVariable Long offeringId) {
+        groupReportService.assertTeacherOwnsOffering(offeringId, me());
+        return Result.ok(groupReportService.latest("OFFERING", offeringId));
+    }
+
+    @GetMapping("/offering/{offeringId}/history")
+    public Result<List<GroupReportVO>> historyOffering(@PathVariable Long offeringId,
+                                                       @RequestParam(defaultValue = "10") int limit) {
+        groupReportService.assertTeacherOwnsOffering(offeringId, me());
+        return Result.ok(groupReportService.list("OFFERING", offeringId, Math.min(limit, 50)));
+    }
 }

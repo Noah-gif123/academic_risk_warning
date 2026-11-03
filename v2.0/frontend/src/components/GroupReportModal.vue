@@ -8,7 +8,8 @@
           <div>
             <h2 class="font-semibold text-slate-800">{{ title || '群体学情报告' }}</h2>
             <p class="text-xs text-slate-400 mt-0.5">
-              {{ scope === 'ADMIN_CLASS' ? '行政班视角（一个班 × 多门课）' : '教学班视角（一门课 × 一个班）' }}
+              {{ scope === 'ADMIN_CLASS' ? '行政班视角（一个班 × 多门课）'
+                : (scope === 'OFFERING' ? '课程视角（一门课 × 我教的全部教学班）' : '教学班视角（一门课 × 一个班）') }}
               <span v-if="report" class="ml-2 px-1.5 py-0.5 rounded"
                     :class="report.source === 'TEMPLATE' ? 'bg-slate-100 text-slate-500' : 'bg-brand-50 text-brand-600'">
                 {{ report.source === 'TEMPLATE' ? '规则生成' : 'AI 生成' }}

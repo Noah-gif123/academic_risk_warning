@@ -20,11 +20,14 @@ export const aiApi = {
 }
 
 /**
- * 群体报告（M8）：教学班（教师端）与行政班（辅导员端）
- * scope: 'CLASS' | 'ADMIN_CLASS'
+ * 群体报告（M8）：教学班（教师端）、行政班（辅导员端）、课程（教师端，全部教学班）
+ * scope: 'CLASS' | 'ADMIN_CLASS' | 'OFFERING'
  */
-const groupPath = (scope, id) =>
-  scope === 'ADMIN_CLASS' ? `/counselor/reports/admin-class/${id}` : `/teacher/reports/class/${id}`
+const groupPath = (scope, id) => {
+  if (scope === 'ADMIN_CLASS') return `/counselor/reports/admin-class/${id}`
+  if (scope === 'OFFERING') return `/teacher/reports/offering/${id}`
+  return `/teacher/reports/class/${id}`
+}
 
 export const groupReportApi = {
   latest: (scope, id) => http.get(`${groupPath(scope, id)}/latest`),

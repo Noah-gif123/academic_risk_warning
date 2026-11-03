@@ -5,6 +5,7 @@ import com.example.academic_risk_warning.config.AiProperties;
 import com.example.academic_risk_warning.vo.ai.AdminClassFact;
 import com.example.academic_risk_warning.vo.ai.ClassFact;
 import com.example.academic_risk_warning.vo.ai.GroupReportVO;
+import com.example.academic_risk_warning.vo.ai.OfferingFact;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -45,7 +46,7 @@ public class GroupReportService {
     // ============================================================ 教学班报告
     public GroupReportVO generateClassReport(Long teachingClassId, Long operatorId) {
         ClassFact fact = factBuilder.buildClass(teachingClassId);
-        String title = nz(fact.getClassName()) + " · 班级学情报告";
+        String title = nz(fact.getClassName()) + " · 班级学情报告（" + nz(fact.getTermName()) + "）";
         ReportContent content = null;
         String source = "TEMPLATE";
         String status = "FALLBACK";
@@ -55,7 +56,7 @@ public class GroupReportService {
         int tokens = 0;
 
         // R1：群体报告也给「参考依据」——教师看到的是"本班薄弱项对应的课程资料"
-        List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(), fact);
+        List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(), fact.getCourseName());
         String evidenceBlock = evidenceBlock(evidence);
         String userPrompt = classPrompt(fact) + evidenceBlock;
         String systemPrompt = groupSystemPrompt("教学班");
@@ -90,7 +91,8 @@ public class GroupReportService {
         }
 
         if (content == null && props.directReady()) {
-            DashScopeClient.ChatResult res = dashScopeClient.chat(systemPrompt, userPrompt);
+            // 群体报告要求四段 350~550 字，推理型模型容易把 2400 的预算全烧在思考上，这里给到 3600
+            DashScopeClient.ChatResult res = dashScopeClient.chat(systemPrompt, userPrompt, 0.4, 3600);
             tokens += res.getTotalTokens();
             long t1 = System.currentTimeMillis();
             if (res.isOk()) {
@@ -128,7 +130,7 @@ public class GroupReportService {
     // ============================================================ 行政班报告
     public GroupReportVO generateAdminClassReport(Long adminClassId, Long operatorId) {
         AdminClassFact fact = factBuilder.buildAdminClass(adminClassId);
-        String title = nz(fact.getClassName()) + " · 行政班学情报告";
+        String title = nz(fact.getClassName()) + " · 行政班学情报告（" + nz(fact.getTermName()) + "）";
         ReportContent content = null;
         String source = "TEMPLATE";
         String status = "FALLBACK";
@@ -137,12 +139,26 @@ public class GroupReportService {
         long t0 = System.currentTimeMillis();
         int tokens = 0;
 
+        // P1：行政班也带「参考依据」——取风险最集中那门课的资料（行政班跨多门课，只挑最急的一门）
+        Long riskCourseId = null;
+        String riskCourseName = null;
+        if (!fact.getCourseRisks().isEmpty()) {
+            riskCourseId = fact.getCourseRisks().get(0).getCourseId();
+            riskCourseName = fact.getCourseRisks().get(0).getCourseName();
+        }
+        List<RetrievalService.Hit> evidence = retrieveEvidence(riskCourseId, riskCourseName);
+        String evidenceBlock = evidenceBlock(evidence);
+
         String systemPrompt = groupSystemPrompt("行政班");
-        String userPrompt = adminPrompt(fact);
+        String userPrompt = adminPrompt(fact) + evidenceBlock;
 
         if (props.isEnabled() && props.getGroupReportAppKey() != null && !props.getGroupReportAppKey().isBlank()) {
+            Map<String, Object> inputs = adminInputs(fact);
+            if (!evidenceBlock.isEmpty()) {
+                inputs.put("facts", String.valueOf(inputs.get("facts")) + evidenceBlock);
+            }
             DifyClient.WorkflowResult res = difyClient.runWorkflow(props.getGroupReportAppKey(),
-                    adminInputs(fact), "counselor-" + operatorId);
+                    inputs, "counselor-" + operatorId);
             tokens += res.getTotalTokens();
             if (res.isOk()) {
                 String text = pickText(res.getOutputs());
@@ -166,7 +182,8 @@ public class GroupReportService {
         }
 
         if (content == null && props.directReady()) {
-            DashScopeClient.ChatResult res = dashScopeClient.chat(systemPrompt, userPrompt);
+            // 群体报告要求四段 350~550 字，推理型模型容易把 2400 的预算全烧在思考上，这里给到 3600
+            DashScopeClient.ChatResult res = dashScopeClient.chat(systemPrompt, userPrompt, 0.4, 3600);
             tokens += res.getTotalTokens();
             long t1 = System.currentTimeMillis();
             if (res.isOk()) {
@@ -191,9 +208,99 @@ public class GroupReportService {
             content = adminTemplate(fact);
             note.append("已使用规则模板");
         }
+        appendEvidence(content, evidence);
 
         Long id = persist("ADMIN_CLASS", adminClassId, null, adminClassId,
                 null, null, fact.getTermId(), title, fact, content, source, runId, tokens, operatorId);
+        runService.usage(runId, "GROUP_REPORT", tokens, operatorId);
+        runService.finish(runId, status, source, tokens, status.equals("SUCCESS") ? null : note.toString());
+        return detail(id);
+    }
+
+    // ============================================================ 课程报告（一门课 × 多个教学班）
+    /**
+     * 教师名下一门课<b>全部教学班</b>的汇总报告（P3）。
+     *
+     * <p>与教学班报告的区别只在事实包：这边是把同一 offering 下各班汇总，
+     * 所以结论侧重"哪个班最吃力 / 全班共同的薄弱项"，其余三层通道与校验完全复用。</p>
+     */
+    public GroupReportVO generateOfferingReport(Long offeringId, Long operatorId) {
+        OfferingFact fact = factBuilder.buildOffering(offeringId, operatorId);
+        String title = nz(fact.getCourseName()) + " · 课程学情报告（" + nz(fact.getTermName())
+                + " · " + nzf(fact.getClassCount()) + " 个教学班）";
+        ReportContent content = null;
+        String source = "TEMPLATE";
+        String status = "FALLBACK";
+        StringBuilder note = new StringBuilder();
+        Long runId = runService.start("GROUP_REPORT", "OFFERING", offeringId, operatorId);
+        long t0 = System.currentTimeMillis();
+        int tokens = 0;
+
+        List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(), fact.getCourseName());
+        String evidenceBlock = evidenceBlock(evidence);
+        String systemPrompt = groupSystemPrompt("课程");
+        String userPrompt = offeringPrompt(fact) + evidenceBlock;
+
+        if (props.isEnabled() && props.getGroupReportAppKey() != null && !props.getGroupReportAppKey().isBlank()) {
+            Map<String, Object> inputs = offeringInputs(fact);
+            if (!evidenceBlock.isEmpty()) {
+                inputs.put("facts", String.valueOf(inputs.get("facts")) + evidenceBlock);
+            }
+            DifyClient.WorkflowResult res = difyClient.runWorkflow(props.getGroupReportAppKey(),
+                    inputs, "teacher-" + operatorId);
+            tokens += res.getTotalTokens();
+            if (res.isOk()) {
+                String text = pickText(res.getOutputs());
+                List<String> bad = composer.invalidNumbersAgainst(text, fact);
+                runService.step(runId, 1, "dify-group-workflow", "offering-report", text,
+                        bad.isEmpty() ? "PASS" : "WARN",
+                        bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
+                        System.currentTimeMillis() - t0);
+                if (bad.isEmpty() && composer.looksLikeGroupReport(text)) {
+                    content = parseContent(text);
+                    source = "DIFY";
+                    status = "SUCCESS";
+                } else {
+                    note.append("Dify 输出不可用；");
+                }
+            } else {
+                note.append("Dify 失败：").append(res.getError()).append("；");
+            }
+        } else {
+            note.append("未配置群体报告工作流；");
+        }
+
+        if (content == null && props.directReady()) {
+            // 群体报告要求四段 350~550 字，推理型模型容易把 2400 的预算全烧在思考上，这里给到 3600
+            DashScopeClient.ChatResult res = dashScopeClient.chat(systemPrompt, userPrompt, 0.4, 3600);
+            tokens += res.getTotalTokens();
+            long t1 = System.currentTimeMillis();
+            if (res.isOk()) {
+                List<String> bad = composer.invalidNumbersAgainst(res.getText(), fact);
+                runService.step(runId, 2, "direct-chat", "offering-report", res.getText(),
+                        bad.isEmpty() ? "PASS" : "WARN",
+                        bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
+                        System.currentTimeMillis() - t1);
+                if (bad.isEmpty() && composer.looksLikeGroupReport(res.getText())) {
+                    content = parseContent(res.getText());
+                    source = "LLM";
+                    status = "SUCCESS";
+                } else {
+                    note.append("直连输出不可用；");
+                }
+            } else {
+                note.append("直连失败：").append(res.getError()).append("；");
+            }
+        }
+
+        if (content == null) {
+            content = offeringTemplate(fact);
+            note.append("已使用规则模板");
+        }
+        appendEvidence(content, evidence);
+
+        Long id = persist("OFFERING", offeringId, null, null, offeringId,
+                fact.getCourseId(), fact.getTermId(), title, fact, content, source, runId, tokens, operatorId);
         runService.usage(runId, "GROUP_REPORT", tokens, operatorId);
         runService.finish(runId, status, source, tokens, status.equals("SUCCESS") ? null : note.toString());
         return detail(id);
@@ -209,6 +316,16 @@ public class GroupReportService {
         }
         if (teacherId != null && !teacherId.equals(owners.get(0))) {
             throw new BizException("只能查看自己任教的教学班");
+        }
+    }
+
+    /** 教师只能对自己任教的课程出课程总报告（该课程下至少有一个自己的教学班） */
+    public void assertTeacherOwnsOffering(Long offeringId, Long teacherId) {
+        Integer n = jdbc.queryForObject(
+                "select count(*) from teaching_class where offering_id = ? and (? is null or teacher_id = ?)",
+                Integer.class, offeringId, teacherId, teacherId);
+        if (n == null || n == 0) {
+            throw new BizException("只能查看自己任教的课程");
         }
     }
 
@@ -248,7 +365,10 @@ public class GroupReportService {
                 "select g.id, g.scope, g.target_id, g.teaching_class_id, g.admin_class_id, g.title, g.summary, "
                         + "g.content_json, g.source, g.create_time, "
                         + "(select max(rs.last_eval_time) from risk_state rs "
-                        + "   where (g.teaching_class_id is not null and rs.teaching_class_id = g.teaching_class_id)) as last_eval_time "
+                        + "   where (g.teaching_class_id is not null and rs.teaching_class_id = g.teaching_class_id) "
+                        + "      or (g.scope = 'OFFERING' and g.offering_id is not null "
+                        + "          and rs.teaching_class_id in (select tc.id from teaching_class tc "
+                        + "                                       where tc.offering_id = g.offering_id))) as last_eval_time "
                         + "from ai_group_report g where g.id = ?", id);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("报告不存在：" + id);
@@ -329,6 +449,11 @@ public class GroupReportService {
 
     // ============================================================ 提示词
     private String groupSystemPrompt(String kind) {
+        String heads = switch (kind) {
+            case "教学班" -> "【风险概览】【共性难点】【重点关注】【教学建议】";
+            case "课程" -> "【整体概览】【教学班对比】【共性难点】【教学建议】";
+            default -> "【班级画像】【集中风险课程】【多门预警学生】【干预建议】";
+        };
         return """
                 你是高校学业预警系统里的「群体学情研判助手」，服务对象是教师与辅导员。
                 必须遵守：
@@ -338,9 +463,7 @@ public class GroupReportService {
                 4. 不使用 Markdown 星号、表格、代码块；数字只挑最关键的 5 个以内；
                 5. 总字数 350 到 550 字，最后一段给出 3 条可直接执行的动作；
                 6. 直接输出正文，不要复述规则、不要输出思考过程。
-                """.formatted("教学班".equals(kind)
-                ? "【风险概览】【共性难点】【重点关注】【教学建议】"
-                : "【班级画像】【集中风险课程】【多门预警学生】【干预建议】");
+                """.formatted(heads);
     }
 
     private String classPrompt(ClassFact f) {
@@ -432,10 +555,70 @@ public class GroupReportService {
         return in;
     }
 
+    private String offeringPrompt(OfferingFact f) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("课程：").append(nz(f.getCourseName())).append("（").append(nz(f.getCourseType()))
+                .append("，").append(nzf(f.getCredit())).append(" 学分，").append(nzf(f.getPlannedWeeks()))
+                .append(" 周），任课教师：").append(nz(f.getTeacherName()))
+                .append("，学期：").append(nz(f.getTermName())).append("\n");
+        sb.append("范围：我任教的 ").append(nzf(f.getClassCount())).append(" 个教学班，合计学生 ")
+                .append(nzf(f.getStudentCount())).append(" 人\n");
+        sb.append("风险分布：红灯 ").append(nzf(f.getRedCount()))
+                .append("、黄灯 ").append(nzf(f.getYellowCount()))
+                .append("、绿灯 ").append(nzf(f.getGreenCount()))
+                .append("，红灯占比 ").append(num(f.getFailRate())).append("%\n");
+        sb.append("总分：全课程平均 ").append(num(f.getAvgScore()))
+                .append("，最低 ").append(num(f.getMinScore()))
+                .append("，最高 ").append(num(f.getMaxScore()))
+                .append("，及格线 ").append(nzf(f.getPassScore())).append("\n");
+        sb.append("考勤：缺勤超上限 ").append(nzf(f.getAbsentOverLimitCount()))
+                .append(" 人；未关闭预警事件 ").append(nzf(f.getActiveAlertCount())).append(" 条\n");
+        sb.append("教学班横向对比（按红黄灯人次从多到少）：");
+        for (OfferingFact.ClassRow c : f.getClasses()) {
+            sb.append(c.getClassName()).append("（").append(nzf(c.getStudentCount())).append(" 人，红 ")
+                    .append(nzf(c.getRed())).append("、黄 ").append(nzf(c.getYellow()))
+                    .append("，平均 ").append(num(c.getAvgScore()))
+                    .append("，最低 ").append(num(c.getMinScore())).append("）；");
+        }
+        sb.append("\n全课程共性难点（分组，正确率由低到高）：");
+        for (OfferingFact.Dim d : f.getWeakGroups()) {
+            sb.append(d.getName()).append("=").append(pct(d.getRate())).append("；");
+        }
+        sb.append("\n最弱题型：");
+        for (OfferingFact.Dim d : f.getWeakTypes()) {
+            sb.append(d.getName()).append("=").append(pct(d.getRate())).append("；");
+        }
+        sb.append("\n重点关注（跨班，最多 10 人）：");
+        for (OfferingFact.Student s : f.getWatchList()) {
+            sb.append(s.getStudentName()).append("（").append(nz(s.getClassName())).append("，")
+                    .append("RED".equals(s.getRiskLevel()) ? "红灯" : "黄灯").append("，")
+                    .append(num(s.getTotalScore())).append(" 分，").append(nz(s.getReason())).append("）；");
+        }
+        sb.append("\n请据此写这门课整体的学情研判，重点说清哪个教学班最吃力、各班共同的薄弱点");
+        sb.append("，以及我作为任课教师下一步怎么调整教学。");
+        return sb.toString();
+    }
+
+    private Map<String, Object> offeringInputs(OfferingFact f) {
+        Map<String, Object> in = new LinkedHashMap<>();
+        in.put("facts", offeringPrompt(f));
+        in.put("kind", "offering");
+        in.put("course", nz(f.getCourseName()));
+        in.put("term", nz(f.getTermName()));
+        in.put("class_count", nzf(f.getClassCount()));
+        in.put("student_count", nzf(f.getStudentCount()));
+        in.put("red", nzf(f.getRedCount()));
+        in.put("yellow", nzf(f.getYellowCount()));
+        in.put("green", nzf(f.getGreenCount()));
+        in.put("fail_rate", num(f.getFailRate()));
+        in.put("avg_score", num(f.getAvgScore()));
+        return in;
+    }
+
     // ============================================================ 模板兜底
     private ReportContent classTemplate(ClassFact f) {
         List<ReportContent.Section> sections = new ArrayList<>();
-        String overview = "本班 " + nzf(f.getStudentCount()) + " 人，红灯 " + nzf(f.getRedCount())
+        String overview = "（" + nz(f.getTermName()) + "）本班 " + nzf(f.getStudentCount()) + " 人，红灯 " + nzf(f.getRedCount())
                 + " 人、黄灯 " + nzf(f.getYellowCount()) + " 人、绿灯 " + nzf(f.getGreenCount())
                 + " 人；班级平均 " + num(f.getAvgScore()) + " 分，及格线 " + nzf(f.getPassScore()) + " 分。";
         sections.add(new ReportContent.Section("风险概览", overview));
@@ -486,7 +669,8 @@ public class GroupReportService {
     private ReportContent adminTemplate(AdminClassFact f) {
         List<ReportContent.Section> sections = new ArrayList<>();
         sections.add(new ReportContent.Section("班级画像",
-                nz(f.getClassName()) + " 共 " + nzf(f.getStudentCount()) + " 人，本学期待评课程 "
+                nz(f.getClassName()) + " 共 " + nzf(f.getStudentCount()) + " 人（" + nz(f.getTermName())
+                        + "），本学期待评课程 "
                         + nzf(f.getCourseCount()) + " 门，挂科风险率 " + num(f.getFailRate())
                         + "%，平均总分 " + num(f.getAvgScore()) + "。"));
 
@@ -523,6 +707,60 @@ public class GroupReportService {
         sections.add(new ReportContent.Section("干预建议",
                 "一是先找多门预警学生谈话并登记干预记录；二是与集中风险课程的任课教师对齐，确认是否需要统一答疑；"
                         + "三是在系统中跟进干预后的等级变化，两周后复核一次。"));
+        return new ReportContent(summaryOf(sections), sections);
+    }
+
+    private ReportContent offeringTemplate(OfferingFact f) {
+        List<ReportContent.Section> sections = new ArrayList<>();
+        sections.add(new ReportContent.Section("整体概览",
+                "（" + nz(f.getTermName()) + "）" + nz(f.getCourseName()) + " 我任教 "
+                        + nzf(f.getClassCount()) + " 个教学班、合计 " + nzf(f.getStudentCount()) + " 人；"
+                        + "红灯 " + nzf(f.getRedCount()) + " 人、黄灯 " + nzf(f.getYellowCount())
+                        + " 人、绿灯 " + nzf(f.getGreenCount()) + " 人，红灯占比 " + num(f.getFailRate()) + "%；"
+                        + "全课程平均 " + num(f.getAvgScore()) + " 分，及格线 " + nzf(f.getPassScore()) + " 分。"));
+
+        StringBuilder cmp = new StringBuilder();
+        if (f.getClasses().isEmpty()) {
+            cmp.append("暂无可对比的教学班。");
+        } else {
+            OfferingFact.ClassRow worst = f.getClasses().get(0);
+            cmp.append("最吃力的是「").append(worst.getClassName()).append("」（红 ")
+                    .append(nzf(worst.getRed())).append("、黄 ").append(nzf(worst.getYellow()))
+                    .append("，平均 ").append(num(worst.getAvgScore()))
+                    .append("，最低 ").append(num(worst.getMinScore())).append(" 分）。各班情况：");
+            int i = 1;
+            for (OfferingFact.ClassRow c : f.getClasses()) {
+                cmp.append(i++).append("）").append(c.getClassName())
+                        .append(" ").append(nzf(c.getStudentCount())).append(" 人，红 ")
+                        .append(nzf(c.getRed())).append("、黄 ").append(nzf(c.getYellow()))
+                        .append("，平均 ").append(num(c.getAvgScore())).append("；");
+            }
+        }
+        sections.add(new ReportContent.Section("教学班对比", cmp.toString()));
+
+        StringBuilder weak = new StringBuilder();
+        if (!f.getWeakGroups().isEmpty()) {
+            weak.append("全课程正确率最低的分组：");
+            int i = 1;
+            for (OfferingFact.Dim d : f.getWeakGroups()) {
+                if (i > 3) {
+                    break;
+                }
+                weak.append(i++).append("）「").append(d.getName()).append("」").append(pct(d.getRate())).append("；");
+            }
+        }
+        if (!f.getWeakTypes().isEmpty()) {
+            weak.append("最弱题型是").append(f.getWeakTypes().get(0).getName())
+                    .append("（").append(pct(f.getWeakTypes().get(0).getRate())).append("）。");
+        }
+        sections.add(new ReportContent.Section("共性难点",
+                weak.length() == 0 ? "暂无作答数据，无法判断共性难点。" : weak.toString()));
+
+        sections.add(new ReportContent.Section("教学建议",
+                "一是把全课程共同薄弱的分组排进下一轮复习，多个班同步讲；二是对最吃力那个教学班单独加一次答疑，"
+                        + "并核对该班缺勤超上限的 " + nzf(f.getAbsentOverLimitCount()) + " 人；"
+                        + "三是跨班红黄灯学生统一约谈，处理完在系统登记干预。"));
+
         return new ReportContent(summaryOf(sections), sections);
     }
 
@@ -605,13 +843,13 @@ public class GroupReportService {
         }
     }
     // ============================================================ R1：课程资料检索
-    /** 按「课程 + 本班薄弱项」检索支撑资料；检索不足就不硬凑 */
-    private List<RetrievalService.Hit> retrieveEvidence(Long courseId, ClassFact fact) {
+    /** 按「课程 + 关键条款」检索支撑资料；检索不足就不硬凑 */
+    private List<RetrievalService.Hit> retrieveEvidence(Long courseId, String courseName) {
         if (courseId == null) {
             return List.of();
         }
         StringBuilder q = new StringBuilder();
-        q.append(nz(fact.getCourseName())).append(" 考核方式 成绩构成 及格线");
+        q.append(nz(courseName)).append(" 考核方式 成绩构成 及格线");
         try {
             RetrievalService.Outcome out = retrievalService.retrieve(courseId, q.toString().trim(), 3);
             RetrievalService.Guard guard = retrievalService.guard(out, q.toString());

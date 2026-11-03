@@ -2,6 +2,7 @@ package com.example.academic_risk_warning.service.ai;
 
 import com.example.academic_risk_warning.vo.ai.AdminClassFact;
 import com.example.academic_risk_warning.vo.ai.ClassFact;
+import com.example.academic_risk_warning.vo.ai.OfferingFact;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -261,9 +262,9 @@ public class GroupFactBuilder {
             f.setCounselorName(asString(cs.get(0).get("counselor_name")));
         }
 
-        // 学生数（本班、在读）
+        // 学生数（本班、在读；学籍状态用 IN_SCHOOL，退学/毕业的不算）
         f.setStudentCount(asInt(jdbc.queryForObject(
-                "select count(*) from student where admin_class_id = ? and status = 'ACTIVE'",
+                "select count(*) from student where admin_class_id = ? and status = 'IN_SCHOOL'",
                 Integer.class, adminClassId)));
 
         // 选课与风险分布：只统计当前学期
@@ -372,6 +373,187 @@ public class GroupFactBuilder {
                 """, Integer.class, adminClassId)));
 
         return f;
+    }
+
+    // ============================================================ 课程（一门课 × 多个班）
+    /**
+     * 课程维度事实包：把同一门课下、该教师名下的各教学班事实包聚合起来。
+     *
+     * <p>口径说明：人数、红黄绿、硬性挂科按<b>选课记录</b>直接相加；
+     * 平均分按人数加权，最低/最高分取极值；共性难点按题量加权。
+     * 不重新查一遍底表，避免与教学班报告的数字对不上。</p>
+     *
+     * @param teacherId 传 null 表示不限教师（管理端视角）
+     */
+    public OfferingFact buildOffering(Long offeringId, Long teacherId) {
+        List<Map<String, Object>> base = jdbc.queryForList("""
+                select o.id as offering_id, o.term_id, o.planned_weeks, o.pass_score,
+                       c.id as course_id, c.course_name, c.course_type, c.credit,
+                       t.term_name
+                from course_offering o
+                         join course c on c.id = o.course_id
+                         join term t on t.id = o.term_id
+                where o.id = ?
+                """, offeringId);
+        if (base.isEmpty()) {
+            throw new IllegalArgumentException("开课不存在：" + offeringId);
+        }
+        Map<String, Object> r = base.get(0);
+        OfferingFact f = new OfferingFact();
+        f.setOfferingId(asLong(r.get("offering_id")));
+        f.setCourseId(asLong(r.get("course_id")));
+        f.setCourseName(asString(r.get("course_name")));
+        f.setCourseType(asString(r.get("course_type")));
+        f.setCredit(asInt(r.get("credit")));
+        f.setTermId(asLong(r.get("term_id")));
+        f.setTermName(asString(r.get("term_name")));
+        f.setPlannedWeeks(asInt(r.get("planned_weeks")));
+        f.setPassScore(asInt(r.get("pass_score")));
+        f.setTeacherId(teacherId);
+        if (teacherId != null) {
+            List<Map<String, Object>> ts = jdbc.queryForList(
+                    "select teacher_name from teacher where id = ?", teacherId);
+            if (!ts.isEmpty()) {
+                f.setTeacherName(asString(ts.get(0).get("teacher_name")));
+            }
+        }
+
+        List<Long> tcIds = jdbc.queryForList("""
+                select id from teaching_class
+                where offering_id = ? and (? is null or teacher_id = ?)
+                order by class_code
+                """, Long.class, offeringId, teacherId, teacherId);
+        if (tcIds.isEmpty()) {
+            throw new IllegalArgumentException("这门课下没有你的教学班");
+        }
+
+        List<ClassFact> facts = new ArrayList<>();
+        for (Long tcId : tcIds) {
+            facts.add(buildClass(tcId));
+        }
+        f.setClassCount(facts.size());
+
+        int students = 0;
+        int red = 0, yellow = 0, green = 0, unknown = 0, hardFail = 0, overLimit = 0, alerts = 0, ungraded = 0;
+        BigDecimal scoreSum = BigDecimal.ZERO;
+        BigDecimal minScore = null;
+        BigDecimal maxScore = null;
+        for (ClassFact cf : facts) {
+            int n = nz(cf.getStudentCount());
+            students += n;
+            red += nz(cf.getRedCount());
+            yellow += nz(cf.getYellowCount());
+            green += nz(cf.getGreenCount());
+            unknown += nz(cf.getUnknownCount());
+            hardFail += nz(cf.getHardFailCount());
+            overLimit += nz(cf.getAbsentOverLimitCount());
+            alerts += nz(cf.getActiveAlertCount());
+            if (nz(cf.getUngradedItemCount()) > 0) {
+                ungraded++;
+            }
+            if (cf.getAvgScore() != null && n > 0) {
+                scoreSum = scoreSum.add(cf.getAvgScore().multiply(BigDecimal.valueOf(n)));
+            }
+            if (cf.getMinScore() != null && (minScore == null || cf.getMinScore().compareTo(minScore) < 0)) {
+                minScore = cf.getMinScore();
+            }
+            if (cf.getMaxScore() != null && (maxScore == null || cf.getMaxScore().compareTo(maxScore) > 0)) {
+                maxScore = cf.getMaxScore();
+            }
+            OfferingFact.ClassRow row = new OfferingFact.ClassRow();
+            row.setTeachingClassId(cf.getTeachingClassId());
+            row.setClassCode(cf.getClassCode());
+            row.setClassName(cf.getClassName());
+            row.setStudentCount(cf.getStudentCount());
+            row.setRed(cf.getRedCount());
+            row.setYellow(cf.getYellowCount());
+            row.setGreen(cf.getGreenCount());
+            row.setHardFail(cf.getHardFailCount());
+            row.setAvgScore(cf.getAvgScore());
+            row.setMinScore(cf.getMinScore());
+            row.setMaxScore(cf.getMaxScore());
+            row.setAbsentOverLimitCount(cf.getAbsentOverLimitCount());
+            row.setActiveAlertCount(cf.getActiveAlertCount());
+            f.getClasses().add(row);
+        }
+        f.setStudentCount(students);
+        f.setRedCount(red);
+        f.setYellowCount(yellow);
+        f.setGreenCount(green);
+        f.setUnknownCount(unknown);
+        f.setHardFailCount(hardFail);
+        f.setAbsentOverLimitCount(overLimit);
+        f.setActiveAlertCount(alerts);
+        f.setUngradedItemCount(ungraded);
+        f.setMinScore(minScore);
+        f.setMaxScore(maxScore);
+        if (students > 0) {
+            f.setAvgScore(scoreSum.divide(BigDecimal.valueOf(students), 2, RoundingMode.HALF_UP));
+            f.setFailRate(BigDecimal.valueOf(red).multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(students), 1, RoundingMode.HALF_UP));
+        }
+        // 红黄灯多的班排前面，方便"哪个班最吃力"一眼看出来
+        f.getClasses().sort(Comparator
+                .comparingInt((OfferingFact.ClassRow x) -> nz(x.getRed()) * 2 + nz(x.getYellow())).reversed()
+                .thenComparing(x -> x.getClassName() == null ? "" : x.getClassName()));
+
+        // 共性难点：同名分组/题型按题量加权
+        f.setWeakGroups(mergeDims(facts, true));
+        f.setWeakTypes(mergeDims(facts, false));
+
+        // 重点关注：跨班取红灯优先
+        List<OfferingFact.Student> watch = new ArrayList<>();
+        for (ClassFact cf : facts) {
+            for (ClassFact.Student s : cf.getWatchList()) {
+                if (!"RED".equals(s.getRiskLevel()) && !"YELLOW".equals(s.getRiskLevel())) {
+                    continue;
+                }
+                OfferingFact.Student o = new OfferingFact.Student();
+                o.setTeachingClassId(cf.getTeachingClassId());
+                o.setClassName(cf.getClassName());
+                o.setStudentName(s.getStudentName());
+                o.setRiskLevel(s.getRiskLevel());
+                o.setTotalScore(s.getTotalScore());
+                o.setReason(s.getReason());
+                watch.add(o);
+            }
+        }
+        watch.sort(Comparator
+                .comparingInt((OfferingFact.Student s) -> "RED".equals(s.getRiskLevel()) ? 0 : 1)
+                .thenComparing(s -> s.getTotalScore() == null ? BigDecimal.valueOf(999) : s.getTotalScore()));
+        f.setWatchList(watch.size() > 10 ? new ArrayList<>(watch.subList(0, 10)) : watch);
+        return f;
+    }
+
+    /** 各教学班的分组/题型按题量加权合并（同名相加） */
+    private List<OfferingFact.Dim> mergeDims(List<ClassFact> facts, boolean group) {
+        Map<String, BigDecimal[]> acc = new LinkedHashMap<>();
+        for (ClassFact cf : facts) {
+            for (ClassFact.Dim d : (group ? cf.getWeakGroups() : cf.getWeakTypes())) {
+                if (d.getName() == null || d.getRate() == null) {
+                    continue;
+                }
+                int qn = Math.max(1, nz(d.getQuestionCount()));
+                BigDecimal[] cur = acc.computeIfAbsent(d.getName(),
+                        k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+                cur[0] = cur[0].add(d.getRate().multiply(BigDecimal.valueOf(qn)));
+                cur[1] = cur[1].add(BigDecimal.valueOf(qn));
+            }
+        }
+        List<OfferingFact.Dim> out = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal[]> e : acc.entrySet()) {
+            BigDecimal weight = e.getValue()[1];
+            if (weight.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            OfferingFact.Dim d = new OfferingFact.Dim();
+            d.setName(e.getKey());
+            d.setRate(e.getValue()[0].divide(weight, 4, RoundingMode.HALF_UP));
+            d.setQuestionCount(weight.intValue());
+            out.add(d);
+        }
+        out.sort(Comparator.comparing(OfferingFact.Dim::getRate));
+        return out.size() > 5 && group ? new ArrayList<>(out.subList(0, 5)) : out;
     }
 
     // ============================================================ 工具

@@ -28,12 +28,16 @@
 
     <div class="card p-4" v-if="students.length">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="font-medium text-slate-700">学生名单（{{ students.length }}）</h2>
+        <h2 class="font-medium text-slate-700">
+          学生名单（{{ students.length }}）
+          <span class="text-xs text-slate-400 font-normal">当前班：{{ currentClassName || '全部班级' }}</span>
+        </h2>
         <div class="flex items-center gap-3">
           <label class="flex items-center gap-1 text-sm text-slate-600">
             <input type="checkbox" v-model="onlyRisky" /> 只看有风险的
           </label>
-          <button class="btn-ghost text-sm" :disabled="!adminClassId" @click="openReport">班级报告</button>
+          <!-- 不设 disabled：未选班时点一下给出明确提示，避免"点了没反应" -->
+          <button class="btn-ghost text-sm" @click="openReport">班级报告</button>
         </div>
       </div>
       <table class="w-full text-sm">
@@ -96,8 +100,7 @@ const reportTitle = ref('')
 
 function openReport() {
   if (!adminClassId.value) {
-    message.value = '先在上方选择一个行政班'
-    ok.value = false
+    toast('先在上方选择一个行政班', false)
     return
   }
   const c = classes.value.find((x) => x.adminClassId === adminClassId.value)
@@ -132,11 +135,18 @@ function alertClass(level) {
 async function load() {
   const o = await counselorApi.overview()
   classes.value = o.classes || []
+  // 默认选中第一个行政班：否则 adminClassId 恒为 0，学生列表是全部班混在一起、
+  // 「班级报告」按钮也永远不可用（原实现这里写成了 adminClassId.value = 0，等于没选）
   if (!adminClassId.value && classes.value.length) {
-    adminClassId.value = 0
+    adminClassId.value = classes.value[0].adminClassId
   }
   students.value = await counselorApi.students({ adminClassId: adminClassId.value || undefined })
 }
+
+const currentClassName = computed(() => {
+  const c = classes.value.find((x) => x.adminClassId === adminClassId.value)
+  return c ? classLabel(c) : ''
+})
 async function pick(id) {
   adminClassId.value = id
   await load()
