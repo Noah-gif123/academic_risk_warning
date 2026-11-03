@@ -303,3 +303,16 @@ DOCX 按原文顺序拍平段落与表格（表格行用 `|` 分隔，标题加 
 - 拒答判据在 `RetrievalService.guard`，线上问答与评测共用同一套阈值，避免"评测好看、线上不一致"
 - 词面支撑度取 top-k 最大值（不是只看第一名），阈值 `min-lex-support` 默认 **0.25**（HYBRID 拐点：拒答 0.90 / 误拒 9.3%）
 - 指标定义与实测数据见 `v2.0/ai/rag-eval.md`
+## 十八、合成数据学期标记：`40_term_synthetic_flag.sql`
+
+`term` 表增加 `is_synthetic`（1=合成数据生成器产出）：学生端 / 导员端 / 教师端的学期下拉会过滤掉它，
+教务端（基础数据、合成数据生成器）仍然可见可管——否则学生把学期切到合成学期，会看到 6 门生成的假课。
+
+| 项 | 说明 |
+| --- | --- |
+| 字段 | `term.is_synthetic tinyint(1) NOT NULL DEFAULT 0` |
+| 首次标记 | 按名称匹配 `term_name LIKE '%合成%'` 置 1（幂等，只处理未标记过的） |
+| 过滤位置 | `StudentPortalService.terms()` / `CounselorPortalService.terms()` / `TeacherPortalService.terms()` |
+| 不过滤 | 教务端 `AdminTermController.list()`（需要管理合成学期） |
+
+> 不靠"名称里带不带合成"做运行时判断，只用它做一次性标记，之后以字段为准。

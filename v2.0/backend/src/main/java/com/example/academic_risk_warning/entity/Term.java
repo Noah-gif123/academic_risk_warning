@@ -43,6 +43,12 @@ public class Term {
     /** 是否当前学期：1是 0否（全库只允许一条为1） */
     private Integer isCurrent;
 
+    /**
+     * 是否合成数据学期：1=由合成数据生成器产出，不对学生/导员/教师展示（教务端仍可见可管）。
+     * 见 sql/40_term_synthetic_flag.sql。
+     */
+    private Integer isSynthetic;
+
     /** 状态：PLANNING筹备中/ACTIVE进行中/CLOSED已结束 */
     private String status;
 

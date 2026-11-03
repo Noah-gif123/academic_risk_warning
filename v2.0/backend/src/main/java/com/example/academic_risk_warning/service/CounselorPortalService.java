@@ -125,7 +125,10 @@ public class CounselorPortalService {
     }
 
     public List<Term> terms() {
-        return termMapper.selectList(Wrappers.<Term>lambdaQuery().orderByDesc(Term::getStartDate));
+        // 合成数据学期（is_synthetic=1）不对学生/教师/导员展示：否则下拉里能选到它，看到的是生成的假课
+        return termMapper.selectList(Wrappers.<Term>lambdaQuery()
+                .eq(Term::getIsSynthetic, 0)
+                .orderByDesc(Term::getStartDate));
     }
 
     /** 本人名下行政班（按学期） */
