@@ -61,8 +61,9 @@ public class CounselorPortalController {
     }
 
     @GetMapping("/students/{studentId}")
-    public Result<CounselorStudentDetailVO> detail(@PathVariable Long studentId) {
-        return Result.ok(counselorService.studentDetail(me(), studentId));
+    public Result<CounselorStudentDetailVO> detail(@PathVariable Long studentId,
+                                                   @RequestParam(required = false) Long termId) {
+        return Result.ok(counselorService.studentDetail(me(), studentId, termId));
     }
 
     @GetMapping("/intervention-records")

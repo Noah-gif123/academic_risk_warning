@@ -24,6 +24,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
@@ -46,15 +47,27 @@ public class StudentCourseController {
     private final TeacherMapper teacherMapper;
 
     @GetMapping("/courses")
-    public Result<List<CourseBriefVO>> myCourses() {
+    public Result<List<CourseBriefVO>> myCourses(@RequestParam(required = false) Long termId) {
         LoginUser user = UserContext.require();
         Student student = studentMapper.selectById(user.getRefId());
         if (student == null) {
             throw new BizException("学生档案不存在");
         }
+        // 不指定学期时只看当前学期：历史学期与合成学期的数据仍保留，但不再混进"我的课程"
+        // （前端「我的课程」用的是 /course-cards，这里同步口径，避免两个接口给出不同门数）
+        Long useTerm = termId;
+        if (useTerm == null) {
+            com.example.academic_risk_warning.entity.Term cur = termMapper.selectOne(
+                    Wrappers.<com.example.academic_risk_warning.entity.Term>lambdaQuery()
+                            .eq(com.example.academic_risk_warning.entity.Term::getIsCurrent, 1)
+                            .orderByDesc(com.example.academic_risk_warning.entity.Term::getId)
+                            .last("limit 1"));
+            useTerm = cur == null ? null : cur.getId();
+        }
         List<Enrollment> enrollments = enrollmentMapper.selectList(Wrappers.<Enrollment>lambdaQuery()
                 .eq(Enrollment::getStudentId, student.getId())
                 .eq(Enrollment::getStatus, "ENROLLED")
+                .eq(useTerm != null, Enrollment::getTermId, useTerm)
                 .orderByAsc(Enrollment::getId));
         if (enrollments.isEmpty()) {
             return Result.ok(new ArrayList<>());

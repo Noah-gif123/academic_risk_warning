@@ -16,6 +16,13 @@ public class CounselorStudentDetailVO {
     private String adminClassName;
     private Integer enrollYear;
     private String phone;
+
+    /** 本次详情按哪个学期取的（默认当前学期）；null 表示未指定且系统也没有当前学期 */
+    private Long termId;
+    private String termName;
+    /** 本学期课程数，等于 courses.size()，给前端直接展示用 */
+    private Integer courseCount;
+
     private List<CourseRow> courses;
     private List<InterventionRow> interventions;
 
@@ -24,6 +31,9 @@ public class CounselorStudentDetailVO {
         private Long teachingClassId;
         private String courseName;
         private String teacherName;
+        /** 课程所属学期：与导员端看板口径一致，避免"同一页两个数字对不上" */
+        private Long termId;
+        private String termName;
         private Integer effectiveSessions;
         private Integer allowedAbsent;
         private Integer absentCount;

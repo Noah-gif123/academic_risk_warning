@@ -9,7 +9,8 @@
     </div>
 
     <div>
-      <h4 class="text-sm font-medium text-slate-600 mb-2">各科情况</h4>
+      <h4 class="text-sm font-medium text-slate-600 mb-2">各科情况<span v-if="detail.termName" class="text-slate-400 font-normal">（{{ detail.termName }} · {{ detail.courses.length }} 门）</span></h4>
+      <p class="text-xs text-slate-400 mb-2">与学生端「我的课程」同口径：默认只看当前学期；历史/合成学期的数据仍在，可按学期查询。</p>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
           <tr>

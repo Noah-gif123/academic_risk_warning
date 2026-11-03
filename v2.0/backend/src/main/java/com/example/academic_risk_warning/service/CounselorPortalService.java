@@ -422,6 +422,17 @@ public class CounselorPortalService {
 
     // ============================================================ 单科详情
     public CounselorStudentDetailVO studentDetail(Long counselorId, Long studentId) {
+        return studentDetail(counselorId, studentId, null);
+    }
+
+    /**
+     * 学生详情（按学期）。
+     *
+     * <p>原实现查该学生**全部学期**的选课，导致导员看到的课程数（含历史学期与合成学期）比学生端
+     * 「我的课程」（默认当前学期）多出一截，同一页里列表口径（当前学期）与详情口径（全学期）也互相矛盾。
+     * 现在默认取当前学期，可用 {@code termId} 显式查看指定学期。</p>
+     */
+    public CounselorStudentDetailVO studentDetail(Long counselorId, Long studentId, Long termId) {
         Counselor c = me(counselorId);
         Student st = studentMapper.selectById(studentId);
         if (st == null) {
@@ -437,12 +448,15 @@ public class CounselorPortalService {
         if (!mine) {
             throw new BizException("只能查看本人名下行政班的学生");
         }
+        Term term = termOf(termId);
         CounselorStudentDetailVO v = new CounselorStudentDetailVO();
         v.setStudentId(st.getId());
         v.setStudentNo(st.getStudentNo());
         v.setStudentName(st.getStudentName());
         v.setEnrollYear(st.getEnrollYear());
         v.setPhone(st.getPhone());
+        v.setTermId(term == null ? null : term.getId());
+        v.setTermName(term == null ? null : term.getTermName());
         if (st.getMajorId() != null) {
             Major m = majorMapper.selectById(st.getMajorId());
             v.setMajorName(m == null ? null : m.getMajorName());
@@ -452,7 +466,9 @@ public class CounselorPortalService {
             v.setAdminClassName(classLabel(ac));
         }
         List<Enrollment> ens = enrollmentMapper.selectList(Wrappers.<Enrollment>lambdaQuery()
-                .eq(Enrollment::getStudentId, studentId));
+                .eq(Enrollment::getStudentId, studentId)
+                .eq(term != null, Enrollment::getTermId, term == null ? null : term.getId())
+                .orderByAsc(Enrollment::getId));
         List<CounselorStudentDetailVO.CourseRow> rows = new ArrayList<>();
         for (Enrollment e : ens) {
             TeachingClass tc = classMapper.selectById(e.getTeachingClassId());
@@ -470,6 +486,8 @@ public class CounselorPortalService {
                     .eq(RiskState::getIsVoid, 0).last("limit 1"));
             CounselorStudentDetailVO.CourseRow row = new CounselorStudentDetailVO.CourseRow();
             row.setTeachingClassId(tc.getId());
+            row.setTermId(e.getTermId());
+            row.setTermName(term == null ? null : term.getTermName());
             row.setCourseName(course == null ? null : course.getCourseName());
             row.setTeacherName(teacher == null ? null : teacher.getTeacherName());
             row.setEffectiveSessions(o == null ? null : o.getEffectiveSessions());
@@ -506,6 +524,7 @@ public class CounselorPortalService {
             rows.add(row);
         }
         v.setCourses(rows);
+        v.setCourseCount(rows.size());
 
         List<CounselorStudentDetailVO.InterventionRow> list = new ArrayList<>();
         for (InterventionRecord ir : interventionMapper.selectList(Wrappers.<InterventionRecord>lambdaQuery()
