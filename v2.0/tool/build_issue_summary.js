@@ -1,10 +1,10 @@
-/* build_issue_summary.js —— 生成《学情预警系统 v2.0 · 问题汇总》
+/* build_issue_summary.js —— 生成《基于RAG与多智能体的学情预警系统 v2.0 · 问题汇总》
  *
  * 用途：把 M16 判定口径改造后仍然存在的算法/数据/工程问题，连同"本轮已修复"一起落成一份可评审的 Word。
  * 内容全部来自实测（库里的数、单测、提交号），不写没验证过的结论。
  *
  * 用法：node build_issue_summary.js [输出路径]
- *   默认输出：v2.0/word/学情预警系统_问题汇总.docx
+ *   默认输出：v2.0/word/基于RAG与多智能体的学情预警系统_问题汇总.docx
  */
 'use strict';
 const path = require('path');
@@ -95,7 +95,7 @@ const children = [];
 children.push(new Paragraph({
   alignment: AlignmentType.CENTER,
   spacing: { before: 0, after: 60 },
-  children: [new TextRun({ text: '学情预警系统 v2.0 · 问题汇总', font: CJK_B, size: 36, bold: true })]
+  children: [new TextRun({ text: '基于RAG与多智能体的学情预警系统 v2.0 · 问题汇总', font: CJK_B, size: 36, bold: true })]
 }));
 children.push(new Paragraph({
   alignment: AlignmentType.CENTER,
@@ -212,7 +212,7 @@ const doc = new Document({
   }]
 });
 
-const outPath = process.argv[2] || path.join(__dirname, '..', 'word', '学情预警系统_问题汇总.docx');
+const outPath = process.argv[2] || path.join(__dirname, '..', 'word', '基于RAG与多智能体的学情预警系统_问题汇总.docx');
 Packer.toBuffer(doc).then((buf) => {
   require('fs').writeFileSync(outPath, buf);
   console.log('已生成：' + outPath + '（' + Math.round(buf.length / 1024) + ' KB）');
