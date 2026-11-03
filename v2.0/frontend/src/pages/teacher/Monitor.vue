@@ -383,6 +383,10 @@ function focusStudentFromReport(p) {
   if (p.teachingClassId) {
     filters.teachingClassId = String(p.teachingClassId)
   }
+  // 先清掉可能把目标挡掉的筛选，否则点了名字却看不到这一行
+  filters.level = ''
+  filters.status = ''
+  filters.appealPending = false
   filters.keyword = p.studentName || ''
   reload()
 }

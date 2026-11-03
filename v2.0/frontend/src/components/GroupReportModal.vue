@@ -126,6 +126,7 @@ function close() {
 async function loadLatest() {
   report.value = null
   error.value = ''
+  showChecks.value = false
   if (!props.targetId) return
   try {
     report.value = await groupReportApi.latest(props.scope, props.targetId)
