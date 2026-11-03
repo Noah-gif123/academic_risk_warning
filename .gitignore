@@ -121,3 +121,6 @@ v2.0/tool/kb/*.class
 
 ### 单测编译产物（本机无 gradlew 时的替代跑法） ###
 v2.0/backend/build-test/
+# Python 缓存（PPT/文档生成脚本）
+__pycache__/
+*.pyc
