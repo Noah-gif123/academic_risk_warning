@@ -119,7 +119,8 @@ public class QuestionGenService {
             throw new BizException("这⻔课还没有可用于出题的资料：先到「课程内容 → 资料库」上传课件（支持 pptx/docx/txt），再试一次");
         }
         if (!props.directReady()) {
-            throw new BizException("模型通道未配置（app.ai.llm-* 或 dashscope-* 为空），无法出题");
+            // 报错要能直接指导排障：告诉用户到底缺哪个变量、怎么起服务（见 /api/ai/health 的 missingKeys）
+            throw new BizException("AI 出题需要直连模型（出题没有 Dify 通道，只有直连）。" + props.directNotReadyHint());
         }
 
         Long runId = runService.start("QUESTION", "OFFERING", tc.getOfferingId(), teacherId);

@@ -114,7 +114,7 @@ public class GradingAssistService {
         List<Map<String, Object>> skipped = new ArrayList<>();
         if (!pending.isEmpty()) {
             if (!props.directReady()) {
-                throw new BizException("模型通道未配置（app.ai.llm-* 或 dashscope-* 为空），无法生成批改建议");
+                throw new BizException("AI 批改辅助需要直连模型。" + props.directNotReadyHint());
             }
             runId = runService.start("GRADING", "SUBMISSION", submissionId, teacherId);
             long t0 = System.currentTimeMillis();
