@@ -28,6 +28,14 @@ public class GroupReportVO {
     /** 过期原因（整句，前端直接展示） */
     private String staleReason;
 
+    /** 数字对账：正文里抽到的关键数字与事实包的比对结果 */
+    private Integer checksTotal = 0;
+    private Integer checksPassed = 0;
+    private List<Map<String, Object>> checks = new ArrayList<>();
+
+    /** 报告点名的学生（前端做成可点人员条，跳学生详情） */
+    private List<Map<String, Object>> persons = new ArrayList<>();
+
     @Data
     public static class Section {
         private String title;

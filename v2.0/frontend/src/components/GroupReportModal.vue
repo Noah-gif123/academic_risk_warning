@@ -38,6 +38,48 @@
             <div class="rounded-lg bg-slate-50 px-4 py-3">
               <p class="text-sm text-slate-700 leading-relaxed">{{ report.summary }}</p>
             </div>
+
+            <!-- 数字对账：正文里的关键数字逐项对事实包 -->
+            <div v-if="report.checksTotal" class="rounded-lg border px-4 py-2"
+                 :class="allChecksOk ? 'border-emerald-100 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-sm" :class="allChecksOk ? 'text-emerald-700' : 'text-amber-700'">
+                  数字对账 {{ report.checksPassed }}/{{ report.checksTotal }} 项与系统判定一致
+                  <span v-if="!allChecksOk" class="font-medium">（有不一致，见明细）</span>
+                </p>
+                <button class="text-xs text-slate-500 hover:underline shrink-0" @click="showChecks = !showChecks">
+                  {{ showChecks ? '收起明细' : '查看明细' }}
+                </button>
+              </div>
+              <div v-if="showChecks" class="mt-2 divide-y divide-slate-100">
+                <div v-for="(c, i) in report.checks" :key="i"
+                     class="flex items-center justify-between py-1 text-xs">
+                  <span class="text-slate-500">{{ c.label }}</span>
+                  <span class="flex items-center gap-3">
+                    <span class="text-slate-600">报告写 {{ c.claim }}</span>
+                    <span class="text-slate-400">事实 {{ c.expected }}</span>
+                    <span class="px-1.5 py-0.5 rounded"
+                          :class="c.ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'">
+                      {{ c.ok ? '一致' : '不一致' }}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 涉及学生：点名字直接进学生详情 -->
+            <div v-if="report.persons && report.persons.length" class="rounded-lg border border-slate-100 px-4 py-2.5">
+              <p class="text-xs text-slate-400 mb-1.5">报告涉及的学生（点击查看详情）</p>
+              <div class="flex flex-wrap gap-1.5">
+                <button v-for="(p, i) in report.persons" :key="i"
+                        class="text-xs px-2 py-0.5 rounded-full border hover:border-brand-400 hover:text-brand-600"
+                        :class="p.riskLevel === 'RED' ? 'border-red-200 text-red-600' : 'border-amber-200 text-amber-600'"
+                        @click="emit('openStudent', p)">
+                  {{ p.studentName }}<span v-if="p.className" class="opacity-60">· {{ p.className }}</span>
+                </button>
+              </div>
+            </div>
+
             <div v-for="(s, i) in report.sections" :key="i" class="rounded-lg border border-slate-100 px-4 py-3">
               <p class="text-sm font-medium text-slate-700 mb-1">{{ s.title }}</p>
               <p class="text-sm text-slate-600 whitespace-pre-line leading-relaxed">{{ s.text }}</p>
@@ -53,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { groupReportApi } from '../api/ai'
 
 const props = defineProps({
@@ -62,11 +104,15 @@ const props = defineProps({
   targetId: { type: [Number, String], default: null },
   title: { type: String, default: '' }
 })
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'openStudent'])
 
 const report = ref(null)
 const busy = ref(false)
 const error = ref('')
+const showChecks = ref(false)
+
+const allChecksOk = computed(() =>
+  !!report.value && (report.value.checksTotal || 0) === (report.value.checksPassed || 0))
 
 function fmt(v) {
   if (!v) return '—'

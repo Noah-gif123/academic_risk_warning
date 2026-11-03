@@ -70,15 +70,20 @@
     </div>
 
     <GroupReportModal :open="reportOpen" scope="OFFERING" :target-id="reportTarget.id"
-                      :title="reportTarget.title" @close="reportOpen = false" />
+                      :title="reportTarget.title"
+                      @open-student="openStudentFromReport"
+                      @close="reportOpen = false" />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { teacherPortalApi } from '../../api/teacherPortal'
 import { courseTypeLabel } from '../../labels'
 import GroupReportModal from '../../components/GroupReportModal.vue'
+
+const router = useRouter()
 
 const terms = ref([])
 const courses = ref([])
@@ -96,6 +101,15 @@ function openReport(c) {
     title: (c.courseName || '课程') + ' · 课程学情报告'
   }
   reportOpen.value = true
+}
+
+/** 报告里点学生名：跳到预警监控并定位这名学生（跨班报告要带上该生所在教学班） */
+function openStudentFromReport(p) {
+  reportOpen.value = false
+  router.push({
+    path: '/teacher/monitor',
+    query: { teachingClassId: p.teachingClassId, keyword: p.studentName }
+  })
 }
 
 const shown = computed(() => {

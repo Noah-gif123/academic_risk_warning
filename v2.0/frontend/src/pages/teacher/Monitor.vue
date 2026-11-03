@@ -29,6 +29,7 @@
       scope="CLASS"
       :target-id="reportTargetId"
       :title="reportTitle"
+      @open-student="focusStudentFromReport"
       @close="reportOpen = false" />
 
     <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
@@ -374,6 +375,17 @@ function openClassReport() {
   reportTitle.value = c ? `${c.classCode} · ${c.courseName} 班级学情报告` : '班级学情报告'
   reportOpen.value = true
 }
+
+/** 报告里点学生名：关掉报告，把预警名单过滤到这名学生 */
+function focusStudentFromReport(p) {
+  reportOpen.value = false
+  if (!p) return
+  if (p.teachingClassId) {
+    filters.teachingClassId = String(p.teachingClassId)
+  }
+  filters.keyword = p.studentName || ''
+  reload()
+}
 const message = ref('')
 const ok = ref(true)
 
@@ -491,6 +503,11 @@ async function loadClasses() {
     const first = new URLSearchParams(location.hash.split('?')[1] || '').get('teachingClassId')
     if (first && list.some((c) => String(c.teachingClassId) === String(first))) {
       filters.teachingClassId = String(first)
+    }
+    // 从课程总报告/班级报告点名字跳过来时，带上关键词直接定位到这名学生
+    const kw = new URLSearchParams(location.hash.split('?')[1] || '').get('keyword')
+    if (kw) {
+      filters.keyword = kw
     }
   } catch (e) {
     flash(e.message, false)

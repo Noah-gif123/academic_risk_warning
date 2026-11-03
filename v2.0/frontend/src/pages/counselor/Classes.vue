@@ -72,6 +72,7 @@
       scope="ADMIN_CLASS"
       :target-id="adminClassId"
       :title="reportTitle"
+      @open-student="openStudentFromReport"
       @close="reportOpen = false" />
 
     <StudentDetailPanel v-if="detail" :detail="detail"
@@ -106,6 +107,17 @@ function openReport() {
   const c = classes.value.find((x) => x.adminClassId === adminClassId.value)
   reportTitle.value = c ? `${c.className} · 行政班学情报告` : '行政班学情报告'
   reportOpen.value = true
+}
+
+/** 报告里点学生名：关掉报告，右侧抽屉打开这个学生的详情 */
+async function openStudentFromReport(p) {
+  if (!p || !p.studentId) return
+  reportOpen.value = false
+  try {
+    detail.value = await counselorApi.studentDetail(p.studentId)
+  } catch (e) {
+    toast(e.message, false)
+  }
 }
 
 const message = ref('')

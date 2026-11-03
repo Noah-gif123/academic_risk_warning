@@ -509,6 +509,7 @@ public class GroupFactBuilder {
                     continue;
                 }
                 OfferingFact.Student o = new OfferingFact.Student();
+                o.setStudentId(s.getStudentId());
                 o.setTeachingClassId(cf.getTeachingClassId());
                 o.setClassName(cf.getClassName());
                 o.setStudentName(s.getStudentName());

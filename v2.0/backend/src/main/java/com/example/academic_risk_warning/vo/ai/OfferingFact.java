@@ -121,6 +121,7 @@ public class OfferingFact {
 
     @Data
     public static class Student {
+        private Long studentId;
         private Long teachingClassId;
         private String className;
         private String studentName;

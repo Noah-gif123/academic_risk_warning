@@ -45,6 +45,14 @@ function DumpReport($tag, $rep) {
   W "  scope      : $($rep.scope)  targetId=$($rep.targetId)"
   W "  source     : $($rep.source)   stale=$($rep.stale)"
   W "  sections   : $($rep.sections.Count)"
+  W "  checks     : $($rep.checksPassed)/$($rep.checksTotal) 一致"
+  foreach ($c in @($rep.checks)) {
+    if (-not $c.ok) { W "     MISS $($c.label)：报告写 $($c.claim)，事实 $($c.expected)" }
+  }
+  if (@($rep.persons).Count -gt 0) {
+    $nameList = (@($rep.persons) | ForEach-Object { "$($_.studentName)($($_.className))" }) -join '、'
+    W "  persons    : $nameList"
+  }
   foreach ($s in $rep.sections) {
     $t = [string]$s.text
     if ($t.Length -gt 240) { $t = $t.Substring(0, 240) + '...' }

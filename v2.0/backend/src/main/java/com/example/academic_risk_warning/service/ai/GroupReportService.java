@@ -56,7 +56,8 @@ public class GroupReportService {
         int tokens = 0;
 
         // R1：群体报告也给「参考依据」——教师看到的是"本班薄弱项对应的课程资料"
-        List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(), fact.getCourseName());
+        List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(),
+                classEvidenceQuery(fact), genericEvidenceQuery(fact.getCourseName()));
         String evidenceBlock = evidenceBlock(evidence);
         String userPrompt = classPrompt(fact) + evidenceBlock;
         String systemPrompt = groupSystemPrompt("教学班");
@@ -118,6 +119,8 @@ public class GroupReportService {
             note.append("已使用规则模板");
         }
         appendEvidence(content, evidence);
+        content.persons = personsOfClass(fact);
+        auditContent(content, NumberAuditor.fromClass(fact), runId);
 
         Long id = persist("CLASS", teachingClassId, fact.getTeachingClassId(), null,
                 fact.getOfferingId(), fact.getCourseId(), fact.getTermId(), title,
@@ -146,7 +149,8 @@ public class GroupReportService {
             riskCourseId = fact.getCourseRisks().get(0).getCourseId();
             riskCourseName = fact.getCourseRisks().get(0).getCourseName();
         }
-        List<RetrievalService.Hit> evidence = retrieveEvidence(riskCourseId, riskCourseName);
+        List<RetrievalService.Hit> evidence = retrieveEvidence(riskCourseId,
+                genericEvidenceQuery(riskCourseName), null);
         String evidenceBlock = evidenceBlock(evidence);
 
         String systemPrompt = groupSystemPrompt("行政班");
@@ -209,6 +213,8 @@ public class GroupReportService {
             note.append("已使用规则模板");
         }
         appendEvidence(content, evidence);
+        content.persons = personsOfAdmin(fact);
+        auditContent(content, NumberAuditor.fromAdminClass(fact), runId);
 
         Long id = persist("ADMIN_CLASS", adminClassId, null, adminClassId,
                 null, null, fact.getTermId(), title, fact, content, source, runId, tokens, operatorId);
@@ -236,7 +242,8 @@ public class GroupReportService {
         long t0 = System.currentTimeMillis();
         int tokens = 0;
 
-        List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(), fact.getCourseName());
+        List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(),
+                offeringEvidenceQuery(fact), genericEvidenceQuery(fact.getCourseName()));
         String evidenceBlock = evidenceBlock(evidence);
         String systemPrompt = groupSystemPrompt("课程");
         String userPrompt = offeringPrompt(fact) + evidenceBlock;
@@ -298,6 +305,8 @@ public class GroupReportService {
             note.append("已使用规则模板");
         }
         appendEvidence(content, evidence);
+        content.persons = personsOfOffering(fact);
+        auditContent(content, NumberAuditor.fromOffering(fact), runId);
 
         Long id = persist("OFFERING", offeringId, null, null, offeringId,
                 fact.getCourseId(), fact.getTermId(), title, fact, content, source, runId, tokens, operatorId);
@@ -460,7 +469,9 @@ public class GroupReportService {
                 1. 只能使用用户给出的数字，禁止自己计算、换算或编造任何数字、比例、排名；
                 2. 四段结构，段落标题只能是：%s；
                 3. 面向教师/辅导员，语气专业、结论先行，每段 1 到 3 句；
-                4. 不使用 Markdown 星号、表格、代码块；数字只挑最关键的 5 个以内；
+                4. 不使用 Markdown 星号、表格、代码块；数字只挑最关键的 6 个以内，
+                   优先用红灯/黄灯人数、平均分、及格线、预警条数这类能被系统核对的数字，
+                   并写明单位（人、分、门、条、%%）；
                 5. 总字数 350 到 550 字，最后一段给出 3 条可直接执行的动作；
                 6. 直接输出正文，不要复述规则、不要输出思考过程。
                 """.formatted(heads);
@@ -820,6 +831,32 @@ public class GroupReportService {
                     }
                 }
             }
+            // 数字对账
+            if (m.get("numberChecks") instanceof Map<?, ?> nc) {
+                Object total = nc.get("total");
+                Object passed = nc.get("passed");
+                vo.setChecksTotal(total == null ? 0 : ((Number) total).intValue());
+                vo.setChecksPassed(passed == null ? 0 : ((Number) passed).intValue());
+                if (nc.get("items") instanceof List<?> items) {
+                    for (Object o : items) {
+                        if (o instanceof Map<?, ?> mm) {
+                            Map<String, Object> item = new LinkedHashMap<>();
+                            mm.forEach((k, v) -> item.put(String.valueOf(k), v));
+                            vo.getChecks().add(item);
+                        }
+                    }
+                }
+            }
+            // 涉及学生
+            if (m.get("persons") instanceof List<?> ps) {
+                for (Object o : ps) {
+                    if (o instanceof Map<?, ?> mm) {
+                        Map<String, Object> item = new LinkedHashMap<>();
+                        mm.forEach((k, v) -> item.put(String.valueOf(k), v));
+                        vo.getPersons().add(item);
+                    }
+                }
+            }
         } catch (Exception e) {
             log.warn("[GroupReport] content 解析失败: {}", e.getMessage());
         }
@@ -843,16 +880,28 @@ public class GroupReportService {
         }
     }
     // ============================================================ R1：课程资料检索
-    /** 按「课程 + 关键条款」检索支撑资料；检索不足就不硬凑 */
-    private List<RetrievalService.Hit> retrieveEvidence(Long courseId, String courseName) {
+    /**
+     * 检索支撑资料。先用**事实驱动**的 query（课程 + 本班/本课程最弱的分组与题型），
+     * 检索不足再退回通用 query（课程 + 考核方式 成绩构成 及格线）。
+     *
+     * <p>换 query 的原因：固定串检索出来的永远是"导学第 1 段"这类通用材料，
+     * 与报告结论里的薄弱项无关，答辩时无法回答"这条依据和你的结论什么关系"。</p>
+     */
+    private List<RetrievalService.Hit> retrieveEvidence(Long courseId, String primary, String fallback) {
         if (courseId == null) {
             return List.of();
         }
-        StringBuilder q = new StringBuilder();
-        q.append(nz(courseName)).append(" 考核方式 成绩构成 及格线");
+        List<RetrievalService.Hit> hits = tryRetrieve(courseId, primary);
+        if (hits.isEmpty() && fallback != null && !fallback.isBlank()) {
+            hits = tryRetrieve(courseId, fallback);
+        }
+        return hits;
+    }
+
+    private List<RetrievalService.Hit> tryRetrieve(Long courseId, String query) {
         try {
-            RetrievalService.Outcome out = retrievalService.retrieve(courseId, q.toString().trim(), 3);
-            RetrievalService.Guard guard = retrievalService.guard(out, q.toString());
+            RetrievalService.Outcome out = retrievalService.retrieve(courseId, query.trim(), 3);
+            RetrievalService.Guard guard = retrievalService.guard(out, query);
             if (guard.refuse()) {
                 return List.of();
             }
@@ -861,6 +910,50 @@ public class GroupReportService {
             log.warn("[GroupReport] 资料检索失败，报告照常生成：{}", e.getMessage());
             return List.of();
         }
+    }
+
+    /** 教学班：最弱的题型 + 分组名做检索词 */
+    private String classEvidenceQuery(ClassFact f) {
+        StringBuilder q = new StringBuilder(nz(f.getCourseName()));
+        int n = 0;
+        for (ClassFact.Dim d : f.getWeakTypes()) {
+            if (n++ >= 2) {
+                break;
+            }
+            q.append(' ').append(nz(d.getName()));
+        }
+        n = 0;
+        for (ClassFact.Dim d : f.getWeakGroups()) {
+            if (n++ >= 2) {
+                break;
+            }
+            q.append(' ').append(nz(d.getName()));
+        }
+        return q.append(" 考核方式 成绩构成 及格线").toString();
+    }
+
+    /** 课程：全课程最弱的题型 + 分组名做检索词 */
+    private String offeringEvidenceQuery(OfferingFact f) {
+        StringBuilder q = new StringBuilder(nz(f.getCourseName()));
+        int n = 0;
+        for (OfferingFact.Dim d : f.getWeakTypes()) {
+            if (n++ >= 2) {
+                break;
+            }
+            q.append(' ').append(nz(d.getName()));
+        }
+        n = 0;
+        for (OfferingFact.Dim d : f.getWeakGroups()) {
+            if (n++ >= 2) {
+                break;
+            }
+            q.append(' ').append(nz(d.getName()));
+        }
+        return q.append(" 考核方式 成绩构成 及格线").toString();
+    }
+
+    private String genericEvidenceQuery(String courseName) {
+        return nz(courseName) + " 考核方式 成绩构成 及格线";
     }
 
     private String evidenceBlock(List<RetrievalService.Hit> evidence) {
@@ -879,7 +972,7 @@ public class GroupReportService {
         return sb.toString();
     }
 
-    /** 末尾补「参考依据」段落（AI 与模板两条路都带） */
+    /** 末尾补「参考依据」段落（AI 与模板两条路都带；附一句原文摘录，让依据真的能对上看） */
     private void appendEvidence(ReportContent content, List<RetrievalService.Hit> evidence) {
         if (content == null) {
             return;
@@ -894,16 +987,104 @@ public class GroupReportService {
                     sb.append("；");
                 }
                 sb.append(h.docName()).append(" 第").append(h.sectionNo()).append("段");
+                String snippet = h.content() == null ? "" : h.content().replace('\n', ' ')
+                        .replaceAll("\\s{2,}", " ").trim();
+                if (!snippet.isEmpty()) {
+                    if (snippet.length() > 36) {
+                        snippet = snippet.substring(0, 36) + "…";
+                    }
+                    sb.append("（“").append(snippet).append("”）");
+                }
             }
             text = "课程资料：" + sb;
         }
         content.sections.add(new ReportContent.Section("参考依据", text));
     }
-    /** 报告内容内部结构（段落 + 动作） */
+
+    // ============================================================ R2：数字对账 + 涉及学生
+    /** 报告定稿前统一做数字对账，并留痕一个审计步骤（不一致不影响发布，但会写进报告） */
+    private void auditContent(ReportContent content, NumberAuditor.Facts facts, Long runId) {
+        if (content == null) {
+            return;
+        }
+        List<String> texts = new ArrayList<>();
+        for (ReportContent.Section s : content.sections) {
+            texts.add(s.text);
+        }
+        content.checks = NumberAuditor.audit(NumberAuditor.flatten(texts), facts);
+        int total = content.checks.size();
+        int passed = 0;
+        for (NumberAuditor.Check c : content.checks) {
+            if (c.ok()) {
+                passed++;
+            }
+        }
+        String bad = NumberAuditor.mismatchSummary(content.checks);
+        if (runId != null) {
+            runService.step(runId, 9, "number-audit", "report-check",
+                    "对账 " + passed + "/" + total + (bad.isEmpty() ? "" : "；" + bad),
+                    bad.isEmpty() ? "PASS" : "WARN", bad.isEmpty() ? null : bad, 0L);
+        }
+    }
+
+    /** 报告点名的学生（前端做成可点人员条） */
+    private List<Map<String, Object>> personsOfClass(ClassFact f) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (ClassFact.Student s : f.getWatchList()) {
+            if (!"RED".equals(s.getRiskLevel()) && !"YELLOW".equals(s.getRiskLevel())) {
+                continue;
+            }
+            out.add(person(s.getStudentId(), s.getStudentName(), f.getClassName(),
+                    s.getRiskLevel(), f.getTeachingClassId()));
+            if (out.size() >= 8) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    private List<Map<String, Object>> personsOfAdmin(AdminClassFact f) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (AdminClassFact.Student s : f.getMultiRiskStudents()) {
+            out.add(person(s.getStudentId(), s.getStudentName(), f.getClassName(), null, null));
+            if (out.size() >= 8) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    private List<Map<String, Object>> personsOfOffering(OfferingFact f) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (OfferingFact.Student s : f.getWatchList()) {
+            out.add(person(s.getStudentId(), s.getStudentName(), s.getClassName(),
+                    s.getRiskLevel(), s.getTeachingClassId()));
+            if (out.size() >= 8) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    private static Map<String, Object> person(Long studentId, String name, String className,
+                                              String riskLevel, Long teachingClassId) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("studentId", studentId);
+        m.put("studentName", name);
+        m.put("className", className);
+        m.put("riskLevel", riskLevel);
+        m.put("teachingClassId", teachingClassId);
+        return m;
+    }
+    /** 报告内容内部结构（段落 + 动作 + 数字对账 + 涉及学生） */
     static class ReportContent {
         private String summary;
         private final List<Section> sections;
         private final List<Map<String, Object>> actions = new ArrayList<>();
+        /** 数字对账明细（发布前算好，随报告一起存） */
+        private List<NumberAuditor.Check> checks = new ArrayList<>();
+        /** 报告点名的学生（前端做成可点的人员条，跳到学生详情） */
+        private List<Map<String, Object>> persons = new ArrayList<>();
 
         ReportContent(String summary, List<Section> sections) {
             this.summary = summary;
@@ -926,6 +1107,8 @@ public class GroupReportService {
             m.put("summary", summary);
             m.put("sections", list);
             m.put("actions", actions);
+            m.put("numberChecks", NumberAuditor.toJsonBlock(checks));
+            m.put("persons", persons);
             return m;
         }
 
