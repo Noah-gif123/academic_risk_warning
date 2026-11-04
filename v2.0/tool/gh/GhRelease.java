@@ -33,6 +33,9 @@ public class GhRelease {
             case "check" -> check();
             case "create" -> create(args[1], args[2], args[3]);
             case "upload" -> upload(args[1], args[2]);
+            case "patch" -> patch(args[1], args[2]);
+            case "delete" -> delete(args[1]);
+            case "uploadNamed" -> uploadNamed(args[1], args[2], args[3]);
             default -> System.out.println("unknown command: " + cmd);
         }
     }
@@ -66,6 +69,38 @@ public class GhRelease {
         }
     }
 
+    /** DELETE 任意 GitHub 资源（HttpURLConnection 支持 DELETE，不支持 PATCH） */
+    private static void delete(String url) throws Exception {
+        HttpURLConnection c = open(url, "DELETE", true);
+        int code = c.getResponseCode();
+        System.out.println("DELETE HTTP " + code);
+        if (code >= 400) { System.out.println(new String(c.getErrorStream().readAllBytes(), StandardCharsets.UTF_8)); System.exit(2); }
+    }
+
+    /** 上传附件，文件名从 UTF-8 文件里读（避免中文经命令行参数被 ANSI 损坏） */
+    private static void uploadNamed(String releaseId, String file, String nameFile) throws Exception {
+        String json = Files.readString(Paths.get(nameFile), StandardCharsets.UTF_8);
+        int i = json.indexOf("\"name\"");
+        String name = json.substring(json.indexOf('"', json.indexOf(':', i)) + 1, json.indexOf('"', json.indexOf(':', i) + 2));
+        Path p = Paths.get(file);
+        byte[] data = Files.readAllBytes(p);
+        String url = "https://uploads.github.com/repos/" + OWNER + "/" + REPO
+                + "/releases/" + releaseId + "/assets?name=" + URLEncoder.encode(name, StandardCharsets.UTF_8);
+        HttpURLConnection c = open(url, "POST", true);
+        c.setRequestProperty("Content-Type", "application/octet-stream");
+        c.setDoOutput(true);
+        c.setFixedLengthStreamingMode(data.length);
+        try (OutputStream os = c.getOutputStream()) { os.write(data); }
+        String resp = read(c);
+        System.out.println("uploadNamed HTTP " + c.getResponseCode() + " name=" + name + " bytes=" + data.length);
+        System.out.println(resp.substring(0, Math.min(260, resp.length())));
+    }
+    /** PATCH 任意 GitHub 资源：body 为 JSON 文件路径，避免中文经命令行参数损坏 */
+    private static void patch(String url, String jsonFile) throws Exception {
+        String json = Files.readString(Paths.get(jsonFile), StandardCharsets.UTF_8);
+        String resp = request("PATCH", url, json, true);
+        System.out.println(resp.substring(0, Math.min(400, resp.length())));
+    }
     private static void upload(String releaseId, String file) throws Exception {
         Path p = Paths.get(file);
         byte[] data = Files.readAllBytes(p);
