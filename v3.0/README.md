@@ -18,7 +18,7 @@ v3.0/
 ├─ eval/             agent_cases.json、baseline.json、parity_report.md
 ├─ evidence/         P0–P5 证据卡（截图 + SQL/命令 + 关键数字）
 ├─ word/             文档产物（v3.0规划清单.docx 等）
-├─ PLAN_v3.0.md      规划正文（终版 v3.0.3）
+├─ PLAN_v3.0.md      规划正文（终版 v3.0.4）
 └─ README.md         本文件
 ```
 
@@ -38,7 +38,7 @@ v3.0/
 
 ## 文档
 
-- `word/v3.0规划清单.docx`：可勾选执行的任务清单（P0–P5，49 项，约 42 人日）
+- `word/v3.0规划清单.docx`：可勾选执行的任务清单（P0–P5，53 项，约 46.5 人日）
 - `PLAN_v3.0.md`：规划正文（决策、验收、架构、口径、风险、不做清单）
 - 生成脚本：`tool/gen_v30_plan_docx.py`（改内容后重跑即可）
 
