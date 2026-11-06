@@ -128,3 +128,6 @@ __pycache__/
 /狄珂23001021010 基于RAG与多智能体的学情预警与个性化学习管理系统的设计与实现/
 # 发布用临时产物（Release 附件）
 v2.0/tool/out_release/
+
+### AI 群聊工作台（v3.0 开发辅助工具） ###
+v3.0/tool/ai_room/keys.json
