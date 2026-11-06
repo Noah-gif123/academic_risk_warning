@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>v3.0 多视角头脑风暴工作台</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2a3140;
+    --ink:#e6edf3; --sub:#9aa7b8; --mute:#6b7686;
+    --blue:#3b82f6; --green:#22c55e; --amber:#f59e0b; --red:#ef4444; --violet:#8b5cf6;
+    --cyan:#06b6d4; --pink:#ec4899;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  button{font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); padding:7px 14px}
+  button:hover:not(:disabled){border-color:var(--blue)}
+  button:disabled{opacity:.45; cursor:not-allowed}
+  button.primary{background:linear-gradient(180deg,#2563eb,#1d4ed8); border-color:#1d4ed8; font-weight:600}
+  button.danger{background:#3b1d1d; border-color:#7f1d1d; color:#fca5a5}
+  button.ghost{background:transparent}
+  .topbar{
+    display:flex; align-items:center; gap:14px; padding:10px 16px;
+    background:var(--panel); border-bottom:1px solid var(--line); flex:0 0 auto;
+  }
+  .brand{font-weight:700; letter-spacing:.3px}
+  .brand small{font-weight:400; color:var(--sub); margin-left:8px; font-size:12px}
+  .dots{display:flex; gap:10px; flex-wrap:wrap; margin-left:auto; align-items:center}
+  .dot{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--sub)}
+  .dot i{width:8px; height:8px; border-radius:50%; background:var(--mute); display:inline-block}
+  .dot.on i{background:var(--green); box-shadow:0 0 8px #22c55e88}
+  .mode{display:flex; gap:4px; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:3px}
+  .mode button{border:none; background:transparent; padding:5px 12px; font-size:12px; border-radius:7px; color:var(--sub)}
+  .mode button.active{background:var(--panel2); color:var(--ink)}
+
+  .layout{flex:1; display:grid; grid-template-columns:290px 1fr 300px; min-height:0}
+  .side{background:var(--panel); border-right:1px solid var(--line); overflow-y:auto; padding:12px}
+  .side.right{border-right:none; border-left:1px solid var(--line)}
+  .sect{font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--mute); margin:14px 0 8px}
+  .sect:first-child{margin-top:0}
+
+  .role{border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:8px; background:var(--panel2); transition:.15s}
+  .role:hover{border-color:#3b4557}
+  .role.sel{border-color:var(--blue); background:#16233b}
+  .role .r1{display:flex; align-items:center; gap:8px}
+  .role .r1 input{accent-color:var(--blue)}
+  .role .nm{font-weight:600; font-size:13px; flex:1}
+  .role .tag{font-size:10.5px; color:var(--sub); border:1px solid var(--line); border-radius:5px; padding:1px 5px}
+  .role .desc{font-size:11.5px; color:var(--mute); margin:5px 0 0 22px; line-height:1.45}
+  .role .sys{display:none; font-size:11px; color:var(--sub); background:#0f1420; border:1px dashed var(--line);
+    border-radius:7px; padding:7px; margin:7px 0 0 22px; white-space:pre-wrap; max-height:160px; overflow:auto}
+  .role.open .sys{display:block}
+
+  .stage{overflow-y:auto; padding:16px 20px 40px; min-width:0}
+  .empty{color:var(--mute); text-align:center; padding:80px 20px; line-height:2}
+  .phasehead{display:flex; align-items:center; gap:10px; margin:22px 0 10px; position:sticky; top:0;
+    background:linear-gradient(180deg,var(--bg) 70%,transparent); padding:6px 0; z-index:2}
+  .phasehead h3{margin:0; font-size:14px}
+  .badge{font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--sub)}
+  .badge.run{color:var(--amber); border-color:#7a5b12; background:#2a2210}
+  .badge.ok{color:var(--green); border-color:#14532d; background:#0f2419}
+
+  .msg{display:grid; grid-template-columns:38px 1fr; gap:10px; margin:0 0 14px}
+  .av{width:34px; height:34px; border-radius:9px; display:grid; place-items:center; font-size:17px;
+    background:var(--panel2); border:1px solid var(--line)}
+  .bubble{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 13px; min-width:0}
+  .bubble .meta{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px}
+  .bubble .who{font-weight:600; font-size:13px}
+  .bubble .mdl{font-size:10.5px; color:var(--mute)}
+  .bubble .stat{margin-left:auto; font-size:10.5px; color:var(--mute); font-variant-numeric:tabular-nums}
+  .body{white-space:pre-wrap; word-break:break-word; font-size:13px; color:#d6dee9}
+  .cursor::after{content:"▍"; color:var(--blue); animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  details.think{margin-top:6px; font-size:12px; color:var(--mute)}
+  details.think pre{white-space:pre-wrap; color:var(--sub); margin:6px 0 0}
+  .mocktag{color:var(--amber); font-size:10.5px}
+  .errtag{color:var(--red); font-size:10.5px}
+
+  table.md{border-collapse:collapse; width:100%; font-size:12px; margin:8px 0}
+  table.md th,table.md td{border:1px solid var(--line); padding:5px 7px; text-align:left; vertical-align:top}
+  table.md th{background:var(--panel2); color:var(--sub); font-weight:600; position:sticky; top:0}
+  table.md tr:nth-child(even) td{background:#12171f}
+
+  .logbox{font:11.5px/1.7 ui-monospace,Consolas,monospace; color:var(--sub); background:#0f1420;
+    border:1px solid var(--line); border-radius:8px; padding:8px; max-height:220px; overflow:auto; white-space:pre-wrap}
+  textarea{width:100%; min-height:120px; background:#0f1420; color:var(--ink); border:1px solid var(--line);
+    border-radius:8px; padding:8px; font:11.5px/1.6 ui-monospace,Consolas,monospace; resize:vertical}
+  .pathbox{font:11px ui-monospace,Consolas,monospace; word-break:break-all; color:var(--green)}
+  .hint{font-size:11.5px; color:var(--mute); line-height:1.6}
+  .banner{background:#2a2210; border:1px solid #7a5b12; color:#fcd34d; border-radius:8px; padding:8px 10px;
+    font-size:12px; margin-bottom:10px}
+  ::-webkit-scrollbar{width:10px; height:10px}
+  ::-webkit-scrollbar-thumb{background:#2c3546; border-radius:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">v3.0 多视角头脑风暴 <small>10 视角 × 4 轮 × 国内模型</small></div>
+  <div class="mode" id="mode">
+    <button data-m="real" class="active">真实模型</button>
+    <button data-m="mock">Mock 演示</button>
+  </div>
+  <button id="btnStart" class="primary">开始开会</button>
+  <button id="btnStop" class="danger" disabled>停止</button>
+  <button id="btnExport" class="ghost" disabled>导出 Markdown</button>
+  <a href="/room" style="color:#9aa7b8;font-size:12px;text-decoration:none;margin-left:6px">群聊模式 →</a>
+  <div class="dots" id="dots"></div>
+</div>
+
+<div class="layout">
+  <!-- 左：角色 -->
+  <div class="side">
+    <div class="sect">参会视角（勾选）</div>
+    <div id="roles"></div>
+    <div class="sect">固定角色</div>
+    <div id="fixedRoles" class="hint"></div>
+  </div>
+
+  <!-- 中：群聊流 -->
+  <div class="stage" id="stage">
+    <div class="empty">
+      点右上角「开始开会」，10 个视角会先各自独立发散（互相看不到答案），<br />
+      再匿名交叉挑刺、红队攻击，最后收敛成一张可勾选总表。<br />
+      <span style="color:#4b5563">没有填 key 时自动走 Mock 模式，只演示流程、不产生费用。</span>
+    </div>
+  </div>
+
+  <!-- 右：日志 / 简报 / 导出 -->
+  <div class="side right">
+    <div class="sect">进度</div>
+    <div class="logbox" id="log">等待开始…</div>
+    <div class="sect">Brief（可改，随本次运行提交）</div>
+    <textarea id="brief" spellcheck="false"></textarea>
+    <div class="sect">导出</div>
+    <div class="hint" id="exportHint">跑完可导出到 <code>v3.0/eval/</code>。</div>
+    <div class="pathbox" id="exportPath"></div>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+
+let STATE = null;
+let RUN_ID = null;
+let ES = null;
+let MODE = 'real';
+let phaseEls = new Map();   // phase -> { head, body }
+let msgEls = new Map();     // `${phase}|${roleId}` -> { body, stat, msg }
+let logs = [];
+
+const PHASE_ORDER = ['R1', 'R2', 'R3', 'R4'];
+
+function logLine(t) {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  logs.push(`[${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}] ${t}`);
+  if (logs.length > 300) logs.shift();
+  $('#log').textContent = logs.join('\n');
+  $('#log').scrollTop = $('#log').scrollHeight;
+}
+
+async function boot() {
+  STATE = await (await fetch('/api/state')).json();
+  // provider 状态
+  const dots = $('#dots');
+  dots.innerHTML = '';
+  for (const p of STATE.providers) {
+    const d = el('div', 'dot' + (p.ready ? ' on' : ''));
+    d.appendChild(el('i'));
+    d.appendChild(el('span', null, `${p.label}${p.ready ? '' : '（无 key）'}`));
+    d.title = `${p.baseUrl} · ${p.model}`;
+    dots.appendChild(d);
+  }
+  // 角色
+  const box = $('#roles');
+  box.innerHTML = '';
+  for (const r of STATE.roles) {
+    const card = el('div', 'role sel');
+    const r1 = el('div', 'r1');
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = true; cb.dataset.id = r.id;
+    r1.appendChild(cb);
+    r1.appendChild(el('span', 'nm', `${r.emoji || ''} ${r.name}`));
+    r1.appendChild(el('span', 'tag', r.provider));
+    card.appendChild(r1);
+    card.appendChild(el('div', 'desc', r.description || ''));
+    const sys = el('div', 'sys', r.system || '');
+    card.appendChild(sys);
+    card.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      card.classList.toggle('open');
+    });
+    cb.addEventListener('change', () => card.classList.toggle('sel', cb.checked));
+    box.appendChild(card);
+  }
+  $('#fixedRoles').innerHTML = '';
+  const rt = el('div', null, '红队：' + (STATE.redTeam || []).map((x) => x.name).join('、'));
+  const jd = el('div', null, '裁决：' + (STATE.judge ? `${STATE.judge.name}（${STATE.judge.provider}）` : '未配置'));
+  $('#fixedRoles').appendChild(rt); $('#fixedRoles').appendChild(jd);
+  $('#brief').value = STATE.brief || '';
+  const ready = STATE.providers.filter((p) => p.ready).length;
+  if (!ready) {
+    $('#stage').innerHTML = '';
+    const b = el('div', 'banner',
+      '还没有任何 API key：现在开会会走 Mock 模式（只演示流程）。填好 v3.0/tool/ai_room/keys.json 后刷新本页即可用真实模型。');
+    $('#stage').appendChild(b);
+    const e = el('div', 'empty'); e.innerHTML = '点「开始开会」先看流程 →<br />填 key 后再跑一次得到真实产出。';
+    $('#stage').appendChild(e);
+    setMode('mock');
+  }
+}
+
+function setMode(m) {
+  MODE = m;
+  for (const b of document.querySelectorAll('#mode button')) b.classList.toggle('active', b.dataset.m === m);
+}
+document.querySelectorAll('#mode button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.m)));
+
+function selectedRoleIds() {
+  return [...document.querySelectorAll('#roles input:checked')].map((c) => c.dataset.id);
+}
+
+function ensurePhase(phase, title) {
+  if (phaseEls.has(phase)) return phaseEls.get(phase);
+  const head = el('div', 'phasehead');
+  head.appendChild(el('h3', null, title || phase));
+  const badge = el('span', 'badge run', '进行中');
+  head.appendChild(badge);
+  const body = el('div');
+  $('#stage').appendChild(head);
+  $('#stage').appendChild(body);
+  const rec = { head, body, badge };
+  phaseEls.set(phase, rec);
+  return rec;
+}
+
+function ensureMsg(phase, data) {
+  const key = `${phase}|${data.roleId}`;
+  if (msgEls.has(key)) return msgEls.get(key);
+  const ph = ensurePhase(phase, PHASE_TITLES[phase]);
+  const msg = el('div', 'msg');
+  const av = el('div', 'av', data.emoji || '🤖');
+  const bubble = el('div', 'bubble');
+  const meta = el('div', 'meta');
+  meta.appendChild(el('span', 'who', data.roleName));
+  meta.appendChild(el('span', 'mdl', `${data.provider}${data.model ? ' · ' + data.model : ''}`));
+  if (data.mock) meta.appendChild(el('span', 'mocktag', 'Mock'));
+  const stat = el('span', 'stat', '');
+  meta.appendChild(stat);
+  bubble.appendChild(meta);
+  const thinkBox = el('details', 'think');
+  thinkBox.style.display = 'none';
+  thinkBox.appendChild(el('summary', null, '思考过程'));
+  const pre = el('pre'); thinkBox.appendChild(pre);
+  bubble.appendChild(thinkBox);
+  const body = el('div', 'body cursor');
+  bubble.appendChild(body);
+  msg.appendChild(av); msg.appendChild(bubble);
+  ph.body.appendChild(msg);
+  const rec = { msg, body, stat, thinkBox, pre, bubble };
+  msgEls.set(key, rec);
+  return rec;
+}
+
+const PHASE_TITLES = { R1: 'R1 独立发散（互相看不到）', R2: 'R2 匿名交叉评审', R3: 'R3 红队攻击', R4: 'R4 收敛裁决' };
+
+function mdTable(text) {
+  // 极简 markdown：表格 + 标题 + 列表，够用即可
+  const lines = text.split('\n');
+  let html = '', tbl = [];
+  const flush = () => {
+    if (!tbl.length) return;
+    const rows = tbl.join('\n').split('\n').filter((l) => l.trim());
+    const cells = (l) => l.replace(/^\||\|$/g, '').split('|').map((s) => s.trim());
+    const head = cells(rows[0]);
+    let out = '<table class="md"><thead><tr>';
+    for (const h of head) out += `<th>${esc(h)}</th>`;
+    out += '</tr></thead><tbody>';
+    for (const r of rows.slice(2)) {
+      out += '<tr>';
+      for (const c of cells(r)) out += `<td>${esc(c)}</td>`;
+      out += '</tr>';
+    }
+    out += '</tbody></table>';
+    html += out; tbl = [];
+  };
+  for (const l of lines) {
+    if (/^\s*\|/.test(l)) { tbl.push(l); continue; }
+    flush();
+    if (/^##\s+/.test(l)) html += `<h4 style="margin:14px 0 6px;font-size:13px">${esc(l.replace(/^##\s+/, ''))}</h4>`;
+    else if (/^\d+\.\s+/.test(l)) html += `<div style="margin-left:4px">${esc(l)}</div>`;
+    else if (l.trim()) html += `<div>${esc(l)}</div>`;
+  }
+  flush();
+  return html || esc(text);
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+async function start() {
+  const roleIds = selectedRoleIds();
+  if (roleIds.length < 2) { logLine('至少勾 2 个视角才能开会'); return; }
+  resetStage();
+  logs = []; logLine(`发起会议：${roleIds.length} 个视角，模式=${MODE}`);
+  $('#btnStart').disabled = true; $('#btnStop').disabled = false; $('#btnExport').disabled = true;
+  const res = await fetch('/api/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roleIds, mock: MODE === 'mock', brief: $('#brief').value, phases: { r1: true, r2: true, r3: true, r4: true } }),
+  });
+  const j = await res.json();
+  RUN_ID = j.runId;
+  logLine('runId=' + RUN_ID);
+  listen(RUN_ID);
+}
+
+function listen(runId) {
+  if (ES) ES.close();
+  ES = new EventSource(`/api/stream?runId=${runId}`);
+  ES.addEventListener('phase', (e) => {
+    const d = JSON.parse(e.data);
+    ensurePhase(d.phase, d.title);
+    logLine(`${d.title}：${d.total} 个角色上场`);
+  });
+  ES.addEventListener('role_start', (e) => {
+    const d = JSON.parse(e.data);
+    ensureMsg(d.phase, { ...d, emoji: emojiOf(d.roleId) });
+  });
+  ES.addEventListener('delta', (e) => {
+    const d = JSON.parse(e.data);
+    const m = ensureMsg(d.phase, { roleId: d.roleId, roleName: nameOf(d.roleId), provider: '', emoji: emojiOf(d.roleId) });
+    m.body.textContent += d.text;
+    m.stat.textContent = `${m.body.textContent.length} 字`;
+    autoscroll();
+  });
+  ES.addEventListener('think', (e) => {
+    const d = JSON.parse(e.data);
+    const m = ensureMsg(d.phase, { roleId: d.roleId, roleName: nameOf(d.roleId), provider: '', emoji: emojiOf(d.roleId) });
+    m.thinkBox.style.display = 'block';
+    m.pre.textContent += d.text;
+    m.bubble.querySelector('.mdl').textContent += ' · 思考中';
+  });
+  ES.addEventListener('role_done', (e) => {
+    const d = JSON.parse(e.data);
+    const key = `${d.phase}|${d.roleId}`;
+    const m = msgEls.get(key);
+    if (m) {
+      m.body.classList.remove('cursor');
+      const bad = m.bubble.querySelector('.errtag');
+      if (bad) bad.remove();
+      if (d.error) {
+        const t = el('span', 'errtag', ' · ' + d.error);
+        m.bubble.querySelector('.meta').appendChild(t);
+      }
+      m.stat.textContent = `${(d.ms / 1000).toFixed(1)}s · ${d.chars} 字`;
+      if (d.phase === 'R4' && !d.error) m.body.innerHTML = mdTable(m.body.textContent);
+    }
+    logLine(`${nameOf(d.roleId)} 完成 ${(d.ms / 1000).toFixed(1)}s`);
+  });
+  ES.addEventListener('role_error', (e) => {
+    const d = JSON.parse(e.data);
+    logLine(`✗ ${nameOf(d.roleId)}：${d.message}`);
+  });
+  ES.addEventListener('phase_done', (e) => {
+    const d = JSON.parse(e.data);
+    const ph = phaseEls.get(d.phase);
+    if (ph) { ph.badge.className = 'badge ok'; ph.badge.textContent = '已完成'; }
+  });
+  ES.addEventListener('log', (e) => logLine(JSON.parse(e.data).message));
+  ES.addEventListener('final', (e) => {
+    const d = JSON.parse(e.data);
+    logLine('最终总表已生成，可导出');
+    $('#btnExport').disabled = false;
+  });
+  ES.addEventListener('run_done', (e) => {
+    const d = JSON.parse(e.data);
+    logLine('会议结束：' + d.status + ' · ' + (d.message || ''));
+    $('#btnStart').disabled = false; $('#btnStop').disabled = true;
+    if (ES) { ES.close(); ES = null; }
+  });
+  ES.onerror = () => logLine('SSE 连接中断（服务是否关了？）');
+}
+
+function autoscroll() {
+  const s = $('#stage');
+  const near = s.scrollHeight - s.scrollTop - s.clientHeight < 220;
+  if (near) s.scrollTop = s.scrollHeight;
+}
+
+function nameOf(id) {
+  const r = (STATE.roles || []).find((x) => x.id === id);
+  if (r) return r.name;
+  const rt = (STATE.redTeam || []).find((x) => x.id === id);
+  if (rt) return rt.name;
+  if (STATE.judge && STATE.judge.id === id) return STATE.judge.name;
+  return id;
+}
+function emojiOf(id) {
+  const r = (STATE.roles || []).find((x) => x.id === id);
+  if (r) return r.emoji || '🤖';
+  if (id.startsWith('red') || id.includes('red_')) return '🗡';
+  return '⚖';
+}
+
+function resetStage() {
+  phaseEls.clear(); msgEls.clear();
+  $('#stage').innerHTML = '';
+  $('#exportPath').textContent = '';
+  $('#exportHint').textContent = '跑完可导出到 v3.0/eval/';
+}
+
+$('#btnStart').onclick = start;
+$('#btnStop').onclick = async () => {
+  if (!RUN_ID) return;
+  await fetch('/api/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: RUN_ID }) });
+  logLine('已请求停止');
+};
+$('#btnExport').onclick = async () => {
+  if (!RUN_ID) return;
+  const r = await fetch('/api/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: RUN_ID }) });
+  const j = await r.json();
+  if (j.path) { $('#exportPath').textContent = j.path; $('#exportHint').textContent = '已导出：'; logLine('导出 ' + j.path); }
+  else logLine('导出失败：' + (j.error || '未知'));
+};
+
+boot().catch((e) => { $('#stage').textContent = '初始化失败：' + e.message; });
+</script>
+</body>
+</html>

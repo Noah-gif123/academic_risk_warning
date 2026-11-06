@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>v3.0 群聊工作台</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2a3140;
+    --ink:#e6edf3; --sub:#9aa7b8; --mute:#6b7686;
+    --blue:#3b82f6; --green:#22c55e; --amber:#f59e0b; --red:#ef4444; --violet:#8b5cf6;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg); color:var(--ink); font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+       display:flex; flex-direction:column; overflow:hidden}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:6px 12px}
+  button:hover:not(:disabled){border-color:var(--blue)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:linear-gradient(180deg,#2563eb,#1d4ed8);border-color:#1d4ed8;font-weight:600}
+  button.danger{background:#3b1d1d;border-color:#7f1d1d;color:#fca5a5}
+  button.mini{padding:2px 8px;font-size:11px;border-radius:6px}
+  .topbar{display:flex;align-items:center;gap:12px;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .brand{font-weight:700}
+  .brand small{color:var(--sub);font-weight:400;margin-left:8px;font-size:12px}
+  .dots{display:flex;gap:9px;margin-left:auto;align-items:center}
+  .dot{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--sub)}
+  .dot i{width:7px;height:7px;border-radius:50%;background:var(--mute)}
+  .dot.on i{background:var(--green);box-shadow:0 0 8px #22c55e88}
+  .layout{flex:1;display:grid;grid-template-columns:230px 1fr 260px;min-height:0}
+  .side{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:10px}
+  .side.right{border-right:none;border-left:1px solid var(--line)}
+  .sect{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:12px 0 6px}
+  .sect:first-child{margin-top:0}
+  .mem{display:flex;align-items:flex-start;gap:6px;padding:5px 6px;border-radius:8px;font-size:12.5px}
+  .mem:hover{background:var(--panel2)}
+  .mem input{accent-color:var(--blue);margin-top:3px}
+  .mem .nm{flex:1;min-width:0}
+  .mem .nm b{font-weight:600}
+  .mem .sub2{color:var(--mute);font-size:10.5px;display:block}
+  .star{cursor:pointer;font-size:12px;opacity:.35;user-select:none}
+  .star.on{opacity:1;color:var(--amber)}
+
+  .stage{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .chat{flex:1;overflow-y:auto;padding:16px 20px 8px}
+  .hint{color:var(--mute);font-size:12.5px;line-height:1.8}
+  .sys{text-align:center;color:var(--mute);font-size:11.5px;margin:10px 0}
+  .roundbar{text-align:center;margin:14px 0 6px;font-size:11px;color:var(--amber)}
+  .msg{display:grid;grid-template-columns:34px 1fr;gap:9px;margin-bottom:12px}
+  .msg.me{grid-template-columns:1fr 34px}
+  .av{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:16px;background:var(--panel2);border:1px solid var(--line)}
+  .bubble{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px;min-width:0;max-width:100%}
+  .me .bubble{background:#16233b;border-color:#1e3a6b;justify-self:end}
+  .meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:4px}
+  .who{font-weight:600;font-size:12.5px}
+  .mdl{font-size:10.5px;color:var(--mute)}
+  .stat{margin-left:auto;font-size:10.5px;color:var(--mute);font-variant-numeric:tabular-nums}
+  .body{white-space:pre-wrap;word-break:break-word;font-size:13.2px;color:#d6dee9}
+  .abstain{color:var(--mute);font-style:italic;font-size:12px}
+  .cursor::after{content:"▍";color:var(--blue);animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  details.think{margin-top:5px;font-size:11.5px;color:var(--mute)}
+  details.think pre{white-space:pre-wrap;color:var(--sub);margin:5px 0 0}
+  .errtag{color:var(--red);font-size:10.5px}
+
+  .composer{border-top:1px solid var(--line);background:var(--panel);padding:10px 14px 12px;flex:0 0 auto}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .chip{border:1px solid var(--line);background:var(--panel2);color:var(--sub);border-radius:20px;padding:2px 10px;font-size:11.5px;cursor:pointer;user-select:none}
+  .chip.on{background:#16305c;border-color:#2f6bd8;color:#cfe0ff}
+  .chip.all{font-weight:600}
+  .row{display:flex;gap:8px;align-items:flex-end}
+  textarea{flex:1;min-height:56px;max-height:190px;background:#0f1420;color:var(--ink);border:1px solid var(--line);
+           border-radius:10px;padding:9px 11px;font:13.2px/1.6 inherit;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--blue)}
+  .sendcol{display:flex;flex-direction:column;gap:6px}
+  .tip{font-size:11px;color:var(--mute);margin-top:6px}
+
+  .task{border:1px solid var(--line);border-radius:9px;padding:7px 8px;margin-bottom:7px;background:var(--panel2);font-size:12px}
+  .task .t1{display:flex;gap:6px;align-items:center}
+  .task .tt{flex:1;min-width:0;word-break:break-word}
+  .badge{font-size:10px;border-radius:20px;padding:1px 7px;border:1px solid var(--line);color:var(--sub)}
+  .badge.todo{color:var(--amber);border-color:#7a5b12;background:#2a2210}
+  .badge.doing{color:var(--blue);border-color:#1e3a6b;background:#0f1b33}
+  .badge.done{color:var(--green);border-color:#14532d;background:#0f2419}
+  .task .owner{color:var(--mute);font-size:10.5px}
+  .pathbox{font:10.5px ui-monospace,Consolas,monospace;word-break:break-all;color:var(--green)}
+  .log{font:11px/1.6 ui-monospace,Consolas,monospace;color:var(--sub);background:#0f1420;border:1px solid var(--line);
+       border-radius:8px;padding:7px;max-height:150px;overflow:auto;white-space:pre-wrap}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#2c3546;border-radius:6px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">群聊工作台 <small id="roomTitle">v3.0 研讨群</small></div>
+  <div class="dots" id="dots"></div>
+  <button id="btnRound" title="让刚才说过话的人再讨论一轮">继续讨论一轮</button>
+  <button id="btnStop" class="danger" disabled>停止</button>
+  <button id="btnSave">导出</button>
+  <button id="btnNew">新房间</button>
+  <a href="/" style="color:var(--sub);font-size:12px;text-decoration:none">← 会议模式</a>
+</div>
+
+<div class="layout">
+  <!-- 左：成员 + 值班 -->
+  <div class="side">
+    <div class="sect">成员（勾选=在群里）</div>
+    <div id="members"></div>
+    <div class="sect">说明</div>
+    <div class="hint">
+      ⭐ = <b>值班</b>：你不 @ 人时，只有值班的回。<br />
+      @ 谁：只有被 @ 的回。<br />
+      @全体：群里所有人都回。
+    </div>
+  </div>
+
+  <!-- 中：聊天 + 输入 -->
+  <div class="stage">
+    <div class="chat" id="chat">
+      <div class="hint" id="opening">
+        直接说话就行：不 @ 人 → 值班的 2–3 位回；<br />
+        @某人 → 只有他回；@全体 → 所有人都回。<br /><br />
+        说「@后端架构师 你把这部分写成 SQL」→ 点右侧「派活」即可登记任务板。<br />
+        AI 之间会自动接话 2 轮，没新内容会主动 [PASS]。
+      </div>
+    </div>
+    <div class="composer">
+      <div class="chips" id="chips"></div>
+      <div class="row">
+        <textarea id="input" placeholder="说点什么…（Ctrl+Enter 发送）"></textarea>
+        <div class="sendcol">
+          <button class="primary" id="btnSend">发送</button>
+          <button id="btnAssign" title="把当前输入当成任务派给已 @ 的人">派活</button>
+        </div>
+      </div>
+      <div class="tip" id="tip">已选 @：无（不 @ 则发给值班）｜本轮调用 0 次</div>
+    </div>
+  </div>
+
+  <!-- 右：任务板 + 日志 -->
+  <div class="side right">
+    <div class="sect">任务板</div>
+    <div id="tasks"><div class="hint">还没有任务。输入内容后点「派活」。</div></div>
+    <div class="sect">事件</div>
+    <div class="log" id="log"></div>
+    <div class="sect">导出</div>
+    <div class="pathbox" id="savePath"></div>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+let STATE = null;       // 全局 roles/providers
+let ROOM = null;        // 当前房间
+let ROOM_ID = null;
+let mentions = new Set();
+let ES = null;
+let msgs = new Map();        // msgId -> {body, stat, bubble, msgEl}
+let preRendered = new Set(); // 启动时从历史渲染过的消息（忽略重放事件，避免文字重复）
+let logs = [];
+
+function logLine(t) {
+  const d = new Date(); const p = (n) => String(n).padStart(2, '0');
+  logs.push(`[${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}] ${t}`);
+  if (logs.length > 200) logs.shift();
+  $('#log').textContent = logs.join('\n');
+  $('#log').scrollTop = $('#log').scrollHeight;
+}
+
+function memberInfo(id) {
+  return (STATE.roles || []).find((r) => r.id === id) || { id, name: id, emoji: '🤖', provider: '', model: '' };
+}
+
+async function boot() {
+  STATE = await (await fetch('/api/state')).json();
+  const dots = $('#dots'); dots.innerHTML = '';
+  for (const p of STATE.providers) {
+    const d = el('div', 'dot' + (p.ready ? ' on' : ''));
+    d.appendChild(el('i')); d.appendChild(el('span', null, p.label));
+    d.title = `${p.baseUrl} · ${p.model}` + (p.ready ? '' : '（无 key）');
+    dots.appendChild(d);
+  }
+  const safe = localStorage.getItem('roomId');
+  if (safe) {
+    const r = await fetch('/api/room/state?roomId=' + safe);
+    if (r.ok) { ROOM = (await r.json()).room; ROOM_ID = safe; afterRoomLoad(); return; }
+  }
+  await createRoom();
+}
+
+async function createRoom() {
+  const r = await fetch('/api/room/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+  ROOM = (await r.json()).room; ROOM_ID = ROOM.id;
+  localStorage.setItem('roomId', ROOM_ID);
+  afterRoomLoad();
+}
+
+function afterRoomLoad() {
+  $('#roomTitle').textContent = ROOM.title + ' · ' + ROOM.memberIds.length + ' 人';
+  renderMembers(); renderChips(); renderTasks();
+  $('#chat').innerHTML = ''; msgs.clear(); preRendered.clear();
+  const o = el('div', 'hint');
+  o.innerHTML = '直接说话：不 @ 人 → <b>值班</b>回；@某人 → <b>只有他回</b>；@全体 → 所有人都回。' +
+    '<br />AI 之间会自动接话 2 轮，没新内容主动 [PASS]。';
+  $('#chat').appendChild(o);
+  for (const m of ROOM.messages) { renderMessage(m); preRendered.add(m.id); }
+  updateTip();
+  listen();
+  logLine('房间 ' + ROOM_ID + ' 就绪，历史 ' + ROOM.messages.length + ' 条');
+}
+
+function renderMembers() {
+  const box = $('#members'); box.innerHTML = '';
+  for (const r of STATE.roles) {
+    if (!ROOM.memberIds.includes(r.id)) continue;
+    const row = el('div', 'mem');
+    const cb = el('input'); cb.type = 'checkbox'; cb.checked = true; cb.dataset.id = r.id;
+    cb.addEventListener('change', async () => {
+      const ids = ROOM.memberIds.includes(r.id) ? ROOM.memberIds : [...ROOM.memberIds, r.id];
+      const duty = ROOM.dutyIds.filter((d) => d !== r.id);
+      await patchRoom({ memberIds: ids, dutyIds: duty });
+    });
+    row.appendChild(cb);
+    const nm = el('div', 'nm');
+    nm.innerHTML = `<b>${esc(r.emoji || '')} ${esc(r.name)}</b><span class="sub2">${esc(r.provider)}/${esc(r.model)}</span>`;
+    row.appendChild(nm);
+    const star = el('span', 'star' + (ROOM.dutyIds.includes(r.id) ? ' on' : ''), '★');
+    star.title = '设为值班：不 @ 人时由值班回复';
+    star.onclick = async () => {
+      const on = ROOM.dutyIds.includes(r.id);
+      const duty = on ? ROOM.dutyIds.filter((d) => d !== r.id) : [...ROOM.dutyIds, r.id];
+      await patchRoom({ dutyIds: duty });
+    };
+    row.appendChild(star);
+    box.appendChild(row);
+  }
+}
+
+function renderChips() {
+  const box = $('#chips'); box.innerHTML = '';
+  const all = el('span', 'chip all' + (mentions.has('all') ? ' on' : ''), '@全体');
+  all.onclick = () => toggleMention('all');
+  box.appendChild(all);
+  for (const id of ROOM.memberIds) {
+    const r = memberInfo(id);
+    const c = el('span', 'chip' + (mentions.has(id) ? ' on' : ''), (r.emoji || '') + ' ' + r.name);
+    c.onclick = () => toggleMention(id);
+    box.appendChild(c);
+  }
+}
+
+function toggleMention(id) {
+  if (id === 'all') { mentions.has('all') ? mentions.delete('all') : (mentions.clear(), mentions.add('all')); }
+  else { mentions.delete('all'); mentions.has(id) ? mentions.delete(id) : mentions.add(id); }
+  renderChips(); updateTip();
+}
+
+function updateTip() {
+  const m = mentions.size ? [...mentions].map((id) => id === 'all' ? '@全体' : memberInfo(id).name).join('、') : '无（发给值班）';
+  $('#tip').textContent = `已选 @：${m}｜本轮调用 ${ROOM ? ROOM.calls : 0} 次`;
+}
+
+async function patchRoom(patch) {
+  const r = await fetch('/api/room/config', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roomId: ROOM_ID, ...patch }),
+  });
+  if (r.ok) { ROOM = (await r.json()).room; renderMembers(); renderChips(); }
+}
+
+function renderMessage(m, replay = false) {
+  if (msgs.has(m.id)) return msgs.get(m.id);
+  const chat = $('#chat');
+  const wrap = el('div', 'msg' + (m.kind === 'user' ? ' me' : ''));
+  const av = el('div', 'av', m.kind === 'user' ? '🧑‍💻' : (m.emoji || '🤖'));
+  const bubble = el('div', 'bubble');
+  const meta = el('div', 'meta');
+  meta.appendChild(el('span', 'who', m.kind === 'user' ? '我' : m.name));
+  if (m.kind !== 'user') meta.appendChild(el('span', 'mdl', `${m.provider || ''}${m.model ? ' · ' + m.model : ''}`));
+  const stat = el('span', 'stat', '');
+  meta.appendChild(stat);
+  bubble.appendChild(meta);
+  const think = el('details', 'think'); think.style.display = 'none';
+  think.appendChild(el('summary', null, '思考'));
+  const pre = el('pre'); think.appendChild(pre);
+  bubble.appendChild(think);
+  const body = el('div', 'body');
+  body.textContent = m.text || '';
+  if (m.abstain) body.className = 'body abstain';
+  bubble.appendChild(body);
+  if (m.kind === 'user') wrap.appendChild(bubble), wrap.appendChild(av);
+  else wrap.appendChild(av), wrap.appendChild(bubble);
+  chat.appendChild(wrap);
+  const rec = { body, stat, bubble, think, pre, wrap };
+  msgs.set(m.id, rec);
+  return rec;
+}
+
+function onStream() {
+  if (ES) ES.close();
+  ES = new EventSource(`/api/stream?roomId=${ROOM_ID}`);
+  ES.addEventListener('msg_start', (e) => {
+    const d = JSON.parse(e.data);
+    const rec = renderMessage(d.msg);
+    if (preRendered.has(d.msg.id)) return;   // 历史消息：重放时不再加光标
+    if (d.msg.kind !== 'user') {
+      rec.body.classList.add('cursor');
+      if (d.calls) { ROOM.calls = d.calls; updateTip(); }
+    }
+    scrollBottom();
+  });
+  ES.addEventListener('delta', (e) => {
+    const d = JSON.parse(e.data);
+    if (preRendered.has(d.msgId)) return;
+    const rec = msgs.get(d.msgId); if (!rec) return;
+    rec.body.textContent += d.text; scrollBottom();
+  });
+  ES.addEventListener('think', (e) => {
+    const d = JSON.parse(e.data);
+    if (preRendered.has(d.msgId)) return;
+    const rec = msgs.get(d.msgId); if (!rec) return;
+    rec.think.style.display = 'block';
+    rec.pre.textContent += d.text;
+  });
+  ES.addEventListener('msg_done', (e) => {
+    const d = JSON.parse(e.data);
+    const rec = msgs.get(d.msgId);
+    if (rec) {
+      rec.body.classList.remove('cursor');
+      if (d.abstain) rec.body.classList.add('abstain');
+      rec.stat.textContent = d.chars + ' 字' + (d.abstain ? ' · 弃权' : '');
+      if (d.err) {
+        const t = el('span', 'errtag', ' · ' + d.err);
+        rec.bubble.querySelector('.meta').appendChild(t);
+      }
+    }
+    if (d.calls) { ROOM.calls = d.calls; updateTip(); }
+    scrollBottom();
+  });
+  ES.addEventListener('msg_err', (e) => logLine('错误：' + JSON.parse(e.data).err));
+  ES.addEventListener('plan', (e) => {
+    const d = JSON.parse(e.data);
+    const names = d.responders.map((id) => memberInfo(id).name).join('、');
+    const mode = { mention: '@指定', all: '@全体', duty: '值班' }[d.mode] || d.mode;
+    logLine(`分派（${mode}）：${names || '无'}`);
+    $('#btnStop').disabled = false;
+  });
+  ES.addEventListener('peer_round', (e) => {
+    const d = JSON.parse(e.data);
+    const bar = el('div', 'roundbar', `—— 自动接话 第 ${d.round} 轮（没新内容会 [PASS]）——`);
+    $('#chat').appendChild(bar); scrollBottom();
+  });
+  ES.addEventListener('system', (e) => {
+    const d = JSON.parse(e.data);
+    $('#chat').appendChild(el('div', 'sys', d.message)); scrollBottom();
+  });
+  ES.addEventListener('error', (e) => { try { logLine('错误：' + JSON.parse(e.data).message); } catch {} });
+  ES.addEventListener('task', (e) => { renderTasks(JSON.parse(e.data).tasks); });
+  ES.addEventListener('config', (e) => {
+    const d = JSON.parse(e.data); ROOM = d.room; renderMembers(); renderChips();
+  });
+  ES.addEventListener('idle', (e) => {
+    const d = JSON.parse(e.data);
+    if (d.calls) { ROOM.calls = d.calls; updateTip(); }
+    $('#btnStop').disabled = true;
+    logLine('本轮结束，累计调用 ' + (d.calls || ROOM.calls) + ' 次');
+  });
+}
+
+function listen() { onStream(); }
+
+function scrollBottom() {
+  const c = $('#chat');
+  if (c.scrollHeight - c.scrollTop - c.clientHeight < 260) c.scrollTop = c.scrollHeight;
+}
+
+async function send() {
+  const text = $('#input').value.trim();
+  if (!text) return;
+  $('#input').value = '';
+  $('#btnStop').disabled = false;
+  const r = await fetch('/api/room/say', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roomId: ROOM_ID, text, mentions: [...mentions] }),
+  });
+  if (!r.ok) { const j = await r.json(); logLine('发送失败：' + (j.error || r.status)); return; }
+  mentions.clear(); renderChips(); updateTip();
+}
+
+async function assign() {
+  const title = $('#input').value.trim();
+  const owners = [...mentions].filter((m) => m !== 'all');
+  if (!title) { logLine('先写任务内容再派活'); return; }
+  if (owners.length !== 1) { logLine('派活请只 @ 一个人（当前 @ ' + owners.length + ' 个）'); return; }
+  $('#input').value = '';
+  const r = await fetch('/api/room/assign', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roomId: ROOM_ID, owner: owners[0], title }),
+  });
+  const j = await r.json();
+  if (!r.ok) { logLine('派活失败：' + (j.error || r.status)); return; }
+  logLine(`已派给 ${memberInfo(owners[0]).name}：${title.slice(0, 40)}`);
+  mentions.clear(); renderChips(); updateTip();
+  renderTasks(j.tasks);
+}
+
+function renderTasks(tasks) {
+  if (tasks) ROOM.tasks = tasks;
+  const box = $('#tasks'); box.innerHTML = '';
+  if (!ROOM.tasks.length) { box.appendChild(el('div', 'hint', '还没有任务。输入内容后点「派活」。')); return; }
+  for (const t of ROOM.tasks) {
+    const d = el('div', 'task');
+    const t1 = el('div', 't1');
+    t1.appendChild(el('span', 'badge ' + t.status, { todo: '待办', doing: '进行中', done: '完成' }[t.status] || t.status));
+    t1.appendChild(el('span', 'tt', t.title));
+    d.appendChild(t1);
+    const t2 = el('div', 't1');
+    t2.style.marginTop = '4px';
+    t2.appendChild(el('span', 'owner', '→ ' + memberInfo(t.owner).name));
+    const spacer = el('span'); spacer.style.flex = '1'; t2.appendChild(spacer);
+    const next = { todo: 'doing', doing: 'done', done: 'todo' }[t.status];
+    const b = el('button', 'mini', { todo: '接手', doing: '完成', done: '重开' }[t.status]);
+    b.onclick = async () => {
+      const r = await fetch('/api/room/task', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: ROOM_ID, taskId: t.id, status: next }),
+      });
+      if (r.ok) renderTasks((await r.json()).tasks);
+    };
+    t2.appendChild(b);
+    d.appendChild(t2);
+    box.appendChild(d);
+  }
+}
+
+$('#btnSend').onclick = send;
+$('#btnAssign').onclick = assign;
+$('#input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
+});
+$('#btnStop').onclick = async () => {
+  await fetch('/api/room/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: ROOM_ID }) });
+  $('#btnStop').disabled = true; logLine('已请求停止');
+};
+$('#btnRound').onclick = async () => {
+  const r = await fetch('/api/room/round', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: ROOM_ID, rounds: 1 }) });
+  if (!r.ok) { const j = await r.json(); logLine('继续讨论失败：' + (j.error || r.status)); }
+  else { $('#btnStop').disabled = false; logLine('继续讨论一轮'); }
+};
+$('#btnSave').onclick = async () => {
+  const r = await fetch('/api/room/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: ROOM_ID }) });
+  const j = await r.json();
+  if (j.path) { $('#savePath').textContent = j.path; logLine('已导出 ' + j.path); }
+  else logLine('导出失败：' + (j.error || '未知'));
+};
+$('#btnNew').onclick = async () => {
+  if (!confirm('新建房间？（当前房间记录仍保存在 v3.0/tool/ai_room/rooms/ 下）')) return;
+  await createRoom();
+};
+
+boot().catch((e) => { document.body.innerHTML = '<pre style="color:#f87171;padding:20px">初始化失败：' + esc(e.message) + '</pre>'; });
+</script>
+</body>
+</html>

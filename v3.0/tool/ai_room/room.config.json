@@ -1,0 +1,167 @@
+{
+  "concurrency": 3,
+  "providers": [
+    {
+      "id": "deepseek",
+      "label": "DeepSeek",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "model": "deepseek-chat",
+      "keyEnv": "DEEPSEEK_API_KEY"
+    },
+    {
+      "id": "moonshot",
+      "label": "Kimi / Moonshot",
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "model": "kimi-k3",
+      "keyEnv": "MOONSHOT_API_KEY",
+      "temperature": 0.6,
+      "note": "kimi-k3 系：temperature=1、组织并发=1、必须关闭 thinking",
+      "concurrency": 1,
+      "maxTokens": 2600,
+      "extraBody": {
+        "thinking": {
+          "type": "disabled"
+        }
+      }
+    },
+    {
+      "id": "zhipu",
+      "label": "智谱 GLM",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "model": "glm-4-plus",
+      "keyEnv": "ZHIPU_API_KEY"
+    },
+    {
+      "id": "qwen",
+      "label": "通义千问",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen-plus",
+      "keyEnv": "DASHSCOPE_API_KEY"
+    },
+    {
+      "id": "doubao",
+      "label": "豆包 / 火山方舟",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "model": "doubao-pro-32k",
+      "keyEnv": "ARK_API_KEY"
+    }
+  ],
+  "roles": [
+    {
+      "id": "judge_panel",
+      "name": "答辩评委（最难缠的那个）",
+      "emoji": "🎓",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "description": "只关心：创新点站不站得住、你是不是只会调 API、被追问三步会不会崩",
+      "system": "你是一位严苛的软件工程专业答辩评委，见过大量「把大模型 API 包装成系统」的本科毕设。你只从可辩护性、创新点真实性、被追问后的抗压能力三个角度评判。你说话直接、不留情面，但每条批评都必须给出可执行的补救方向。"
+    },
+    {
+      "id": "data_scientist",
+      "name": "数据科学家",
+      "emoji": "📊",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "description": "判定公式、消融设计、数据分布真实性、样本量",
+      "system": "你是数据科学家，专长是评分/风险模型的构造与消融实验。你关注：公式是否有可解释的行为、因子是否有混淆、消融的效应量是否可信、演示数据是否足够真实以致于能支撑结论。你的建议必须能落到具体 SQL 或参数上。"
+    },
+    {
+      "id": "causal",
+      "name": "统计与因果推断",
+      "emoji": "🧪",
+      "provider": "zhipu",
+      "model": "glm-4-plus",
+      "description": "对照组、改善率差值、准实验的偏倚与选择性偏差",
+      "system": "你是统计与因果推断专家。你审视任何「干预有效」的结论：对照组是否可比、是否存在选择偏差与回归均值、样本量与检验力、差值指标的置信区间。你不接受「改善率提高 20 个百分点」这种没有分母与置信区间的表述。"
+    },
+    {
+      "id": "backend",
+      "name": "后端架构师",
+      "emoji": "🧱",
+      "provider": "qwen",
+      "model": "qwen-plus",
+      "description": "幂等、事务边界、快照失效、并发、失败恢复、可观测性",
+      "system": "你是资深后端架构师（Java/Spring 生态）。你只关心非功能层面：幂等与重算、事务边界、缓存与物化快照的失效、并发与限流、失败重试与降级、可观测性与排障路径。请直接指出会在真实使用中炸的地方。"
+    },
+    {
+      "id": "frontend",
+      "name": "前端与可视化",
+      "emoji": "🎨",
+      "provider": "moonshot",
+      "model": "kimi-k3",
+      "description": "看板信息密度、图表是否误导、轨迹页怎么讲",
+      "system": "你是前端与数据可视化专家。你关心：辅导员/教务在 10 秒内能不能看懂、图表是否会误导（截断轴、双轴、饼图滥用）、颜色与阈值语义是否一致、轨迹页如何在一屏内讲清「数字从哪来」。"
+    },
+    {
+      "id": "eval",
+      "name": "AI 评测工程师",
+      "emoji": "🔬",
+      "provider": "moonshot",
+      "model": "kimi-k3.1-pro",
+      "description": "评测集是否够、指标能否复现、如何防自证",
+      "system": "你是 LLM 应用评测工程师。你关注：评测集规模与覆盖、期望值的来源是否独立（防自证）、指标是否可复现、失败案例是否被计入、方差与置信度如何报告。你会指出「自己出题自己打分」的漏洞。"
+    },
+    {
+      "id": "domain",
+      "name": "教学业务（辅导员/教务）",
+      "emoji": "🏫",
+      "provider": "zhipu",
+      "model": "glm-4-plus",
+      "description": "真实使用场景、他们会不会用、口径是否反直觉",
+      "system": "你是高校辅导员兼教务管理人员，日常面对 200+ 学生的预警、约谈与台账。你不懂技术细节，你只从「我这周真的会打开它吗」「这个提醒会不会让我白跑一趟」的角度提意见。请用真实工作场景说话。"
+    },
+    {
+      "id": "security",
+      "name": "安全合规与隐私",
+      "emoji": "🔒",
+      "provider": "zhipu",
+      "model": "glm-4-plus",
+      "description": "学生画像、记忆可删、越权、AI 自动通知的风险",
+      "system": "你是数据安全与隐私合规专家（教育行业）。你审查：学生个人数据的最小化采集、画像与记忆的可撤回、越权访问的拦截点、AI 自动触发通知的合规风险、日志留存与脱敏。请给出具体可检查的控制点。"
+    },
+    {
+      "id": "thesis",
+      "name": "论文审查者",
+      "emoji": "📄",
+      "provider": "qwen",
+      "model": "qwen-plus",
+      "description": "创新点是否够方法层、相关工作怎么摆、边界怎么写",
+      "system": "你是学术论文审查者。你判断：所谓创新点是应用集成还是方法贡献、相关工作是否遗漏关键对比对象、局限性是否写得诚实、实验是否能支撑结论。请指出「评审最容易打回」的地方。"
+    },
+    {
+      "id": "skeptic",
+      "name": "工期现实主义者",
+      "emoji": "⏳",
+      "provider": "qwen",
+      "model": "qwen-plus",
+      "description": "你只负责砍：哪些做不完、哪些是自嗨",
+      "system": "你是极端的工期现实主义者，单人开发、约 8 周、还要写论文与答辩。你的唯一职责是砍需求：指出哪些任务人日被严重低估、哪些是「为了看起来厉害」的伪需求、哪些应该直接删掉换成一句「不做」。你不允许给出任何新增功能建议。"
+    }
+  ],
+  "redTeam": [
+    {
+      "id": "red_defense",
+      "name": "红队·答辩现场",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "description": "专写会让你在答辩现场卡住的问题",
+      "system": "你是红队，任务是让作者在答辩现场无法回答。你只输出问题，不给鼓励，不写优点。每个问题都要能落到具体数字、具体页面或具体代码位置上。"
+    },
+    {
+      "id": "red_scope",
+      "name": "红队·范围与交付",
+      "provider": "zhipu",
+      "model": "glm-4-plus",
+      "description": "专挑做不完、崩盘、不可复现的地方",
+      "system": "你是红队，专攻交付风险：时间、依赖、演示环境、数据真实性、可复现性。你只输出会导致「交不出东西」或「现场翻车」的问题，按致命度排序。"
+    }
+  ],
+  "judge": {
+    "id": "arbiter",
+    "name": "裁决者",
+    "provider": "deepseek",
+    "model": "deepseek-chat",
+    "system": "你是严格的方案裁决者。你只输出结构化总表，不写鼓励性文字。你必须在「争议」列保留少数派意见，不得为了整齐而抹平分歧。"
+  },
+  "brief": "== 项目 ==\n学情预警系统 v3.0（本科毕设 + 答辩），作者单人开发、本机演示、约 8 周。论文题目《基于 RAG 与多智能体的学情预警与个性化学习管理系统的设计与实现》。\n\n== v3.0 目标（一句话） ==\n从「一份能讲清的报告」升级为「会自己查、会自己算、有记忆、能证明成效」的系统。\n\n== 硬约束 ==\n1) 单人、约 8 周、含论文与答辩；2) 全部本机运行（含本机 Dify），答辩现场可能断网；3) v2.0 代码与数据已定稿，不得改动，v3.0 只做增量；4) 前端无图表库，需自建；5) 不接受引入 LangChain4j 等重框架。\n\n== 已完成（v2.0 现状，事实） ==\n- 判定引擎 v2.1.0：riskScore = clamp100(max(clamp100(base×factor), guardFloor))，三通道 A/B/C，阈值 75/60/40 → 红橙黄绿；快照 + engine_version。\n- 实测 540 条判定（红 16 / 橙 3 / 黄 100 / 绿 421；524 行 C 通道 / 16 行 A）。\n- 6 个 AI 场景（报告/预警解释/班级报告/批改/答疑/问答），三层降级 Dify→直连→模板，三道闸门（结构 / 数字白名单 / 定向对账 14 条规则）。\n- RAG：MySQL ngram FULLTEXT + bge-m3 向量 + RRF(k=60) + 门控；64 例盲评 recall@4=1.0、MRR 0.9491、nDCG 0.9621、拒答 0.90、误拒 9.3%。\n- AI 批改 MAE 1.7 分（满分 70）；单元测试 25/25；越权 7/7 返回 400。\n\n== 已核实的问题（v2.0 遗留） ==\n1) course_factor 全 NULL（is_initialized=0），导致 C1 消融「历史挂科率」效应为 0；2) shrink_lambda 恒为 0.620、sample_size 全 45，收缩是假的；3) 学生姓名未拟真（135 人里只有 1 个非「学生N」）；4) 未做压力测试；5) 无 CI；6) 课程知识库仅 29 篇文档；7) 科目/课程无互斥约束。\n\n== v3.0 规划（53 项 / 约 46.5 人日，P0–P5） ==\n- P0 数据底座（6 人日）：修 course_factor、λ=n/(n+k) 生效、熔断案例、拟真名册 + 对照组 60:40、3 学期、重算流水线一条命令、回滚快照、校验脚本、CI 骨架、重跑 C1/C2 出对照。\n- P1 统计模块（7.75 人日）：物化 3 表 + 失效（engine_version/source_max_update_time/is_stale）、/api/stats 七接口、辅导员与教务两个看板、对照组对比、导出。\n- P2 Agent 平台化（19 人日）：ToolSpec（含 evidence_fields）→ 本地注册表；IntentRouter 规则优先 + AgentOrchestrator 固定流水；四角色 Planner/Executor/Critic/Writer；自适应 auto/2/4；Critic 最小证据集；EvidenceLedger（每个数字必须命中某步工具返回，未命中→一次重写→降级）；4 个核心智能体（Diagnostician 学情研判 / Reporter 报告撰写 / Grader 批改 / Tutor 答疑，后三个复用并改造 v2.0 场景）；记忆两级表 + 学生端可查可删；轨迹页；30 题评测集（期望数字由 SQL 生成）。\n- P3 Dify 第二实现（4.75 人日）：只给 Diagnostician 做 Dify Agent 版（同一 ToolSpec 生成 OpenAPI），共享 prompt，复用自研校验，30 题 parity。\n- P4 AI 亮点收口（约 8 人日）：干预草稿 + ai_draft_id 采纳追踪、记忆可查可删、RAG 评测看板、幻觉/降级看板、流式 SSE；可选 Coach/Steward 智能体、可选「受限群聊会诊视图」。\n- P5 文档答辩（3 人日）：v3.0 说明、PPT 增页、演示脚本、证据卡、提交包。\n\n== 不可重议（已拍板，不要建议推翻） ==\n1) 先修 course_factor；2) 保留「02 班最吃力 + 重修班黄灯多」叙事；3) 自研主线 + Dify 双实现（范围限定：只 Diagnostician 做 Dify 版）；4) 四角色编排 + 自适应 auto/2/4；5) 做记忆（两级、按类型可开关、学生可查可删）；6) 统计先辅导员 + 教务，教师端 v3.1；7) 关闭率分母＝周期内新增，复评窗口＝干预后 7 天；8) 期望数字由 SQL 生成，不手写；9) CI 本地八步，不上云；10) 证据台账 EvidenceLedger 为核心机制；11) 做对照组（延迟干预 40%）；12) 干预记 ai_draft_id；13) P0+P1 为最小可用集；14) 智能体之间不互相调用（路由分派 + 固定流水）；15) 冲突以证据台账为准，最终由人拍板。\n\n== 已知薄弱（作者自评） ==\n功能面已经比较细，但「不够全面」的感觉来自非功能需求与答辩风险：失败恢复、权限矩阵、可观测性、成本、并发、合规、论文相关工作对比。\n\n== 输出要求（每条建议必须满足） ==\n1) 必须可执行到你项目里的具体位置（SQL/接口/页面/脚本），不接受「建议加强」；\n2) 必须给「人日」且 ≤3（超过就写 >3 并说原因）；\n3) 必须标注是否会动上面的「不可重议」决策；\n4) 必须标注答辩价值 高/中/低；\n5) 优先给「不做/砍掉」的建议，其次才是新增。"
+}
