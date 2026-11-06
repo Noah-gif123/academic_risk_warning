@@ -14,7 +14,7 @@
 | v2.0 代码/数据 | 已完成，别再改（用户明确要求） |
 | v2.0 tag `v2.0.0` | 指向 `360c920`，**不要动** |
 | v2.0 Release | GitHub 上已发布 3 个（v1.0.0 / v1.1.0 / v2.0.0），**不要动** |
-| v3.0 规划 | 已完成：`v3.0/PLAN_v3.0.md`（终版 v3.0.3）+ `v3.0/word/v3.0规划清单.docx`（49 项） |
+| v3.0 规划 | 已完成：`v3.0/PLAN_v3.0.md`（终版 v3.0.4）+ `v3.0/word/v3.0规划清单.docx`（53 项 / 46.5 人日） |
 | v3.0 目录 | 已建骨架：backend / frontend / ai(dify) / sql(seeds) / tool / word / eval / evidence |
 | v3.0 代码 | **未开始** |
 
@@ -36,7 +36,10 @@
 | 关闭率分母 | **周期内新增预警**（同期新增中已关闭数 ÷ 周期内新增数） |
 | 复评窗口 | **干预后第 7 天**（<7 天不计改善；>14 天标「逾期未复评」） |
 | Dify | **本机部署**（复用 `v2.0/ai/dify`，端口 8090） |
-| Agent | 自研主线 + Dify 双实现；**四角色** Planner/Executor/Critic/Writer；自适应 `auto/2/4` |
+| Agent 路线 | **全自研为主**；仅 **Diagnostician 额外做 Dify 版**（Tutor 的检索段可复用 Dify 知识库）；其余不做 Dify 版 |
+| Agent 编排 | **四角色** Planner/Executor/Critic/Writer；自适应 `auto/2/4`；路由规则优先、未命中才问模型 |
+| 智能体清单 | 4 核心 = Diagnostician / Reporter / Grader / Tutor；2 可选 = Coach / Steward；**不做**「周报解读 Agent」 |
+| 冲突仲裁 | 智能体之间不互相调用；冲突**以证据台账为准**，最终由人拍板 |
 | 记忆 | 两级（摘要 + 事件流）、按事件类型可开关、**学生端可查可删** |
 | 统计看板 | 先 **辅导员 + 教务**；教师端 v3.1 |
 | 评测集 | 我起草工具链，用户复核；**期望数字由 SQL 生成**，不手写 |

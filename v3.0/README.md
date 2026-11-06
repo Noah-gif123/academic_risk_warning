@@ -30,6 +30,9 @@ v3.0/
 | 复评窗口 | 干预后第 7 天（<7 天不计改善，>14 天标逾期未复评） |
 | Dify 部署 | 本机（复用 `v2.0/ai/dify`，端口 8090） |
 | Agent 角色 | 四角色 Planner / Executor / Critic / Writer，支持自适应 2/4 |
+| 智能体清单 | 4 核心：Diagnostician / Reporter / Grader / Tutor；2 可选：Coach / Steward；不做「周报解读 Agent」 |
+| 实现归属 | 全自研为主；仅 Diagnostician 额外做 Dify 版（Tutor 检索段可复用 Dify KB）；其余不做 Dify 版 |
+
 | 记忆 | 按事件类型可开关；学生端可查可删 |
 | 看板范围 | 先辅导员 + 教务，教师端 v3.1 |
 
