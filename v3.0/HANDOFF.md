@@ -267,3 +267,15 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 
 > 对账：`verify_p2_4_6.ps1` **12/12 PASS**；P2-1~3 回归仍 **22/22 PASS**；`ci.ps1` **6/6 PASS（43s）**。
 > 阶段 1（P2-1~P2-6）完成；下一步 P2-7 Diagnostician（接 LLM 输出受限 JSON）。
+
+## 十七、P2-7~P2-10 记录（2026-11-08）
+
+| 项 | 改动 | 验证 |
+|---|---|---|
+| **P2-7 Diagnostician** | 新增 `agent/biz/DiagnosticianAgent` + `/api/agent/diagnose`：复用 P2-3 编排器（路由/工具/台账），输出 `{answer,intent,tools,evidence,ledger,refused,latencyMs}`；新增 30 题评测集 `eval/agent_cases_30.json` | 30/30 工具选择（100%）；P95 **86ms**（<8s）；契约字段齐全 |
+| **P2-8 Reporter** | 新增 `agent/biz/ReporterAgent` + `/api/agent/report`：复用 GroupReportService 三类报告，输出 sections/checksPassed/checksTotal/checks | class/201 6/6、offering/101 10/10、adminClass/1 6/6；0.06–0.11s（≤15s） |
+| **P2-9 Grader** | 新增 `agent/biz/GraderAgent` + `/api/agent/grade|grade/eval|grade/apply`：逐题评分、要点命中/缺失、人工改分替换旧分并重算总分 | 300 条作答 MAE **0.5**、max 1.0、within2 100%；改分 6→7→恢复 6，comment 留痕 |
+| **P2-10 Tutor** | 新增 `agent/biz/TutorAgent` + `/api/agent/tutor`：复用 RetrievalService 门控，输出答案 + citations(chunkId/docName/sectionNo/score) | 核心集 4/4 可答（12 条引用全部可定位）、2/2 拒答、误拒 0；60 题盲评留 P2-13 |
+
+> 契约文档：`v3.0/docs/agent_contracts.md`；对账：`verify_p2_7_10.ps1` **10/10 PASS**；回归 P2-1~3 22/22、P2-4~6 12/12、`ci.ps1` 6/6（41.7s）。
+> 边界：P2-7 选路为规则版、P2-9 评分为确定性基线、P2-10 为核心集；LLM 替换与 60 题盲评在 P2-13 完成。
