@@ -244,3 +244,15 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 
 > 对账：`verify_p2_0.ps1` **17/17 PASS**；重建后 `verify_data_v3` 43/43、`verify_stats` 22/22、`ci.ps1` 6/6 均 PASS。
 > P2-0a 结论：模型可达、延迟可接受，但**temperature=0 不保证逐字一致**；P2-13 评测需固定模型 + 多次运行/缓存，不能假设严格确定性。
+
+## 十五、P2-1/2/3 记录（2026-11-08）
+
+| 项 | 改动 | 验证 |
+|---|---|---|
+| **P2-1 ToolSpec** | 新增 `v2.0/backend/src/main/resources/ai/tools.yaml`（9 工具：统计/RAG/解释/记忆/草稿）与 `ToolSpecLoader`（启动校验必填/类型/枚举/范围/唯一性）；`GET /api/agent/tools`、`?format=openapi`（OpenAPI 3.0.3） | 9/9 工具 schema 完整；OpenAPI 生成 9 paths |
+| **P2-2 ToolRegistry** | 9 工具实现（统计复用 P1 StatsService/ScopeResolver，检索复用 RetrievalService；学生/班级范围校验；结果带 evidence/digest/bytes）；参数强校验、超时、结果摘要 | 9 工具均可调用；未知工具/类型错/缺必填/未知参数 100% 拦截；`getClassRiskStats` digest 稳定 |
+| **P2-3 执行器/路由** | `ToolCallExecutor` 四道检查（parse/whitelist/schema/budget）；`AgentOrchestrator`（路由→计划→受限 JSON 执行→草稿答案，步数预算 1–8）；`IntentRouter` 6 类规则 | 6/6 路由与工具链正确；同题 3 次工具链+digest 一致；四道检查逐项拦截；辅导员越权学生被 FORBIDDEN 阻断 |
+
+> 入口：`/api/agent/tools`、`/api/agent/intents`、`/api/agent/run`、`/api/agent/tool-call`（仅教务）、`/api/agent/execute-json`（仅教务）。
+> 对账：`verify_p2_1_3.ps1` **22/22 PASS**；`ci.ps1` 6/6 PASS（39.7s）。
+> 下一步：P2-4 四角色编排（P2-5 Critic、P2-6 EvidenceLedger 随之）。

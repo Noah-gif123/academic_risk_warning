@@ -1,0 +1,85 @@
+version: "1.0"
+description: "v3.0 Agent 工具白名单（P2-1）。所有工具只读，唯一例外 draftIntervention 只生成草稿不落库。"
+tools:
+  - name: getClassRiskStats
+    description: 班级/教学班当前风险统计（人数、红橙黄绿、红黄占比、预警数）
+    read_only: true
+    timeout_ms: 2500
+    evidence_fields: [termId, total, red, orange, yellow, green, riskRatio]
+    params:
+      termId: { type: integer, required: false, min: 1 }
+      teachingClassId: { type: integer, required: false, min: 1 }
+      adminClassId: { type: integer, required: false, min: 1 }
+
+  - name: getRiskTrend
+    description: 风险面与预警/干预的周趋势（默认最近 8 周，可指定 termId）
+    read_only: true
+    timeout_ms: 3000
+    evidence_fields: [termId, points]
+    params:
+      termId: { type: integer, required: false, min: 1 }
+      weeks: { type: integer, required: false, min: 1, max: 12 }
+
+  - name: getCourseCompare
+    description: 课程/教学班风险对比（当前快照，按班级聚合）
+    read_only: true
+    timeout_ms: 3000
+    evidence_fields: [termId, rows]
+    params:
+      termId: { type: integer, required: false, min: 1 }
+      topN: { type: integer, required: false, min: 1, max: 50 }
+
+  - name: getStudentRisk
+    description: 单个学生的风险分、等级、班级与关键指标
+    read_only: true
+    timeout_ms: 2500
+    evidence_fields: [studentId, termId, riskLevel, riskScore]
+    params:
+      studentId: { type: integer, required: true, min: 1 }
+      termId: { type: integer, required: false, min: 1 }
+
+  - name: getInterventions
+    description: 单个学生的干预记录与 T+7 复评结果
+    read_only: true
+    timeout_ms: 2500
+    evidence_fields: [studentId, termId, interventions]
+    params:
+      studentId: { type: integer, required: true, min: 1 }
+      termId: { type: integer, required: false, min: 1 }
+      limit: { type: integer, required: false, min: 1, max: 20 }
+
+  - name: retrieveCourseDocs
+    description: 在课程知识库中检索资料片段（带 chunkId，供引用）
+    read_only: true
+    timeout_ms: 2500
+    evidence_fields: [courseId, hits, gate]
+    params:
+      courseId: { type: integer, required: true, min: 1 }
+      query: { type: string, required: true, minLength: 2, maxLength: 200 }
+      topK: { type: integer, required: false, min: 1, max: 10 }
+
+  - name: getAlertExplain
+    description: 读取某条预警的解释卡（若未生成则返回 found=false）
+    read_only: true
+    timeout_ms: 2000
+    evidence_fields: [alertId, found]
+    params:
+      alertId: { type: integer, required: true, min: 1 }
+
+  - name: getStudentMemory
+    description: 读取学生画像摘要（P2-11 建表后生效；当前返回空 + 说明）
+    read_only: true
+    timeout_ms: 1500
+    evidence_fields: [studentId, items]
+    params:
+      studentId: { type: integer, required: true, min: 1 }
+
+  - name: draftIntervention
+    description: 生成干预草稿（只生成，不落库；必须人工确认后才能执行）
+    read_only: false
+    timeout_ms: 2000
+    evidence_fields: [studentId, draft]
+    params:
+      studentId: { type: integer, required: true, min: 1 }
+      reason: { type: string, required: true, minLength: 2, maxLength: 200 }
+      actionType: { type: string, required: false, enum: [TALK, PARENT, MEETING, OTHER] }
