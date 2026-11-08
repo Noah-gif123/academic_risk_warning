@@ -17,6 +17,7 @@ export const NAV = {
   ],
   COUNSELOR: [
     { text: '首页看板', path: '/counselor/home' },
+    { text: '统计看板', path: '/counselor/stats' },
     { text: '重点关注', path: '/counselor/focus' },
     { text: '班级管理', path: '/counselor/classes' },
     { text: '干预记录', path: '/counselor/interventions' },
@@ -27,6 +28,7 @@ export const NAV = {
   // 第二阶段补齐「规则配置」并上导航（判定口径的版本管理入口）
   ADMIN: [
     { text: '首页', path: '/admin/home' },
+    { text: '统计看板', path: '/admin/stats' },
     { text: '基础数据', path: '/admin/base' },
     { text: '排课与教学班', path: '/admin/offerings' },
     { text: '成绩构成', path: '/admin/schemes' },

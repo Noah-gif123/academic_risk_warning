@@ -36,6 +36,17 @@ public final class StatsVos {
         private Integer interventions;
         private Integer improved;
         private BigDecimal riskRatio;
+        private BigDecimal closeRate;
+        private BigDecimal avgHandleHours;
+        private HandleBuckets handleBuckets;
+    }
+
+    @Data
+    public static class HandleBuckets {
+        private Integer lt24;
+        private Integer h24to72;
+        private Integer gt72;
+        private Integer total;
     }
 
     /** trend：按自然周的过程事件序列（当前无风险历史快照，只做事件口径）。 */
@@ -54,6 +65,7 @@ public final class StatsVos {
         private Integer red;
         private Integer yellow;
         private java.math.BigDecimal riskRatio;
+        private Integer multiWarn;
     }
 
     /** distribution：当前风险分布（等级 / 课程 / 班级）。 */
@@ -62,6 +74,16 @@ public final class StatsVos {
         private Map<String, Integer> levels = new LinkedHashMap<>();
         private List<DistRow> byCourse = new ArrayList<>();
         private List<DistRow> byClass = new ArrayList<>();
+        private List<Calibration> calibration = new ArrayList<>();
+    }
+
+    @Data
+    public static class Calibration {
+        private Long courseId;
+        private String courseName;
+        private BigDecimal failRate;
+        private BigDecimal courseFactor;
+        private Boolean initialized;
     }
 
     @Data

@@ -273,6 +273,49 @@ public class StatsRepository {
         }
     }
 
+
+    // ============================================================ 看板补充（P1-5/6）
+    /** 关闭预警的处置时长分档与均值。 */
+    public Map<String, Object> handleStats(Scope scope, LocalDateTime start, LocalDateTime end) {
+        List<Object> args = new ArrayList<>();
+        args.add(scope.termId());
+        args.add(start);
+        args.add(end);
+        addScopeArgs(args, scope);
+        String sql = "select count(*) total,"
+                + " coalesce(sum(timestampdiff(minute, ar.create_time, ar.close_time) < 1440),0) lt24,"
+                + " coalesce(sum(timestampdiff(minute, ar.create_time, ar.close_time) between 1440 and 4320),0) h24to72,"
+                + " coalesce(sum(timestampdiff(minute, ar.create_time, ar.close_time) > 4320),0) gt72,"
+                + " coalesce(round(avg(timestampdiff(minute, ar.create_time, ar.close_time)) / 60, 1),0) avgHours"
+                + " from alert_record ar join student s on s.id = ar.student_id"
+                + " where ar.term_id = ? and ar.is_void = 0 and ar.close_time between ? and ? "
+                + scopeFilter(scope, "s");
+        return jdbc.queryForMap(sql, args.toArray());
+    }
+
+    /** 周期内被 >=2 门课程同时预警的学生数。 */
+    public int multiWarnStudents(Scope scope, LocalDateTime start, LocalDateTime end) {
+        List<Object> args = new ArrayList<>();
+        args.add(scope.termId());
+        args.add(start);
+        args.add(end);
+        addScopeArgs(args, scope);
+        String sql = "select count(*) from (select ar.student_id from alert_record ar"
+                + " join student s on s.id = ar.student_id"
+                + " where ar.term_id = ? and ar.is_void = 0 and ar.create_time between ? and ? "
+                + scopeFilter(scope, "s")
+                + " group by ar.student_id having count(distinct ar.course_id) >= 2) x";
+        return jdbc.queryForObject(sql, Integer.class, args.toArray());
+    }
+
+    /** 课程因子校准散点（挂科率 vs course_factor）。 */
+    public List<Map<String, Object>> calibration(long termId) {
+        String sql = "select c.id course_id, c.course_name, cfr.fail_rate, cfr.course_factor, cfr.is_initialized"
+                + " from course_fail_rate_history cfr join course c on c.id = cfr.course_id"
+                + " where cfr.term_id = ? order by c.id";
+        return jdbc.queryForList(sql, termId);
+    }
+
     // ============================================================ helpers
     private List<Object> trendArgs(Scope scope, LocalDateTime start, LocalDateTime end) {
         List<Object> args = new ArrayList<>();

@@ -62,6 +62,15 @@ public class StatsService {
         Map<String, Object> prevInterventions = repo.interventionAggregate(scope, period.prevStart(), period.prevEnd());
 
         StatsVos.Overview current = fillOverview(scope, risk, alerts, interventions);
+        Map<String, Object> handle = repo.handleStats(scope, period.start(), period.end());
+        current.setCloseRate(pct(i(alerts, "closedIn"), i(alerts, "newIn")));
+        current.setAvgHandleHours(dec(handle, "avgHours"));
+        StatsVos.HandleBuckets buckets = new StatsVos.HandleBuckets();
+        buckets.setLt24(i(handle, "lt24"));
+        buckets.setH24to72(i(handle, "h24to72"));
+        buckets.setGt72(i(handle, "gt72"));
+        buckets.setTotal(i(handle, "total"));
+        current.setHandleBuckets(buckets);
         StatsVos.Overview previous = new StatsVos.Overview();
         previous.setTermName(scope.termName());
         previous.setAlertNew(i(prevAlerts, "newIn"));
@@ -128,6 +137,7 @@ public class StatsService {
             p.setAlertClosed(0);
             p.setInterventions(0);
             p.setImproved(0);
+            p.setMultiWarn(repo.multiWarnStudents(scope, week.atStartOfDay(), week.plusDays(7).atStartOfDay()));
             points.put(p.getWeekStart(), p);
         }
         mergeWeekly(points, repo.alertCreatedByWeek(scope, start, end), "alertNew");
@@ -191,6 +201,17 @@ public class StatsService {
             r.setGreen(i(row, "green"));
             r.setTotal(i(row, "total"));
             d.getByClass().add(r);
+        }
+        for (Map<String, Object> row : repo.calibration(scope.termId())) {
+            StatsVos.Calibration cal = new StatsVos.Calibration();
+            cal.setCourseId(row.get("course_id") == null ? null : ((Number) row.get("course_id")).longValue());
+            cal.setCourseName(String.valueOf(row.get("course_name")));
+            cal.setFailRate(dec(row, "fail_rate"));
+            cal.setCourseFactor(dec(row, "course_factor"));
+            Object init = row.get("is_initialized");
+            cal.setInitialized(init != null && ((init instanceof Boolean && (Boolean) init)
+                    || (init instanceof Number && ((Number) init).intValue() == 1)));
+            d.getCalibration().add(cal);
         }
         StatsEnvelope<StatsVos.Distribution> envelope = StatsEnvelope.ok(d);
         envelope.setSampleSize(i(risk, "total"));

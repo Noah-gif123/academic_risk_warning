@@ -42,6 +42,7 @@ const routes = [
 
   { path: '/counselor', component: () => import('../layouts/PortLayout.vue'), props: { role: 'COUNSELOR' }, children: [
     { path: 'home', component: () => import('../pages/counselor/Home.vue'), meta: { title: '首页看板' } },
+    { path: 'stats', component: () => import('../pages/counselor/Stats.vue'), meta: { title: '统计看板' } },
     { path: 'notifications', component: () => import('../pages/NotificationCenter.vue'), meta: { title: '消息中心' } },
     { path: 'focus', component: () => import('../pages/counselor/Focus.vue'), meta: { title: '重点关注' } },
     { path: 'classes', component: () => import('../pages/counselor/Classes.vue'), meta: { title: '班级管理' } },
@@ -53,6 +54,7 @@ const routes = [
 
   { path: '/admin', component: () => import('../layouts/PortLayout.vue'), props: { role: 'ADMIN' }, children: [
     { path: 'home', component: () => import('../pages/admin/Home.vue'), meta: { title: '首页' } },
+    { path: 'stats', component: () => import('../pages/admin/Stats.vue'), meta: { title: '统计看板' } },
     { path: 'notifications', component: () => import('../pages/NotificationCenter.vue'), meta: { title: '消息中心' } },
     { path: 'base', component: () => import('../pages/admin/BaseData.vue'), meta: { title: '基础数据' } },
     { path: 'offerings', component: () => import('../pages/admin/Offerings.vue'), meta: { title: '排课与教学班' } },
