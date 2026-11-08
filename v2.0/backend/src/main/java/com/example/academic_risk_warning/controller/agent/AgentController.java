@@ -1,8 +1,10 @@
 package com.example.academic_risk_warning.controller.agent;
 
 import com.example.academic_risk_warning.agent.AgentOrchestrator;
+import com.example.academic_risk_warning.agent.CriticRules;
 import com.example.academic_risk_warning.agent.IntentRouter;
 import com.example.academic_risk_warning.agent.exec.ToolCallExecutor;
+import com.example.academic_risk_warning.agent.ledger.EvidenceLedger;
 import com.example.academic_risk_warning.agent.tool.ToolContext;
 import com.example.academic_risk_warning.agent.tool.ToolRegistry;
 import com.example.academic_risk_warning.agent.tool.ToolResult;
@@ -39,6 +41,8 @@ public class AgentController {
     private final ToolRegistry registry;
     private final AgentOrchestrator orchestrator;
     private final ToolCallExecutor executor;
+    private final EvidenceLedger ledger;
+    private final CriticRules criticRules;
     private final ObjectMapper json = new ObjectMapper();
 
     /** 工具清单；format=openapi 时返回 OpenAPI 3 文档。 */
@@ -71,8 +75,62 @@ public class AgentController {
         }
         Integer maxSteps = body.get("maxSteps") == null ? null : ((Number) body.get("maxSteps")).intValue();
         Long termId = body.get("termId") == null ? null : ((Number) body.get("termId")).longValue();
+        String mode = body.get("mode") == null ? "auto" : String.valueOf(body.get("mode"));
         LoginUser user = UserContext.require();
-        return Result.ok(orchestrator.run(question, new ToolContext(user, termId), maxSteps));
+        return Result.ok(orchestrator.run(question, new ToolContext(user, termId), maxSteps, mode));
+    }
+
+    /** 台账查询（仅教务，P2-6 落库校验）。 */
+    @GetMapping("/ledger")
+    @RequireRole("ADMIN")
+    public Result<List<EvidenceLedger.Entry>> ledger(@RequestParam String runKey) {
+        return Result.ok(ledger.entries(runKey));
+    }
+
+    /** 台账校验：答案中的数字是否命中（仅教务）。 */
+    @PostMapping("/ledger/validate")
+    @RequireRole("ADMIN")
+    public Result<EvidenceLedger.Validation> ledgerValidate(@RequestBody Map<String, Object> body) {
+        String runKey = body.get("runKey") == null ? "" : String.valueOf(body.get("runKey"));
+        String answer = body.get("answer") == null ? "" : String.valueOf(body.get("answer"));
+        if (runKey.isEmpty()) {
+            throw new BizException(400, "runKey 不能为空");
+        }
+        return Result.ok(ledger.validate(runKey, answer));
+    }
+
+    /** 台账一次重写/降级演练（仅教务）。 */
+    @PostMapping("/ledger/repair")
+    @RequireRole("ADMIN")
+    public Result<EvidenceLedger.Repair> ledgerRepair(@RequestBody Map<String, Object> body) {
+        String runKey = body.get("runKey") == null ? "" : String.valueOf(body.get("runKey"));
+        String answer = body.get("answer") == null ? "" : String.valueOf(body.get("answer"));
+        if (runKey.isEmpty()) {
+            throw new BizException(400, "runKey 不能为空");
+        }
+        return Result.ok(ledger.repair(runKey, answer));
+    }
+
+    /** Critic 规则测试：最小证据集 + 空转检测（仅教务）。 */
+    @PostMapping("/critic")
+    @RequireRole("ADMIN")
+    public Result<CriticRules.Result> critic(@RequestBody Map<String, Object> body) {
+        String intent = body.get("intent") == null ? "CLASS_STATS" : String.valueOf(body.get("intent"));
+        List<CriticRules.ToolRun> runs = new ArrayList<>();
+        Object steps = body.get("steps");
+        if (steps instanceof List<?> list) {
+            for (Object o : list) {
+                if (!(o instanceof Map<?, ?> m)) {
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
+                Map<String, Object> args = m.get("args") instanceof Map ? (Map<String, Object>) m.get("args") : Map.of();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> evidence = m.get("evidence") instanceof Map ? (Map<String, Object>) m.get("evidence") : Map.of();
+                runs.add(new CriticRules.ToolRun(String.valueOf(m.get("tool")), args, evidence));
+            }
+        }
+        return Result.ok(criticRules.evaluate(intent, runs));
     }
 
     /** 直接执行一个工具（测试/调试，仅教务）。 */

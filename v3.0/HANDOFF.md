@@ -256,3 +256,14 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 > 入口：`/api/agent/tools`、`/api/agent/intents`、`/api/agent/run`、`/api/agent/tool-call`（仅教务）、`/api/agent/execute-json`（仅教务）。
 > 对账：`verify_p2_1_3.ps1` **22/22 PASS**；`ci.ps1` 6/6 PASS（39.7s）。
 > 下一步：P2-4 四角色编排（P2-5 Critic、P2-6 EvidenceLedger 随之）。
+
+## 十六、P2-4/5/6 记录（2026-11-08）
+
+| 项 | 改动 | 验证 |
+|---|---|---|
+| **P2-4 四角色/自适应** | `AgentOrchestrator` 增加 Planner/Executor/Critic/Writer 角色与 `mode=auto|2|4`；单轮工具步数 ≤ maxSteps（默认 4）；auto 简单意图 2 角色、复杂意图 4 角色 | 固定 4 角色 6/6、固定 2 角色 6/6；auto 16 vs 固定 24（**−33.3%**）；auto 质量不降（ledger=1.0、coverage=1.0）；单轮步数 1,1,1,1,2,1 |
+| **P2-5 Critic** | `CriticRules`：6 意图最小证据集 + 连续同工具同参空转检测；缺证据/空转时要求取证而非硬答 | 10 例信息不足 **10/10** 正确要求取证；空转检测 PASS |
+| **P2-6 EvidenceLedger** | `54_ai_evidence_ledger.sql` 落库；`EvidenceLedger` 入账/校验/一次重写/降级；`/api/agent/ledger`、`/ledger/validate`、`/ledger/repair`（仅教务） | 台账 entries=8、正常答案 hitRate=1.0；假数字 `999999` 未命中可检出；重写后 secondMisses=0；空台账降级=True |
+
+> 对账：`verify_p2_4_6.ps1` **12/12 PASS**；P2-1~3 回归仍 **22/22 PASS**；`ci.ps1` **6/6 PASS（43s）**。
+> 阶段 1（P2-1~P2-6）完成；下一步 P2-7 Diagnostician（接 LLM 输出受限 JSON）。

@@ -1,6 +1,7 @@
 package com.example.academic_risk_warning.agent;
 
 import com.example.academic_risk_warning.agent.exec.ToolCallExecutor;
+import com.example.academic_risk_warning.agent.ledger.EvidenceLedger;
 import com.example.academic_risk_warning.agent.tool.ToolContext;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -15,10 +16,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * P2-3 极简 AgentOrchestrator：路由 → 计划 → 受限 JSON 执行（步数预算）。
+ * P2-3/4/5/6 编排器：路由 → 计划 → 受限 JSON 执行 → Critic → Writer + 台账。
  *
- * <p>本阶段只做确定性工具链（Planner/Executor 合一），为 P2-4 四角色与 P2-6 台账提供骨架；
- * 同题多次执行结果一致（无随机、无模型调用）。</p>
+ * <p>角色：Planner / Executor / Critic / Writer。模式：
+ * <ul>
+ *   <li>mode=4：固定 4 角色；</li>
+ *   <li>mode=2：固定 2 角色（Planner+Executor，Writer/校验仍内部执行）；</li>
+ *   <li>mode=auto（默认）：简单意图 2 角色、复杂意图（干预/课程问答/多步）4 角色。</li>
+ * </ul>
+ * 单轮工具步数 ≤ maxSteps（默认 4）。Writer 的每个数字必须命中 P2-6 台账；
+ * 未命中重写一次，仍失败则降级。</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -26,6 +33,8 @@ public class AgentOrchestrator {
 
     private final IntentRouter router;
     private final ToolCallExecutor executor;
+    private final CriticRules criticRules;
+    private final EvidenceLedger ledger;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json = new ObjectMapper();
 
@@ -33,19 +42,40 @@ public class AgentOrchestrator {
                        long elapsedMs, String digest, Map<String, Object> evidence) {
     }
 
+    public record RoleCall(String role, String detail, boolean ok) {
+    }
+
+    public record LedgerInfo(String runKey, int entries, int numbers, int hits, int misses,
+                             double hitRate, boolean rewritten, boolean degraded, String finalDraft) {
+    }
+
     public record RunResult(String question, String intent, String intentLabel, String routeMethod,
-                            double confidence, int maxSteps, int usedSteps, boolean blocked,
-                            String blockedReason, List<Step> steps, String answerDraft, long elapsedMs) {
+                            double confidence, String mode, int maxSteps, int usedSteps, boolean blocked,
+                            String blockedReason, List<Step> steps, List<RoleCall> roles, int roleCalls,
+                            LedgerInfo ledger, CriticRules.Result critic, Map<String, Object> quality,
+                            String answerDraft, long elapsedMs) {
     }
 
     private record Plan(String tool, Map<String, Object> args) {
     }
 
     public RunResult run(String question, ToolContext ctx, Integer maxStepsArg) {
+        return run(question, ctx, maxStepsArg, "auto");
+    }
+
+    public RunResult run(String question, ToolContext ctx, Integer maxStepsArg, String modeArg) {
         long t0 = System.currentTimeMillis();
         int maxSteps = maxStepsArg == null ? 4 : Math.max(1, Math.min(8, maxStepsArg));
+        String mode = (modeArg == null || modeArg.isBlank()) ? "auto" : modeArg.trim().toLowerCase();
         IntentRouter.RouteResult route = router.route(question);
         List<Plan> plans = plan(question, route.intent(), ctx);
+        boolean complex = route.intent() == IntentRouter.Intent.INTERVENTION
+                || route.intent() == IntentRouter.Intent.COURSE_QA || plans.size() > 1;
+        boolean fourRoles = "4".equals(mode) || ("auto".equals(mode) && complex);
+        String runKey = ledger.newRunKey();
+        List<RoleCall> roles = new ArrayList<>();
+        roles.add(new RoleCall("PLANNER", "plan=" + plans.stream().map(Plan::tool).toList(), true));
+
         List<Step> steps = new ArrayList<>();
         boolean blocked = false;
         String blockedReason = null;
@@ -53,7 +83,7 @@ public class AgentOrchestrator {
         for (Plan plan : plans) {
             if (used >= maxSteps) {
                 blocked = true;
-                blockedReason = "步数预算已用尽（" + maxSteps + "）";
+                blockedReason = "STEP_BUDGET_EXCEEDED：步数预算 " + maxSteps;
                 break;
             }
             String raw;
@@ -64,11 +94,14 @@ public class AgentOrchestrator {
                 raw = json.writeValueAsString(call);
             } catch (Exception e) {
                 blocked = true;
-                blockedReason = "工具调用序列化失败：" + e.getMessage();
+                blockedReason = "SERIALIZE_ERROR：" + e.getMessage();
                 break;
             }
             ToolCallExecutor.Outcome out = executor.execute(raw, ctx, used, maxSteps);
             used = out.usedStepsAfter();
+            if (out.ok()) {
+                ledger.record(runKey, steps.size() + 1, out.tool(), out.result().getEvidence());
+            }
             steps.add(new Step(steps.size() + 1, out.tool(), out.args(), out.ok(),
                     out.result().getErrorCode(), out.result().getElapsedMs(), out.result().getDigest(),
                     out.result().getEvidence()));
@@ -78,10 +111,32 @@ public class AgentOrchestrator {
                 break;
             }
         }
+        roles.add(new RoleCall("EXECUTOR", "steps=" + steps.size() + ", used=" + used, !blocked));
+
+        CriticRules.Result critic = null;
+        if (fourRoles) {
+            critic = criticRules.evaluate(route.intent().name(), toolRuns(steps));
+            roles.add(new RoleCall("CRITIC", critic.message(), critic.passed()));
+            if (!critic.passed() && !blocked) {
+                blocked = true;
+                blockedReason = "CRITIC_ASK_EVIDENCE：" + critic.message();
+            }
+        }
+
+        String draft = blocked ? blockedDraft(blockedReason, critic) : buildDraft(steps);
+        LedgerInfo ledgerInfo = applyLedger(runKey, draft);
+        draft = ledgerInfo.finalDraft();
+        if (!blocked && ledgerInfo.degraded()) {
+            blocked = true;
+            blockedReason = "LEDGER_DEGRADED：数字未完全入账";
+        }
+        if (fourRoles) {
+            roles.add(new RoleCall("WRITER", "ledgerHit=" + ledgerInfo.hitRate(), !ledgerInfo.degraded()));
+        }
+        Map<String, Object> quality = quality(route.intent().name(), steps, ledgerInfo);
         return new RunResult(question, route.intent().name(), route.intent().label(), route.method(),
-                route.confidence(), maxSteps, used, blocked, blockedReason, steps,
-                draft(route.intent(), steps, blocked, blockedReason),
-                System.currentTimeMillis() - t0);
+                route.confidence(), mode, maxSteps, used, blocked, blockedReason, steps, roles,
+                roles.size(), ledgerInfo, critic, quality, draft, System.currentTimeMillis() - t0);
     }
 
     private List<Plan> plan(String question, IntentRouter.Intent intent, ToolContext ctx) {
@@ -100,6 +155,68 @@ public class AgentOrchestrator {
             default -> plans.add(new Plan("getClassRiskStats", Map.of()));
         }
         return plans;
+    }
+
+    private List<CriticRules.ToolRun> toolRuns(List<Step> steps) {
+        List<CriticRules.ToolRun> out = new ArrayList<>();
+        for (Step s : steps) {
+            out.add(new CriticRules.ToolRun(s.tool(), s.args(), s.evidence()));
+        }
+        return out;
+    }
+
+    private String buildDraft(List<Step> steps) {
+        Map<String, Object> merged = new LinkedHashMap<>();
+        for (Step s : steps) {
+            if (s.evidence() != null) {
+                merged.putAll(s.evidence());
+            }
+        }
+        StringBuilder sb = new StringBuilder("根据工具证据：");
+        int n = 0;
+        for (Map.Entry<String, Object> e : merged.entrySet()) {
+            Object v = e.getValue();
+            if (v == null || v instanceof Map || v instanceof List) {
+                continue;
+            }
+            if (n++ > 0) {
+                sb.append("，");
+            }
+            sb.append(e.getKey()).append('=').append(v);
+        }
+        return sb.toString();
+    }
+
+    private String blockedDraft(String reason, CriticRules.Result critic) {
+        if (critic != null && critic.asksEvidence()) {
+            return "证据不足，暂不能给出结论。需要补充：" +
+                    (critic.missing().isEmpty() ? "可用工具证据" : String.join(",", critic.missing()));
+        }
+        return "本轮未能完成： " + (reason == null ? "未知原因" : reason);
+    }
+
+    private LedgerInfo applyLedger(String runKey, String draft) {
+        EvidenceLedger.Repair repair = ledger.repair(runKey, draft);
+        EvidenceLedger.Validation v = repair.second();
+        return new LedgerInfo(runKey, v.entries(), v.numbers().size(), v.hits().size(), v.misses().size(),
+                v.hitRate(), repair.rewritten(), repair.degraded(), repair.finalAnswer());
+    }
+
+    private Map<String, Object> quality(String intent, List<Step> steps, LedgerInfo li) {
+        Map<String, Object> merged = new LinkedHashMap<>();
+        for (Step s : steps) {
+            if (s.evidence() != null) {
+                merged.putAll(s.evidence());
+            }
+        }
+        java.util.Set<String> required = criticRules.requiredKeys(intent);
+        long present = required.stream().filter(merged::containsKey).count();
+        double coverage = required.isEmpty() ? 1.0 : (double) present / required.size();
+        Map<String, Object> q = new LinkedHashMap<>();
+        q.put("requiredCoverage", Math.round(coverage * 10000.0) / 10000.0);
+        q.put("ledgerHitRate", li.hitRate());
+        q.put("stepCount", steps.size());
+        return q;
     }
 
     private long studentId(String question) {
@@ -126,31 +243,5 @@ public class AgentOrchestrator {
             }
         }
         return 4L;
-    }
-
-    private String draft(IntentRouter.Intent intent, List<Step> steps, boolean blocked, String reason) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("意图：").append(intent.label()).append("；");
-        sb.append("已执行 ").append(steps.size()).append(" 个工具。");
-        if (!steps.isEmpty()) {
-            Step last = steps.get(steps.size() - 1);
-            sb.append("关键证据：").append(evidenceText(last.evidence()));
-        }
-        if (blocked) {
-            sb.append("（已阻断：").append(reason).append("）");
-        }
-        return sb.toString();
-    }
-
-    private String evidenceText(Map<String, Object> evidence) {
-        if (evidence == null || evidence.isEmpty()) {
-            return "无";
-        }
-        StringBuilder sb = new StringBuilder();
-        evidence.forEach((k, v) -> {
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(k).append('=').append(v);
-        });
-        return sb.length() > 220 ? sb.substring(0, 219) + "…" : sb.toString();
     }
 }
