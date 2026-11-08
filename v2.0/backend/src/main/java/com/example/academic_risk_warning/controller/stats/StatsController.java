@@ -4,6 +4,7 @@ import com.example.academic_risk_warning.common.Result;
 import com.example.academic_risk_warning.security.LoginUser;
 import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
+import com.example.academic_risk_warning.service.stats.StatsExcelExporter;
 import com.example.academic_risk_warning.service.stats.StatsService;
 import com.example.academic_risk_warning.vo.stats.StatsEnvelope;
 import com.example.academic_risk_warning.vo.stats.StatsQuery;
@@ -35,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 public class StatsController {
 
     private final StatsService statsService;
+    private final StatsExcelExporter excelExporter;
 
     /** 总览：当前风险面 + 周期内新增/关闭/干预。 */
     @GetMapping("/overview")
@@ -109,18 +111,41 @@ public class StatsController {
         return Result.ok(statsService.recompute(termId));
     }
 
-    /** 导出 CSV：type = overview（默认）/ distribution / compare，数字与对应接口一致。 */
+    /** 导出：type = overview（默认）/ distribution / compare；format = csv（默认）/ xlsx。 */
     @GetMapping("/export")
     public ResponseEntity<byte[]> export(
             @RequestParam(required = false, defaultValue = "overview") String type,
+            @RequestParam(required = false, defaultValue = "csv") String format,
             @RequestParam(required = false) Long termId,
             @RequestParam(required = false, defaultValue = "week") String period,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
         LoginUser user = UserContext.require();
-        String csv = statsService.exportCsv(user, query(termId, period, startDate, endDate), type);
+        StatsQuery q = query(termId, period, startDate, endDate);
+        String t = type == null ? "overview" : type.trim().toLowerCase();
+        if ("xlsx".equalsIgnoreCase(format)) {
+            byte[] body;
+            switch (t) {
+                case "distribution":
+                    body = excelExporter.distribution(statsService.distribution(user, q));
+                    break;
+                case "compare":
+                    body = excelExporter.compare(statsService.compare(user, q));
+                    break;
+                default:
+                    body = excelExporter.overview(statsService.overview(user, q));
+                    break;
+            }
+            String name = "stats_" + t + ".xlsx";
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .header("Content-Disposition", "attachment; filename=\"" + name + "\"")
+                    .body(body);
+        }
+        String csv = statsService.exportCsv(user, q, type);
         byte[] body = ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
-        String fileName = "stats_" + (type == null ? "overview" : type) + ".csv";
+        String fileName = "stats_" + t + ".csv";
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
                 .header("Content-Disposition", "attachment; filename=\"" + fileName + "\"")

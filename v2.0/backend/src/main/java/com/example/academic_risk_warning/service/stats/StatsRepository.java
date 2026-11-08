@@ -260,11 +260,14 @@ public class StatsRepository {
         if (scope.classIds().isEmpty()) {
             return " and 1 = 0 ";
         }
-        StringBuilder sb = new StringBuilder(" and ").append(alias).append(".teaching_class_id in (");
+        // counselor_class 给的是行政班 ID；stat 表存教学班 ID，经 enrollment→student 映射
+        StringBuilder sb = new StringBuilder(" and ").append(alias)
+                .append(".teaching_class_id in (select e.teaching_class_id from enrollment e")
+                .append(" join student st on st.id = e.student_id where st.admin_class_id in (");
         for (int i = 0; i < scope.classIds().size(); i++) {
             sb.append(i == 0 ? "?" : ", ?");
         }
-        return sb.append(") ").toString();
+        return sb.append(")) ").toString();
     }
 
     private void addClassScopeArgs(List<Object> args, Scope scope) {

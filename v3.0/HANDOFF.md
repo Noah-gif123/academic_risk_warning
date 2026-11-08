@@ -7,7 +7,7 @@
 
 ## 一、当前状态（一句话）
 
-**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 P0 数据底座已完成（P0-1~P0-8，P0-7 部分达标如实标注）；P1 进行中：仅 P1-4（stats 模块 + /api/stats 七接口）完成，P1 其余任务未做。**
+**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 P0 数据底座已完成（P0-1~P0-8，P0-7 部分达标如实标注）；P1 统计模块已完成（P1-1 ~ P1-9 + 隐藏前置 P1-0；含看板、口径、导出、对账、证据卡）。**
 
 | 项 | 状态 |
 |---|---|
@@ -16,7 +16,7 @@
 | v2.0 Release | GitHub 上已发布 3 个（v1.0.0 / v1.1.0 / v2.0.0），**不要动** |
 | v3.0 规划 | 已完成：`v3.0/PLAN_v3.0.md`（**终版 v3.0.5**）+ `v3.0/word/v3.0规划清单.docx`（**56 项 / 49.5 人日，11 页**） |
 | v3.0 目录 | 已建骨架：backend / frontend / ai(dify) / sql(seeds) / tool / word / eval / evidence |
-| v3.0 代码 | **P0-1 ~ P0-8 完成**（2026-11-08；P0-7 部分达标）；**P1-4 完成**（stats 模块 /api/stats 七接口）；P1 其余未做；见 §十、§十二 |
+| v3.0 代码 | **P0-1 ~ P0-8 完成**（2026-11-08；P0-7 部分达标）；**P1-1 ~ P1-9 完成**（统计模块/看板/对账/证据卡）；见 §十、§十二 |
 
 ## 二、推送规则（务必遵守）
 
@@ -213,3 +213,6 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 | **P1-3**（完成，2026-11-08） | 新增 `service/stats/StatsMaterializer`：日快照 upsert（`stat_daily_class`）、周 KPI（close_rate/avg_handle_hours/improve_rate/risk_ratio，`stat_weekly_kpi`）、干预成效（周×教学班×cohort，`stat_intervention_effect`）；engine_version/source_max_update_time 落后或 `is_stale=1` 时读取前自动重算；每日 02:10 定时 + `POST /api/stats/recompute`（仅教务）；P1-4 接口升级：overview 输出 previous/deltaRate（风险面百分点）、trend 增加红/黄/占比/改善数、effect 改为 T+7 等级口径 + TREAT/CONTROL 对比 | pipeline 新增 2.6 物化步（0.4s）；recompute 返回 `daily=50, weeks=36, effects=328`；overview `OK` riskRatio=34.35、deltaRate=−6.08pp、stale=false；trend `OK` 8 周含风险面与改善；effect `OK` TREAT 54.18% vs CONTROL 24.64%、diffPp=29.54、due=510；stale 测试：手工置 500 行 `is_stale=1` → GET overview 自动重算回 0；ci.ps1 **5/5 PASS** | 周 KPI 目前仅 scope=ALL；stat 表未带 term_id（单学期演示假设）；P1-4 实时查询与物化读取并存，P1-5/6 统一用物化；previous 取上一自然周最后快照 |
 | **P1-5**（完成，2026-11-08） | 新增 `pages/counselor/Stats.vue` + `api/stats.js` + 自研 SVG 组件（StatCard/InfoTooltip/TrendChart/BarChart/FunnelChart/StackedBars）；导航与路由加「统计看板」；5 图：班级风险趋势（红黄占比+新增预警）、多门预警学生变化、干预成效漏斗、TREAT/CONTROL 对照组对比、班级风险堆叠对比；支持 学期/月/周 切换、刷新、CSV 导出；每图带口径气泡 | `npm run build` 通过（2.94s）；接口驱动数据：riskRatio 34.35%、multiWarn 11、TREAT 54.18% vs CONTROL 24.64%（diff 29.54pp）、funnel 662→530→363→530→214；辅导员范围 C001 1222 人；图表零依赖（echarts 本机 npm 不可用，改自研 SVG） | 未接浏览器截图（P1-9 补）；趋势/漏斗状态以接口 dataStatus 为准；前端依赖后端已启动（18084） |
 | **P1-6**（完成，2026-11-08） | 新增 `pages/admin/Stats.vue` + `ScatterPlot.vue`；导航与路由加「统计看板」；5 图：预警关闭率/平均处置时长/红黄占比/干预改善率 KPI、课程集中风险 Top5、课程因子校准散点（fail_rate vs course_factor）、处置时效分档分布、课程风险堆叠；AI 质量卡占位（P2 接入）；教务可手动「重算」调用 `/api/stats/recompute` + CSV 导出 | `npm run build` 通过；接口实测 closeRate=54.83%、avgHandleHours=185.20、buckets 0/29/334、calibration 9 门课（如 大学计算机基础 failRate 6.17 → factor 1.01）、课程分布 9 门；重算按钮走 P1-3 物化 | 校准散点为全校口径（未按辅导员裁剪）；处置分档 lt24=0 是演示数据 handle 延迟 2–72h 所致；AI 质量卡仅占位 |
+| **P1-7**（完成，2026-11-08） | 新增 `StatsExcelExporter`（POI）与 `/api/stats/export?format=xlsx`；看板每图接入 `InfoTooltip`（定义 + SQL）；CSV/XLSX 与接口同源数据 | 每图可点开口径气泡；CSV 与接口数字一致（verify_stats 内校验）；XLSX PK 头、~3.9KB 可下载 | 前端未引图表库（自研 SVG）；气泡为静态文案 + SQL，未从后端动态取 SQL 文本 |
+| **P1-8**（完成，2026-11-08） | 新增 `v3.0/tool/verify_stats.ps1`：起后端（18085）→ 7 接口取数 → SQL 逐项对照 → 401/403 → 导出校验 → 写 `evidence/verify_stats.md`，失败非零退出；`ci.ps1` 增加第 6 步 `stats-verify` | `verify_stats.ps1` **11/11 PASS**；`ci.ps1` **6/6 PASS（35.7s）**：compile/unit-tests/data-verify/report-audit/baseline-diff/stats-verify | 对账覆盖 7 接口 + 权限 + 导出；未覆盖前端 DOM 数字（由截图人工核对） |
+| **P1-9**（完成，2026-11-08） | 新增 `v3.0/evidence/P1.md`：五指标实测、P1-0/2/3 数据底座、验收对照、复现命令、限制；新增 `evidence/screenshots/admin_stats.png`、`counselor_stats.png`（Chrome headless CDP 注入登录态截取） | 教务 5 图 + 辅导员 5 图截图可复核；对照组差值 29.54pp（全校）/32.93pp（C001）；CI 证据 `ci_report.md`、对账 `verify_stats.md` | 截图为 1280×900 首屏（班级对比图在折叠下方）；数据为演示构造，需在论文标注准实验边界 |

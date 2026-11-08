@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  v3.0 本地一键 CI（P0-8）：编译 → 单测 → 数据校验 → 报告对账（+ 基线 diff）。
+  v3.0 本地一键 CI（P0-8 + P1-8）：编译 → 单测 → 数据校验 → 报告对账 → 基线 diff → 统计对账。
 
 .DESCRIPTION
   本地门禁脚本（不上云）。任一步失败以非零退出码结束，输出 v3.0/tool/ci_report.md。
@@ -214,6 +214,22 @@ if (-not $SkipBaseline -and (Test-Path -LiteralPath $baselinePath)) {
 } else {
     Write-Host "== 跳过基线 diff（-SkipBaseline 或无 baseline.json）"
 }
+
+# ============================================================ 6) 统计对账（P1-8）
+Write-Step "6/6 统计对账（P1-8）"
+$sw = [Diagnostics.Stopwatch]::StartNew()
+$statsOk = $false
+$statsDetail = ''
+try {
+    $statsOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $v3Dir 'tool\verify_stats.ps1') -Db $Db -TermId $TermId 2>&1
+    $statsOk = ($LASTEXITCODE -eq 0)
+    $statsDetail = (($statsOut | Select-Object -Last 1) -join ' ')
+} catch {
+    $statsOk = $false
+    $statsDetail = $_.Exception.Message
+}
+$sw.Stop()
+Add-Step 'stats-verify' $statsOk $statsDetail $sw.Elapsed.TotalSeconds
 
 # ============================================================ 汇总 + 报告
 $total.Stop()
