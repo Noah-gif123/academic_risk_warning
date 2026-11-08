@@ -1,0 +1,72 @@
+{
+  "format": "v3-seed-params/1",
+  "comment": "P0-4 拟真数据生成器参数（v3.0 独立库；v2.0 演示库不动）",
+  "seed": 20261108,
+  "db": "study_warning_system_v3",
+  "terms": {
+    "current": {
+      "id": 5,
+      "code": "2026-2027-1",
+      "name": "2026-2027学年-第1学期",
+      "startDate": "2026-09-01",
+      "endDate": "2026-12-20",
+      "isCurrent": 1
+    },
+    "history": [
+      { "id": 2, "code": "2024-2025-1", "name": "2024-2025学年-第1学期", "startDate": "2024-09-02", "endDate": "2024-12-22" },
+      { "id": 3, "code": "2024-2025-2", "name": "2024-2025学年-第2学期", "startDate": "2025-02-24", "endDate": "2025-07-06" },
+      { "id": 4, "code": "2025-2026-2", "name": "2025-2026学年-第2学期", "startDate": "2026-02-23", "endDate": "2026-07-05" }
+    ]
+  },
+  "teachers": {
+    "count": 14,
+    "names": ["李兑", "王仝", "张里", "马思国", "旁云", "赵明", "孙丽", "周强", "吴静", "郑敏", "冯磊", "陈艳", "褚杰", "卫芳"]
+  },
+  "courses": [
+    { "key": "A", "id": 1,  "offeringId": 101, "schemeId": 601, "name": "大学计算机基础（一）", "type": "EXAM",   "weeks": 12, "credit": 2.0, "schemeTemplate": "A", "teacherCount": 2 },
+    { "key": "B", "id": 4,  "offeringId": 102, "schemeId": 602, "name": "高等数学（一）",       "type": "EXAM",   "weeks": 16, "credit": 4.0, "schemeTemplate": "B", "teacherCount": 1 },
+    { "key": "C", "id": 10, "offeringId": 103, "schemeId": 603, "name": "四史概述",             "type": "EXAM",   "weeks": 12, "credit": 1.0, "schemeTemplate": "C", "teacherCount": 1 },
+    { "key": "D", "id": 7,  "offeringId": 104, "schemeId": 604, "name": "数据结构（Java）",     "type": "ASSESS", "weeks": 16, "credit": 2.0, "schemeTemplate": "D", "teacherCount": 1 },
+    { "key": "E", "id": 8,  "offeringId": 105, "schemeId": 605, "name": "计算机网络",           "type": "EXAM",   "weeks": 12, "credit": 2.0, "schemeTemplate": "E", "teacherCount": 1 },
+    { "key": "F", "id": 5,  "offeringId": 106, "schemeId": 606, "name": "大学物理（二）",       "type": "EXAM",   "weeks": 16, "credit": 3.0, "schemeTemplate": "B", "teacherCount": 1 },
+    { "key": "G", "id": 6,  "offeringId": 107, "schemeId": 607, "name": "程序设计基础",         "type": "ASSESS", "weeks": 16, "credit": 3.0, "schemeTemplate": "D", "teacherCount": 1 },
+    { "key": "H", "id": 9,  "offeringId": 108, "schemeId": 608, "name": "数据库原理",           "type": "ASSESS", "weeks": 16, "credit": 3.0, "schemeTemplate": "D", "teacherCount": 1 },
+    { "key": "I", "id": 11, "offeringId": 109, "schemeId": 609, "name": "线性代数",             "type": "EXAM",   "weeks": 16, "credit": 2.0, "schemeTemplate": "B", "teacherCount": 1 }
+  ],
+  "adminClasses": [
+    { "id": 1, "code": "CS-2025-1", "name": "计算机1班", "grade": 2025, "size": 40, "prefix": "2025", "from": 1 },
+    { "id": 2, "code": "CS-2025-2", "name": "计算机2班", "grade": 2025, "size": 38, "prefix": "2025", "from": 41 },
+    { "id": 3, "code": "CS-2025-3", "name": "计算机3班", "grade": 2025, "size": 42, "prefix": "2025", "from": 79 },
+    { "id": 4, "code": "CS-2025-4", "name": "软件1班",   "grade": 2025, "size": 36, "prefix": "2025", "from": 121 },
+    { "id": 5, "code": "CS-2025-5", "name": "软件2班",   "grade": 2025, "size": 41, "prefix": "2025", "from": 157 },
+    { "id": 6, "code": "CS-2024-1", "name": "计算机1班", "grade": 2024, "size": 35, "prefix": "2024", "from": 1 },
+    { "id": 7, "code": "CS-2024-2", "name": "计算机2班", "grade": 2024, "size": 37, "prefix": "2024", "from": 36 },
+    { "id": 8, "code": "CS-2024-3", "name": "软件1班",   "grade": 2024, "size": 39, "prefix": "2024", "from": 73 }
+  ],
+  "classPlan": {
+    "comment": "每个行政班本学期修的课程；retake 指定给哪些行政班开重修班",
+    "coursesByClass": {
+      "2025": ["A", "B", "C", "D", "E", "G"],
+      "2024": ["A", "B", "C", "D", "E", "H"]
+    },
+    "retake": [
+      { "courseKey": "D", "adminClassId": 8 },
+      { "courseKey": "H", "adminClassId": 6 }
+    ]
+  },
+  "quality": {
+    "classAvgSpreadMin": 6.0,
+    "classAvgSpreadMax": 12.0,
+    "classSdMin": 9.0,
+    "classSdMax": 12.0,
+    "courseFailRateMin": 3.0,
+    "courseFailRateMax": 25.0,
+    "controlRatio": 0.4,
+    "interventionCoverage": 0.6
+  },
+  "output": {
+    "seedSql": "v3.0/sql/seeds/v3_seed.sql",
+    "cohortJson": "v3.0/sql/seeds/v3_cohort.json",
+    "dataStory": "v3.0/sql/seeds/data_story.md"
+  }
+}

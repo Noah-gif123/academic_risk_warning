@@ -7,7 +7,7 @@
 
 ## 一、当前状态（一句话）
 
-**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 已完成 P0-1 ~ P0-3（快照回滚 / course_factor / λ+熔断），代码从 P0-4 起未开工。**
+**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 已完成 P0-1 ~ P0-3；P0-4 进行中（已定 v3.0 独立库方案：v2.0 演示库保持原样，v3.0 用 `study_warning_system_v3`）。**
 
 | 项 | 状态 |
 |---|---|
@@ -16,7 +16,7 @@
 | v2.0 Release | GitHub 上已发布 3 个（v1.0.0 / v1.1.0 / v2.0.0），**不要动** |
 | v3.0 规划 | 已完成：`v3.0/PLAN_v3.0.md`（**终版 v3.0.5**）+ `v3.0/word/v3.0规划清单.docx`（**56 项 / 49.5 人日，11 页**） |
 | v3.0 目录 | 已建骨架：backend / frontend / ai(dify) / sql(seeds) / tool / word / eval / evidence |
-| v3.0 代码 | **P0-1 ~ P0-3 完成**（2026-11-08）：见 §十 与 `v3.0/evidence/P0.md`；P0-4 ~ P0-8 未开始 |
+| v3.0 代码 | **P0-1 ~ P0-3 完成**（2026-11-08）；**P0-4 进行中**（独立库链路已通，生成器待写）；见 §十 |
 
 ## 二、推送规则（务必遵守）
 
@@ -49,6 +49,7 @@
 | **工具调用协议** | **不用厂商 function calling**；用受限 JSON `{"tool","args","why"}` + 白名单 + 强校验 + 步数预算（四道检查） |
 | **RAG 定位** | RAG 是**受台账约束的智能体工具** `retrieveCourseDocs`，不是独立场景；引用必须带 `chunkId` 且可点开原文 |
 | **术语口径** | 统一写「**可验证的多角色 LLM 编排**」，不宣称自主协商；论文 3.2 节加「vs 经典 MAS vs prompt chaining」对比表 |
+| **v3.0 数据隔离**（2026-11-08 用户确认） | v2.0 演示库 `study_warning_system_v2` **保持原样**（已用 P0-1 快照恢复，cfr/λ 回到原始值）；v3.0 用独立库 `study_warning_system_v3`，由 v3.0 内的独立生成器按 `v3.0/sql/seeds/params.json` 生成；启动 v3.0 用 `v3.0/tool/run_v3_backend.ps1`，两套演示互不影响 |
 ## 四、开工前必须知道的既有事实（已核实）
 
 这些是 v3.0 P0 要处理的真实问题，新会话不要重新"发现"：
@@ -103,6 +104,10 @@ java -cp "build-test;build-verify;src/main/resources;<jars>" RunTest com.example
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\snapshot_v2.0.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\rollback_v2.0.ps1 -Drill
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\rollback_v2.0.ps1
+
+# v3.0 独立库（P0-4 起；v2.0 库 study_warning_system_v2 不受影响）
+powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\bootstrap_v3.ps1 -Force
+powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\run_v3_backend.ps1 -Port 8080
 ```
 
 - 数据库：`study_warning_system_v2`，`root/root`
@@ -163,4 +168,5 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 |---|---|---|---|
 | **P0-2**（2026-11-08） | 新增 `v3.0/sql/40_p0_2_course_factor_init.sql`：按 `clamp(1 + k*(fail_rate - baseline), 0.90, min(cap,1.15))` 幂等回填 `course_fail_rate_history.course_factor` 并置 `is_initialized=1`；`RiskEngineService#failRateFactor` 改为读落库因子（`round(avg,4)`），行存在但因子 NULL 时按 1.00 并 `log.warn`，无历史行时保留 `student_fail_history` 反推兜底 | `javac @javac-full.args` 通过；RiskMathTest 20/20；SQL 回填后 5/5 行 factor 非空、`is_initialized=1`（1.006/0.983/0.983/0.987/0.987）；探针行验证两条路径：NULL→日志出现 WARN 且 `data_quality_json.failRateFactor=1.0`；落库 0.990→`risk_state.course_factor_used=1.089`（1.10×0.99） | 现有历史行只有当学期（term 5），引擎按口径排除，本次初始化对当前 `risk_state` 无直接影响，效果在下一学期体现；历史行若忘初始化会按 1.00 低估课程风险，需 P0-5 流水线保证回填 |
 | **P0-3**（2026-11-08） | 新增 `v3.0/sql/41_p0_3_lambda_and_fuse.sql`：λ=n/(n+k)（k=delta_shrink_k）重算 6 行并同步 Δ̂=raw×λ；造 2 个样本<10 熔断案例（teacher1/offering101、teacher4/offering104，sample_size=8、fused=1、status=FUSED、fuse_reason）。引擎 `channelC` 跳过 FUSED/INSUFFICIENT 的 Δ 并按 1.00 处理 + `log.warn`；`teacherStyleOf` 改读 OVERALL 行（不再只在 SQL 侧过滤 ACTIVE）；`RiskState.deltaUsed` 加 `updateStrategy=ALWAYS` 让熔断时的 null 能写回 | `javac` 通过、RiskMathTest 20/20；λ 由全 0.620 → 45 人 0.429 / 8 人 0.118；重算 term 5（540 行）后：熔断 3 个班（201/207/208/209，共 180 行）`delta_used` 为 NULL，日志出现 4 条「已熔断」WARN；非熔断班 Δ 用 λ 后值（-0.57/-0.40/-1.11/-0.79），`data_quality_json.teacherFactor` 相应为 1.0282/1.0197/1.0557/1.0390；等级分布 421/3/16/100 → 424/3/16/97（3 人黄→绿） | 引擎仍保留 `RiskMath.teacherStyleFactor` 的「样本<30 折半收缩」旧逻辑，与数据层 λ 叠加会双重收缩；当前 45 人样本不触发，P0-4 生成小样本班级时需统一（建议下沉为 λ 或删除折半）；熔断为演示用人工样本 8，非真实班级人数 |
+| **P0-4**（进行中，2026-11-08） | 用户确认方案 B（v3.0 独立生成器、v2.0 演示数据隔离）：① 用 P0-1 快照把 v2.0 库恢复原状；② 新增 `v3.0/sql/seeds/params.json`（seed=20261108、教师 14 / 课程 9 / 行政班 8（30–45 人）/ 当前+3 历史学期 / 对照组 40%、班间差 6–12、sd 9–12、挂科率 3–25%）；③ 新增 `v3.0/tool/bootstrap_v3.ps1`（快照→克隆 v3 库→生成器→P0-2/P0-3 脚本→规模校验）；④ 新增 `v3.0/tool/run_v3_backend.ps1`（连 v3 库启动） | v2.0 库恢复校验通过（cfr 5 行全 NULL、λ 全 0.620、风险分布 16/3/100/421）；`bootstrap_v3.ps1 -Force -SkipSeed` 跑通：v3 库 75 表、克隆规模 9 教师 / 8 课 / 3 班 / 540 选课 / 5,535 考勤 | 生成器 `gen_v3_seed.js` 尚未实现，P0-4 未完成；v3 库当前是 v2 克隆数据，待生成器覆盖；初版生成器先保证引擎与统计所需主链路（不生成试卷/项目/问卷），P2 前再补齐 |
 
