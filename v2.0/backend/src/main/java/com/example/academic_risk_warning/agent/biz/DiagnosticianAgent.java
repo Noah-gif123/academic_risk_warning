@@ -33,16 +33,33 @@ public class DiagnosticianAgent {
         out.put("routeMethod", r.routeMethod());
         List<String> tools = new ArrayList<>();
         List<Map<String, Object>> evidence = new ArrayList<>();
+        List<Map<String, Object>> citations = new ArrayList<>();
         for (AgentOrchestrator.Step s : r.steps()) {
             tools.add(s.tool());
             Map<String, Object> e = new LinkedHashMap<>();
             e.put("step", s.stepNo());
             e.put("tool", s.tool());
             e.put("evidence", s.evidence());
+            e.put("data", s.data());
             evidence.add(e);
+            if ("retrieveCourseDocs".equals(s.tool()) && s.data() != null && s.data().get("hits") instanceof List<?> hits) {
+                for (Object o : hits) {
+                    if (o instanceof Map<?, ?> h) {
+                        Map<String, Object> c = new LinkedHashMap<>();
+                        c.put("chunkId", h.get("chunkId"));
+                        c.put("docId", h.get("docId"));
+                        c.put("docName", h.get("docName"));
+                        c.put("sectionNo", h.get("sectionNo"));
+                        c.put("score", h.get("score"));
+                        c.put("rrfRank", h.get("rrfRank"));
+                        citations.add(c);
+                    }
+                }
+            }
         }
         out.put("tools", tools);
         out.put("evidence", evidence);
+        out.put("citations", citations);
         out.put("answer", r.answerDraft());
         out.put("refused", r.blocked());
         out.put("blockedReason", r.blockedReason());

@@ -4,6 +4,7 @@ import com.example.academic_risk_warning.agent.biz.DiagnosticianAgent;
 import com.example.academic_risk_warning.agent.biz.GraderAgent;
 import com.example.academic_risk_warning.agent.biz.ReporterAgent;
 import com.example.academic_risk_warning.agent.biz.TutorAgent;
+import com.example.academic_risk_warning.agent.rag.CitationBinder;
 import com.example.academic_risk_warning.agent.tool.ToolContext;
 import com.example.academic_risk_warning.common.BizException;
 import com.example.academic_risk_warning.common.Result;
@@ -11,6 +12,8 @@ import com.example.academic_risk_warning.security.LoginUser;
 import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,6 +38,7 @@ public class AgentBizController {
     private final ReporterAgent reporter;
     private final GraderAgent grader;
     private final TutorAgent tutor;
+    private final CitationBinder citationBinder;
 
     @PostMapping("/diagnose")
     @RequireRole({"ADMIN", "COUNSELOR"})
@@ -88,6 +92,17 @@ public class AgentBizController {
         return Result.ok(grader.apply(answerId, score, comment, user.getRefId()));
     }
 
+    /** P2R-2 轨迹页点开原文片段。 */
+    @GetMapping("/kb/chunk/{chunkId}")
+    @RequireRole({"STUDENT", "TEACHER", "ADMIN", "COUNSELOR"})
+    public Result<Map<String, Object>> chunk(@PathVariable long chunkId) {
+        Map<String, Object> chunk = citationBinder.chunk(chunkId);
+        if (chunk == null) {
+            throw new BizException(404, "资料片段不存在：" + chunkId);
+        }
+        return Result.ok(chunk);
+    }
+
     @PostMapping("/tutor")
     @RequireRole({"STUDENT", "TEACHER", "ADMIN"})
     public Result<Map<String, Object>> tutor(@RequestBody Map<String, Object> body) {
@@ -96,6 +111,6 @@ public class AgentBizController {
         }
         long courseId = ((Number) body.get("courseId")).longValue();
         String question = String.valueOf(body.get("question"));
-        return Result.ok(tutor.tutor(courseId, question));
+        return Result.ok(tutor.tutor(courseId, question, UserContext.require()));
     }
 }

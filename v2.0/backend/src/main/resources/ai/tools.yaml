@@ -57,6 +57,7 @@ tools:
       courseId: { type: integer, required: true, min: 1 }
       query: { type: string, required: true, minLength: 2, maxLength: 200 }
       topK: { type: integer, required: false, min: 1, max: 10 }
+      mode: { type: string, required: false, enum: [FULLTEXT, VECTOR, HYBRID] }
 
   - name: getAlertExplain
     description: 读取某条预警的解释卡（若未生成则返回 found=false）

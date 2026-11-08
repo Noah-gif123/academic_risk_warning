@@ -41,7 +41,8 @@ public class AgentOrchestrator {
     private final ObjectMapper json = new ObjectMapper();
 
     public record Step(int stepNo, String tool, Map<String, Object> args, boolean ok, String errorCode,
-                       long elapsedMs, String digest, Map<String, Object> evidence) {
+                       long elapsedMs, String digest, Map<String, Object> evidence,
+                       Map<String, Object> data) {
     }
 
     public record RoleCall(String role, String detail, boolean ok) {
@@ -108,7 +109,7 @@ public class AgentOrchestrator {
             }
             steps.add(new Step(steps.size() + 1, out.tool(), out.args(), out.ok(),
                     out.result().getErrorCode(), out.result().getElapsedMs(), out.result().getDigest(),
-                    out.result().getEvidence()));
+                    out.result().getEvidence(), out.result().getData()));
             if (traceRunId != null) {
                 try {
                     trace.step(traceRunId, steps.size(), "EXECUTOR", out.tool(),
@@ -179,7 +180,7 @@ public class AgentOrchestrator {
                 plans.add(new Plan("getClassRiskStats", Map.of()));
             }
             case COURSE_QA -> plans.add(new Plan("retrieveCourseDocs",
-                    Map.of("courseId", courseId(question), "query", question, "topK", 5)));
+                    Map.of("courseId", courseId(question), "query", question, "topK", 5, "mode", "FULLTEXT")));
             default -> plans.add(new Plan("getClassRiskStats", Map.of()));
         }
         return plans;

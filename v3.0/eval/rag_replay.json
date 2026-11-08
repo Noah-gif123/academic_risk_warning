@@ -1,0 +1,794 @@
+{
+    "generatedAt":  "2026-11-08T20:01:12+08:00",
+    "fiveClass":  {
+                      "hit":  42,
+                      "miss":  7,
+                      "correctRefuse":  8,
+                      "falseRefuse":  5,
+                      "emptyCandidate":  2,
+                      "total":  64
+                  },
+    "detail":  [
+                   {
+                       "id":  105,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "习题集_第1编_计算机基础知识",
+                                    "实验二_成绩统计操作指导.docx",
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "第3讲_计算机中数据的表示与编码"
+                                ]
+                   },
+                   {
+                       "id":  106,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "习题集_第1编_计算机基础知识",
+                                    "习题集_第1编_计算机基础知识",
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "第3讲_计算机中数据的表示与编码"
+                                ]
+                   },
+                   {
+                       "id":  107,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A",
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A"
+                                ]
+                   },
+                   {
+                       "id":  108,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A",
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A"
+                                ]
+                   },
+                   {
+                       "id":  109,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A",
+                                    "课程大纲_大学计算机基础",
+                                    "课程大纲_大学计算机基础"
+                                ]
+                   },
+                   {
+                       "id":  110,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "习题集_第1编_计算机基础知识",
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A",
+                                    "第3讲_计算机中数据的表示与编码"
+                                ]
+                   },
+                   {
+                       "id":  111,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "实验二_成绩统计操作指导.docx",
+                                    "实验二_成绩统计操作指导.docx",
+                                    "第2讲_Excel函数与图表.pptx"
+                                ]
+                   },
+                   {
+                       "id":  112,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "实验二_成绩统计操作指导.docx",
+                                    "实验二_成绩统计操作指导.docx"
+                                ]
+                   },
+                   {
+                       "id":  113,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "实验二_成绩统计操作指导.docx",
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "实验二_成绩统计操作指导.docx",
+                                    "第2讲_Excel函数与图表.pptx"
+                                ]
+                   },
+                   {
+                       "id":  114,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "实验二_成绩统计操作指导.docx",
+                                    "习题集_第1编_计算机基础知识"
+                                ]
+                   },
+                   {
+                       "id":  115,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "实验二_成绩统计操作指导.docx",
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "实验二_成绩统计操作指导.docx",
+                                    "第3讲_计算机中数据的表示与编码"
+                                ]
+                   },
+                   {
+                       "id":  116,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A",
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A"
+                                ]
+                   },
+                   {
+                       "id":  117,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "实验二_成绩统计操作指导.docx",
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "实验二_成绩统计操作指导.docx"
+                                ]
+                   },
+                   {
+                       "id":  118,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "习题集_第1编_计算机基础知识",
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "习题集_第1编_计算机基础知识"
+                                ]
+                   },
+                   {
+                       "id":  119,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "习题集_第1编_计算机基础知识",
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "习题集_第1编_计算机基础知识"
+                                ]
+                   },
+                   {
+                       "id":  120,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "习题集_第1编_计算机基础知识",
+                                    "课程大纲_大学计算机基础"
+                                ]
+                   },
+                   {
+                       "id":  121,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "第3讲_计算机中数据的表示与编码",
+                                    "习题集_第1编_计算机基础知识",
+                                    "第2讲_Excel函数与图表.pptx"
+                                ]
+                   },
+                   {
+                       "id":  122,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  true,
+                       "docs":  [
+                                    "课程大纲_大学计算机基础",
+                                    "课程大纲_大学计算机基础",
+                                    "第2讲_Excel函数与图表.pptx",
+                                    "习题集_第1编_计算机基础知识"
+                                ]
+                   },
+                   {
+                       "id":  123,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "课程大纲_大学计算机基础",
+                                    "课程大纲_大学计算机基础",
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A"
+                                ]
+                   },
+                   {
+                       "id":  124,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "课程大纲_大学计算机基础",
+                                    "课程大纲_大学计算机基础",
+                                    "习题集_第1编_计算机基础知识",
+                                    "实验二_成绩统计操作指导.docx"
+                                ]
+                   },
+                   {
+                       "id":  125,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "课程大纲_大学计算机基础",
+                                    "课程大纲_大学计算机基础",
+                                    "习题集_第1编_计算机基础知识",
+                                    "第3讲_计算机中数据的表示与编码"
+                                ]
+                   },
+                   {
+                       "id":  126,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "课程大纲_高等数学",
+                                    "第1章_函数与极限",
+                                    "课程大纲_高等数学",
+                                    "习题集_第1章_函数与极限"
+                                ]
+                   },
+                   {
+                       "id":  127,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "课程大纲_高等数学",
+                                    "第1章_函数与极限",
+                                    "课程大纲_高等数学",
+                                    "习题集_第1章_函数与极限"
+                                ]
+                   },
+                   {
+                       "id":  128,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "课程大纲_高等数学",
+                                    "课程大纲_高等数学",
+                                    "第1章_函数与极限",
+                                    "习题集_第1章_函数与极限"
+                                ]
+                   },
+                   {
+                       "id":  129,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "课程大纲_高等数学",
+                                    "课程大纲_高等数学",
+                                    "第1章_函数与极限",
+                                    "习题集_第1章_函数与极限"
+                                ]
+                   },
+                   {
+                       "id":  130,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-B",
+                                    "导学 · CS-02-B",
+                                    "导学 · CS-01-B",
+                                    "导学 · CS-02-B"
+                                ]
+                   },
+                   {
+                       "id":  131,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "课程大纲_高等数学",
+                                    "第1章_函数与极限",
+                                    "第1章_函数与极限",
+                                    "课程大纲_高等数学"
+                                ]
+                   },
+                   {
+                       "id":  132,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第1章_函数与极限",
+                                    "第1章_函数与极限",
+                                    "课程大纲_高等数学",
+                                    "课程大纲_高等数学"
+                                ]
+                   },
+                   {
+                       "id":  133,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第1章_函数与极限",
+                                    "课程大纲_高等数学",
+                                    "第1章_函数与极限",
+                                    "课程大纲_高等数学"
+                                ]
+                   },
+                   {
+                       "id":  134,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第1章_函数与极限",
+                                    "第1章_函数与极限",
+                                    "习题集_第1章_函数与极限",
+                                    "习题集_第1章_函数与极限"
+                                ]
+                   },
+                   {
+                       "id":  135,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第1章_函数与极限",
+                                    "课程大纲_高等数学",
+                                    "第1章_函数与极限",
+                                    "高等数学（一） 补充讲义 · 第 3 讲 微分中值定理.md"
+                                ]
+                   },
+                   {
+                       "id":  136,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2章_线性表",
+                                    "第2章_线性表",
+                                    "导学 · CS-01-D",
+                                    "导学 · CS-02-D"
+                                ]
+                   },
+                   {
+                       "id":  137,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2章_线性表",
+                                    "第2章_线性表",
+                                    "导学 · CS-01-D",
+                                    "导学 · CS-02-D"
+                                ]
+                   },
+                   {
+                       "id":  138,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-D",
+                                    "导学 · CS-02-D",
+                                    "导学 · CS-RT-D",
+                                    "导学 · CS-01-D"
+                                ]
+                   },
+                   {
+                       "id":  139,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-D",
+                                    "导学 · CS-02-D",
+                                    "导学 · CS-RT-D",
+                                    "导学 · CS-01-D"
+                                ]
+                   },
+                   {
+                       "id":  140,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2章_线性表",
+                                    "第2章_线性表",
+                                    "课程大纲_数据结构Java",
+                                    "习题集_第2章_线性表"
+                                ]
+                   },
+                   {
+                       "id":  141,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2章_线性表",
+                                    "习题集_第2章_线性表",
+                                    "第2章_线性表",
+                                    "习题集_第2章_线性表"
+                                ]
+                   },
+                   {
+                       "id":  142,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "习题集_第2章_线性表",
+                                    "习题集_第2章_线性表",
+                                    "第2章_线性表",
+                                    "课程大纲_数据结构Java"
+                                ]
+                   },
+                   {
+                       "id":  143,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2章_线性表",
+                                    "习题集_第2章_线性表",
+                                    "习题集_第2章_线性表",
+                                    "课程大纲_数据结构Java"
+                                ]
+                   },
+                   {
+                       "id":  144,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  true,
+                       "docs":  [
+                                    "课程大纲_数据结构Java",
+                                    "数据结构（Java） 补充讲义 · 课程大纲.md",
+                                    "习题集_第2章_线性表",
+                                    "习题集_第2章_线性表"
+                                ]
+                   },
+                   {
+                       "id":  145,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2章_线性表",
+                                    "第2章_线性表",
+                                    "导学 · CS-01-D",
+                                    "导学 · CS-02-D"
+                                ]
+                   },
+                   {
+                       "id":  146,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-E",
+                                    "导学 · CS-02-E",
+                                    "导学 · CS-RT-E",
+                                    "导学 · CS-01-E"
+                                ]
+                   },
+                   {
+                       "id":  147,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "实验指导_第1次_网络命令与抓包分析",
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "课程大纲_计算机网络",
+                                    "第4讲_TCP连接管理与拥塞控制"
+                                ]
+                   },
+                   {
+                       "id":  148,
+                       "answerable":  true,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "实验指导_第1次_网络命令与抓包分析",
+                                    "计算机网络 补充讲义 · 课程大纲.md",
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "课程大纲_计算机网络"
+                                ]
+                   },
+                   {
+                       "id":  149,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-E",
+                                    "导学 · CS-02-E",
+                                    "导学 · CS-RT-E",
+                                    "导学 · CS-01-E"
+                                ]
+                   },
+                   {
+                       "id":  150,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "课程大纲_计算机网络",
+                                    "课程大纲_计算机网络"
+                                ]
+                   },
+                   {
+                       "id":  151,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "课程大纲_计算机网络",
+                                    "课程大纲_计算机网络"
+                                ]
+                   },
+                   {
+                       "id":  152,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "课程大纲_计算机网络",
+                                    "课程大纲_计算机网络"
+                                ]
+                   },
+                   {
+                       "id":  153,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "实验指导_第1次_网络命令与抓包分析",
+                                    "实验指导_第1次_网络命令与抓包分析",
+                                    "课程大纲_计算机网络",
+                                    "课程大纲_计算机网络"
+                                ]
+                   },
+                   {
+                       "id":  154,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "实验指导_第1次_网络命令与抓包分析",
+                                    "实验指导_第1次_网络命令与抓包分析",
+                                    "第4讲_TCP连接管理与拥塞控制",
+                                    "课程大纲_计算机网络"
+                                ]
+                   },
+                   {
+                       "id":  155,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-C",
+                                    "导学 · CS-02-C",
+                                    "四史概述 补充讲义 · 课程大纲.md",
+                                    "四史概述 补充讲义 · 习题课与复习.md"
+                                ]
+                   },
+                   {
+                       "id":  156,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-C",
+                                    "导学 · CS-02-C",
+                                    "四史概述 补充讲义 · 课程大纲.md",
+                                    "四史概述 补充讲义 · 习题课与复习.md"
+                                ]
+                   },
+                   {
+                       "id":  157,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-C",
+                                    "导学 · CS-02-C",
+                                    "导学 · CS-01-C",
+                                    "导学 · CS-02-C"
+                                ]
+                   },
+                   {
+                       "id":  158,
+                       "answerable":  true,
+                       "matched":  true,
+                       "refused":  false,
+                       "docs":  [
+                                    "导学 · CS-01-C",
+                                    "导学 · CS-02-C",
+                                    "四史概述 补充讲义 · 课程大纲.md",
+                                    "四史概述 补充讲义 · 习题课与复习.md"
+                                ]
+                   },
+                   {
+                       "id":  159,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A",
+                                    "第2讲_Excel函数与图表.pptx"
+                                ]
+                   },
+                   {
+                       "id":  160,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "实验二_成绩统计操作指导.docx",
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A",
+                                    "第2讲_Excel函数与图表.pptx"
+                                ]
+                   },
+                   {
+                       "id":  161,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "导学 · CS-01-A",
+                                    "导学 · CS-02-A",
+                                    "第2讲_Excel函数与图表.pptx"
+                                ]
+                   },
+                   {
+                       "id":  162,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "课程大纲_高等数学",
+                                    "课程大纲_高等数学",
+                                    "高等数学（一） 补充讲义 · 第 3 讲 微分中值定理.md",
+                                    "课程大纲_高等数学"
+                                ]
+                   },
+                   {
+                       "id":  163,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "课程大纲_高等数学",
+                                    "课程大纲_高等数学",
+                                    "第1章_函数与极限",
+                                    "第1章_函数与极限"
+                                ]
+                   },
+                   {
+                       "id":  164,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "导学 · CS-01-B",
+                                    "导学 · CS-01-B",
+                                    "导学 · CS-02-B",
+                                    "导学 · CS-02-B"
+                                ]
+                   },
+                   {
+                       "id":  165,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "课程大纲_数据结构Java",
+                                    "课程大纲_数据结构Java",
+                                    "习题集_第2章_线性表",
+                                    "数据结构（Java） 补充讲义 · 第 3 讲 树与二叉树.md"
+                                ]
+                   },
+                   {
+                       "id":  166,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "第2章_线性表",
+                                    "课程大纲_数据结构Java",
+                                    "课程大纲_数据结构Java",
+                                    "习题集_第2章_线性表"
+                                ]
+                   },
+                   {
+                       "id":  167,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  true,
+                       "docs":  [
+                                    "导学 · CS-01-D",
+                                    "导学 · CS-02-D",
+                                    "导学 · CS-RT-D",
+                                    "导学 · CS-01-D"
+                                ]
+                   },
+                   {
+                       "id":  168,
+                       "answerable":  false,
+                       "matched":  false,
+                       "refused":  false,
+                       "docs":  [
+                                    "四史概述 补充讲义 · 第 3 讲 改革开放史.md",
+                                    "四史概述 补充讲义 · 第 5 讲 重要事件.md",
+                                    "四史概述 补充讲义 · 第 3 讲 改革开放史.md",
+                                    "四史概述 补充讲义 · 第 5 讲 重要事件.md"
+                                ]
+                   }
+               ],
+    "replay":  {
+                   "falseRefuse":  0.0926,
+                   "refuseAccuracy":  0.8,
+                   "recall":  0.8148
+               },
+    "main":  {
+                 "recallAtK":  0.8148,
+                 "falseRefuse":  0.0926,
+                 "refuseAccuracy":  0.8
+             },
+    "diffs":  {
+                  "falseRefuse":  7E-06,
+                  "recall":  1.5E-05,
+                  "refuse":  0
+              }
+}

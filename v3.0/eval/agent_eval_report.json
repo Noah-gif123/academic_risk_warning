@@ -1,9 +1,9 @@
 {
-    "generatedAt":  "2026-11-08T19:52:25+08:00",
+    "generatedAt":  "2026-11-08T20:02:26+08:00",
     "cases":  30,
     "toolAccuracy":  100,
     "numberConsistency":  100,
-    "p95LatencyMs":  77,
+    "p95LatencyMs":  89,
     "failed":  [
 
                ],
@@ -14,7 +14,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  140
+                        "latency":  133
                     },
                     {
                         "id":  2,
@@ -22,7 +22,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  75
+                        "latency":  77
                     },
                     {
                         "id":  3,
@@ -30,7 +30,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  73
+                        "latency":  72
                     },
                     {
                         "id":  4,
@@ -38,7 +38,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  69
+                        "latency":  72
                     },
                     {
                         "id":  5,
@@ -46,7 +46,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  67
+                        "latency":  68
                     },
                     {
                         "id":  6,
@@ -54,7 +54,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  59
+                        "latency":  61
                     },
                     {
                         "id":  7,
@@ -62,7 +62,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  66
+                        "latency":  57
                     },
                     {
                         "id":  8,
@@ -78,7 +78,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  57
+                        "latency":  56
                     },
                     {
                         "id":  10,
@@ -86,7 +86,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  54
+                        "latency":  55
                     },
                     {
                         "id":  11,
@@ -94,7 +94,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  53
+                        "latency":  57
                     },
                     {
                         "id":  12,
@@ -102,7 +102,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  45
+                        "latency":  62
                     },
                     {
                         "id":  13,
@@ -110,7 +110,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  45
+                        "latency":  44
                     },
                     {
                         "id":  14,
@@ -118,7 +118,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  46
+                        "latency":  49
                     },
                     {
                         "id":  15,
@@ -134,7 +134,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  29
+                        "latency":  30
                     },
                     {
                         "id":  17,
@@ -142,7 +142,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  29
+                        "latency":  28
                     },
                     {
                         "id":  18,
@@ -158,7 +158,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  27
+                        "latency":  26
                     },
                     {
                         "id":  20,
@@ -166,7 +166,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  29
+                        "latency":  28
                     },
                     {
                         "id":  21,
@@ -174,7 +174,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  77
+                        "latency":  89
                     },
                     {
                         "id":  22,
@@ -190,7 +190,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  74
+                        "latency":  76
                     },
                     {
                         "id":  24,
@@ -198,7 +198,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  75
+                        "latency":  66
                     },
                     {
                         "id":  25,
@@ -206,7 +206,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  68
+                        "latency":  69
                     },
                     {
                         "id":  26,
@@ -214,7 +214,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  75
+                        "latency":  47
                     },
                     {
                         "id":  27,
@@ -222,7 +222,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  33
+                        "latency":  44
                     },
                     {
                         "id":  28,
@@ -230,7 +230,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  33
+                        "latency":  45
                     },
                     {
                         "id":  29,
@@ -238,7 +238,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  34
+                        "latency":  38
                     },
                     {
                         "id":  30,
@@ -246,7 +246,7 @@
                         "toolOk":  true,
                         "numOk":  true,
                         "miss":  "",
-                        "latency":  31
+                        "latency":  33
                     }
                 ]
 }

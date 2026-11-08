@@ -292,3 +292,14 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 
 > 回归：P2-1~3 22/22、P2-4~6 12/12、P2-7~10 10/10、P2-11/12 12/12、P2-13 100%/100%、P2-14 10/10；`ci.ps1` 6/6。
 > 下一步：P2-R（retrieveCourseDocs 工具已存在；补句级引用绑定、五类混淆表、语料扩到 100–150 篇）。
+
+## 十九、P2-R 记录（2026-11-08）
+
+| 项 | 改动 | 验证 |
+|---|---|---|
+| **P2R-1 工具化** | `retrieveCourseDocs` 命中增加 `docId/chunkId/docName/sectionNo/score/rrfRank`，证据含 `gateReason/refused/topChunkId`；新增可选 `mode`（FULLTEXT/VECTOR/HYBRID）；Tutor 改为走同一 ToolRegistry，Diagnostician QA 固定 FULLTEXT | 直接工具/Diagnostician/Tutor 三入口结构键完全一致 |
+| **P2R-2 引用绑定** | 新增 `agent/rag/CitationBinder`：chunk 存在性校验、绑定 docId/docName/sectionNo/score/rrfRank/content；Tutor 返回 `citationsValid`；新增 `/api/agent/kb/chunk/{id}`；轨迹页台账中 `*ChunkId*` 值可点击打开原文 | citations 4/4 可在 `ai_kb_chunk` 定位；点开 chunk 内容 254 字；轨迹台账含 chunkId 回溯 |
+| **P2R-3 语料+重放** | `gen_kb_seed.js` 扩到 9 门课各 8–18 篇：**101 篇 / 475 chunk / 9 门课**；`verify_p2r.ps1` 独立重放 64 条 RAG 用例并生成五类混淆 + `eval/rag_replay.json` | 五类齐全（hit42/miss7/correctRefuse8/falseRefuse5/emptyCandidate2=64）；recall/refuse/falseRefuse 与主流程差异 **0**（<0.5%） |
+
+> 对账：`verify_p2r.ps1` **10/10 PASS**，报告 `evidence/P2R.md`。
+> 说明：replay 与 RagEvalService 同为 FULLTEXT、k=4、同一 guard；差异 0 说明两条路径一致。

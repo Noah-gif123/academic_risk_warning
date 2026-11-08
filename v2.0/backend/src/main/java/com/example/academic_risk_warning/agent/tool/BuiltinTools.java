@@ -209,15 +209,25 @@ public class BuiltinTools {
         long courseId = ((Number) args.get("courseId")).longValue();
         String query = String.valueOf(args.get("query"));
         int topK = args.get("topK") == null ? 5 : Math.min(10, ((Number) args.get("topK")).intValue());
-        RetrievalService.Outcome o = retrievalService.retrieve(courseId, query, topK);
+        String mode = args.get("mode") == null ? null : String.valueOf(args.get("mode"));
+        RetrievalService.Outcome o = mode == null
+                ? retrievalService.retrieve(courseId, query, topK)
+                : retrievalService.retrieve(courseId, query, topK, RetrievalService.parseMode(mode));
         List<Map<String, Object>> hits = new ArrayList<>();
+        java.util.Map<String, Long> docIdCache = new java.util.HashMap<>();
         for (RetrievalService.Hit h : o.hits()) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("chunkId", h.chunkId());
+            m.put("docId", docIdCache.computeIfAbsent(h.docName(), name -> {
+                List<Long> ids = jdbc.queryForList(
+                        "select id from ai_kb_doc where doc_name=? order by id limit 1", Long.class, name);
+                return ids.isEmpty() ? null : ids.get(0);
+            }));
             m.put("docName", h.docName());
             m.put("sectionNo", h.sectionNo());
             m.put("sourceType", h.sourceType());
             m.put("score", h.fused());
+            m.put("rrfRank", h.rank());
             String content = h.content() == null ? "" : h.content();
             m.put("snippet", content.length() <= 120 ? content : content.substring(0, 119) + "…");
             hits.add(m);
@@ -229,11 +239,13 @@ public class BuiltinTools {
         data.put("hits", hits);
         data.put("refused", guard.refuse());
         data.put("gateReason", guard.reason());
+        data.put("topChunkId", hits.isEmpty() ? null : hits.get(0).get("chunkId"));
         Map<String, Object> evidence = new LinkedHashMap<>();
         evidence.put("courseId", courseId);
         evidence.put("hits", hits.size());
         evidence.put("topChunkId", hits.isEmpty() ? null : hits.get(0).get("chunkId"));
         evidence.put("refused", guard.refuse());
+        evidence.put("gateReason", guard.reason());
         evidence.put("source", "ai_kb_chunk");
         return ToolResult.success(data, evidence);
     }

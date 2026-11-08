@@ -63,12 +63,22 @@
                 <td class="py-1">{{ l.stepNo }}</td>
                 <td>{{ l.tool }}</td>
                 <td>{{ l.metric }}</td>
-                <td><b class="text-brand-600">{{ l.valueText }}</b></td>
+                <td>
+                  <button v-if="/chunkId/i.test(l.metric)" class="text-brand-600 underline" @click="openChunk(l.valueText)">{{ l.valueText }}</button>
+                  <b v-else class="text-brand-600">{{ l.valueText }}</b>
+                </td>
                 <td class="text-slate-400">{{ l.source }}</td>
               </tr>
             </tbody>
           </table>
           <p v-if="!detail.ledger || !detail.ledger.length" class="text-xs text-slate-400">该运行没有台账记录。</p>
+          <div v-if="chunk" class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+            <div class="flex justify-between mb-1">
+              <b>{{ chunk.docName }} 第 {{ chunk.sectionNo }} 段</b>
+              <button class="text-slate-400" @click="chunk = null">关闭</button>
+            </div>
+            <p class="whitespace-pre-wrap leading-5">{{ chunk.content }}</p>
+          </div>
         </div>
       </section>
     </div>
@@ -83,6 +93,7 @@ const runs = ref([])
 const detail = ref(null)
 const loading = ref(false)
 const error = ref('')
+const chunk = ref(null)
 
 async function loadRuns() {
   loading.value = true
@@ -100,8 +111,17 @@ async function loadRuns() {
 
 async function open(id) {
   error.value = ''
+  chunk.value = null
   try {
     detail.value = await agentApi.run(id)
+  } catch (e) {
+    error.value = e.message || String(e)
+  }
+}
+
+async function openChunk(id) {
+  try {
+    chunk.value = await agentApi.chunk(id)
   } catch (e) {
     error.value = e.message || String(e)
   }
