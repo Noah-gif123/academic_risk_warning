@@ -69,9 +69,17 @@ public final class NumberAuditor {
     }
 
     public static Facts fromAdminClass(AdminClassFact f) {
+        // 行政班报告会写"某门课红 3 人"这类分课程数字，加入 perClass 备选，避免误判成总数不一致
+        Map<String, List<Alt>> perClass = new LinkedHashMap<>();
+        if (f.getCourseRisks() != null) {
+            for (AdminClassFact.CourseRisk c : f.getCourseRisks()) {
+                addAlt(perClass, "红灯人数", c.getRed(), c.getCourseName());
+                addAlt(perClass, "黄灯人数", c.getYellow(), c.getCourseName());
+            }
+        }
         return new Facts(f.getStudentCount(), f.getRedCount(), f.getYellowCount(), f.getGreenCount(),
                 f.getCourseCount(), null, f.getEnrollmentCount(), f.getAvgScore(), null, null,
-                null, f.getFailRate(), null, f.getActiveAlertCount());
+                null, f.getFailRate(), null, f.getActiveAlertCount(), perClass);
     }
 
     public static Facts fromOffering(OfferingFact f) {
@@ -114,7 +122,7 @@ public final class NumberAuditor {
             new Rule("平均分", Pattern.compile("平均(?:总分|分)?[^0-9%]{0,6}(\\d{1,3}(?:\\.\\d+)?)\\s*分"), Facts::avgScore, true),
             new Rule("最低分", Pattern.compile("最低[^0-9%]{0,4}(\\d{1,3}(?:\\.\\d+)?)\\s*分"), Facts::minScore, true),
             new Rule("最高分", Pattern.compile("最高[^0-9%]{0,4}(\\d{1,3}(?:\\.\\d+)?)\\s*分"), Facts::maxScore, true),
-            new Rule("及格线", Pattern.compile("及格线[^0-9%]{0,4}(\\d{1,3})"), Facts::passScore, false),
+            new Rule("及格线", Pattern.compile("及格线[^0-9%]{0,4}(\\d{1,3})\\s*分"), Facts::passScore, false),
             new Rule("风险率", Pattern.compile("(?:挂科风险率|红灯占比|风险率)[^0-9%]{0,4}(\\d{1,3}(?:\\.\\d+)?)\\s*%"), Facts::failRate, true),
             new Rule("课程门数", Pattern.compile("(\\d{1,3})\\s*门(?:课程|课)"), Facts::courseCount, false),
             new Rule("教学班数", Pattern.compile("(\\d{1,3})\\s*个教学班"), Facts::classCount, false),

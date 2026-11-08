@@ -1,0 +1,62 @@
+{
+    "format":  "v3-baseline/1",
+    "db":  "study_warning_system_v3",
+    "termId":  5,
+    "generatedAt":  "2026-11-08T15:28:32+08:00",
+    "engineVersion":  "v2.1.0",
+    "risk":  {
+                 "total":  1927,
+                 "levels":  {
+                                "GREEN":  1265,
+                                "ORANGE":  138,
+                                "RED":  141,
+                                "YELLOW":  383
+                            }
+             },
+    "alerts":  {
+                   "total":  662
+               },
+    "scores":  {
+                   "enrollments":  1927,
+                   "scoreResults":  1927,
+                   "attendance":  17343
+               },
+    "courseFactor":  {
+                         "rows":  36,
+                         "initialized":  36
+                     },
+    "teacherStyle":  {
+                         "rows":  12,
+                         "fused":  2,
+                         "lambdaValues":  [
+                                              0.4,
+                                              0.649,
+                                              0.767,
+                                              0.837
+                                          ],
+                         "deltaNullRows":  433
+                     },
+    "reports":  [
+                    {
+                        "type":  "class",
+                        "target":  201,
+                        "title":  "大学计算机基础（一） 计算机1班 · 班级学情报告（2026-2027学年-第1学期）",
+                        "sections":  5,
+                        "checks":  "6/6"
+                    },
+                    {
+                        "type":  "offering",
+                        "target":  101,
+                        "title":  "大学计算机基础（一） · 课程学情报告（2026-2027学年-第1学期 · 5 个教学班）",
+                        "sections":  5,
+                        "checks":  "10/10"
+                    },
+                    {
+                        "type":  "adminClass",
+                        "target":  1,
+                        "title":  "计算机1班 · 行政班学情报告（2026-2027学年-第1学期）",
+                        "sections":  5,
+                        "checks":  "6/6"
+                    }
+                ]
+}

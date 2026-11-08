@@ -136,6 +136,10 @@ v3.0/tool/ai_room/rooms/
 ### v3.0 回滚前安全快照（可重生成，不入库） ###
 v3.0/sql/_backup/
 
+### v3.0 流水线产物（可由 run_v3_pipeline.ps1 重生成，不入库） ###
+v3.0/sql/snapshot_v3.sql
+v3.0/sql/snapshot_v3.manifest.json
+
 ### DSH 沙箱工作区权限修复记录（本机） ###
 .dsh-acl-recovery/
 
