@@ -113,6 +113,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\rollback_v2.0.ps1
   1. 工作区目录未继承 DSH 所需的权限与完整性标签时，命令行**不能写任何文件**；本机已给整个仓库补了当前用户可继承完全控制 + Low 完整性标签，恢复记录在 `.dsh-acl-recovery/`（该目录已 gitignore）。新克隆/新机器可能重现。
   2. `Start-Process` 启动的 java 会随命令结束被沙箱清理；做后端验收要用工具后台作业启动（或另开窗口）。
 - 后端连恢复库做验收：加参数 `--spring.datasource.url=jdbc:mysql://127.0.0.1:3306/study_warning_system_v2_verify?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false`，并设环境变量 `AI_ENABLED=false`。
+- **DSH 会话里 git 推 GitHub 的坑**（2026-11-08）：本会话 `HOME` 为空、用户目录含中文，ssh 读不到 `~/.ssh/config` 与密钥，报 `Host key verification failed` / `Permission denied (publickey)`。绕法是给 ssh 一个 ASCII 路径的 HOME：
+  ```powershell
+  New-Item -ItemType Junction -Path .tmp-doc\sshhome -Target $env:USERPROFILE
+  $env:HOME = '/e/JavaDEVIDEA/workspace/JavaProject/academic_risk_warning/.tmp-doc/sshhome'
+  git push origin main
+  ```
+  只在 DSH 会话内需要，用户自己的终端正常；`.tmp-doc\sshhome` 是目录联接，用完删它不影响原目录。本地 main 已改为跟踪 `origin/main`。
+
 
 ## 七、如果新会话只做一件事
 
