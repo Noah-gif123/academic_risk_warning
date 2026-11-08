@@ -696,22 +696,21 @@ fs.writeFileSync(OUT_COHORT, JSON.stringify({
   cohort
 }, null, 2), 'utf8');
 
-// ============================================================ 质量自检
+// ============================================================ 质量自检 + 数据故事（P0-6）
+const meanOf = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+const sdOf = (xs) => {
+  if (xs.length < 2) return 0;
+  const m = meanOf(xs);
+  return Math.sqrt(xs.reduce((a, b) => a + (b - m) * (b - m), 0) / xs.length);
+};
+// 口径：期末未录（PARTIAL）用过程百分制 usual，已结课（FINAL）用总评 T
+const metricOf = (r) => (r.complete ? r.T : r.usual);
+
 const courseStats = COURSES.map((c) => {
   const rows = RESULTS.filter((r) => r.key === c.key);
-  // 口径：PARTIAL（期末未录）用过程百分制 usual，FINAL 用总评 T —— 避免学期中"综合分只有 30 分"的压缩
-  const metric = (r) => (r.complete ? r.T : r.usual);
   const classIds = [...new Set(rows.map((r) => r.tcId))];
-  const classAvg = classIds.map((id) => {
-    const xs = rows.filter((r) => r.tcId === id).map(metric);
-    return xs.reduce((a, b) => a + b, 0) / xs.length;
-  });
-  const sd = (xs) => {
-    if (xs.length < 2) return 0;
-    const m = xs.reduce((a, b) => a + b, 0) / xs.length;
-    return Math.sqrt(xs.reduce((a, b) => a + (b - m) * (b - m), 0) / xs.length);
-  };
-  const within = classIds.map((id) => sd(rows.filter((r) => r.tcId === id).map(metric)));
+  const classAvg = classIds.map((id) => meanOf(rows.filter((r) => r.tcId === id).map(metricOf)));
+  const within = classIds.map((id) => sdOf(rows.filter((r) => r.tcId === id).map(metricOf)));
   const histRates = HIST.map((h) => {
     const st = HIST_STATS[c.key + '#' + h.id] || { examinee: 0, fail: 0 };
     return st.examinee ? r2(st.fail * 100 / st.examinee) : null;
@@ -719,33 +718,79 @@ const courseStats = COURSES.map((c) => {
   return {
     key: c.key, name: c.name, classes: classIds.length, students: rows.length,
     spread: r1(Math.max(...classAvg) - Math.min(...classAvg)),
-    sd: r1(within.reduce((a, b) => a + b, 0) / within.length),
+    sd: r1(meanOf(within)),
     failCurrent: r2(rows.filter((r) => r.fail).length * 100 / rows.length),
     failHistory: histRates
   };
 });
 
-// data_story.md（P0-6 再扩写；这里先落生成参数与自检数字）
-const story = ['# v3.0 数据故事（生成参数与自检）', '',
-  '> 由 `v3.0/tool/gen_v3_seed.js` 生成；seed=`' + PARAMS.seed + '`；库=`' + PARAMS.db + '`。',
-  '> 运行 v2.0 仍用 `study_warning_system_v2`（原演示数据）；运行 v3.0 用 `run_v3_backend.ps1`。', '',
-  '## 规模', '',
-  '- 教师 ' + TEACHERS.length + ' / 课程 ' + COURSES.length + ' / 行政班 ' + ACS.length +
-  ' / 学生 ' + STUDENTS.length + ' / 教学班 ' + CLASSES.length + ' / 选课 ' + ENROLL.length,
-  '- 学期：当前 ' + CUR.code + ' + 历史 ' + HIST.map((h) => h.code).join(' / '),
-  '- 对照组：干预 ' + Math.round((1 - PARAMS.quality.controlRatio) * 100) + '% / 延迟干预 ' +
-  Math.round(PARAMS.quality.controlRatio * 100) + '%（`v3_cohort.json`）', '',
-  '## 课程与班级自检（当前学期）', '',
-  '| 课程 | 教学班 | 学生 | 班间差 | 班内 sd | 当前挂科率% | 历史挂科率% |',
-  '|---|---|---|---|---|---|---|'];
-courseStats.forEach((s) => {
-  story.push('| ' + s.key + ' ' + s.name + ' | ' + s.classes + ' | ' + s.students + ' | ' + s.spread +
-    ' | ' + s.sd + ' | ' + s.failCurrent + ' | ' + s.failHistory.join(' / ') + ' |');
+const classDetails = CLASSES.map((cl) => {
+  const rows = RESULTS.filter((r) => r.tcId === cl.id);
+  const teacher = TEACHER_BY_ID[cl.teacherId];
+  return {
+    code: cl.code, courseKey: cl.key, courseName: COURSE_BY_KEY[cl.key].name,
+    teacherName: teacher.name, strict: teacher.strict,
+    effect: CLASS_EFFECT[cl.key][cl.acId], n: rows.length,
+    avg: r1(meanOf(rows.map(metricOf))), sd: r1(sdOf(rows.map(metricOf))),
+    absentOver: rows.filter((r) => r.absent > r.allowed).length,
+    hardFail: rows.filter((r) => r.hard === 1).length,
+    retake: cl.retake === 1
+  };
 });
-story.push('', '## 说明', '',
+function causeOf(d) {
+  const parts = [];
+  if (d.effect <= -2) parts.push('班效应偏低（' + d.effect + '），整体基础较弱');
+  else if (d.effect >= 2) parts.push('班效应偏高（+' + d.effect + '），基础较好');
+  if (d.strict <= -1.0) parts.push('教师尺度偏严（Δ=' + d.strict + '）');
+  else if (d.strict >= 0.3) parts.push('教师尺度偏松（Δ=+' + d.strict + '）');
+  if (d.absentOver >= 6) parts.push('缺勤超限 ' + d.absentOver + ' 人，缺课硬线拉高风险');
+  if (d.sd >= 11.5) parts.push('班内差异大（sd=' + d.sd + '）');
+  if (d.retake) parts.push('重修班，基础分层明显');
+  if (!parts.length) parts.push('无明显异常，接近课程平均');
+  return parts.join('；');
+}
+
+const treatN = Object.values(cohort).filter((v) => v === 'TREAT').length;
+const controlN = Object.values(cohort).filter((v) => v === 'CONTROL').length;
+const story = [
+  '# v3.0 数据故事（参数、成因与自检）', '',
+  '> 由 `v3.0/tool/gen_v3_seed.js` 生成；seed=`' + PARAMS.seed + '`；库=`' + PARAMS.db + '`。',
+  '> v2.0 演示仍用 `study_warning_system_v2`（原数据）；v3.0 用 `run_v3_backend.ps1` 连本库。', '',
+  '## 一、规模与口径', '',
+  '- 教师 ' + TEACHERS.length + ' / 课程 ' + COURSES.length + ' / 行政班 ' + ACS.length +
+  ' / 学生 ' + STUDENTS.length + ' / 教学班 ' + CLASSES.length + ' / 选课 ' + ENROLL.length +
+  ' / 考勤 ' + ATT.length + ' / 分项 ' + SCORE_ITEM_ROWS.length + ' / 成绩单 ' + RESULTS.length,
+  '- 学期：当前 ' + CUR.code + ' + 历史 ' + HIST.map((h) => h.code).join(' / '),
+  '- 评测口径：期末未录的课用**过程百分制**（PARTIAL），已结课的课用**总评 T**（FINAL）；' +
+  '班间差=同课程各班均值极差；班内 sd=各班标准差均值。',
+  '- 对照组：干预 ' + treatN + ' 人 / 延迟干预 ' + controlN + ' 人（TREAT:CONTROL=60:40，见 `v3_cohort.json`）。', '',
+  '## 二、课程总表（当前学期）', '',
+  '| 课程 | 类型 | 周次 | 教学班 | 学生 | 班间差 | 班内 sd | 当前挂科率% | 历史挂科率%（近→远） |',
+  '|---|---|---|---|---|---|---|---|---|'];
+COURSES.forEach((c, i) => {
+  const s = courseStats.find((x) => x.key === c.key);
+  story.push('| ' + c.key + ' ' + c.name + ' | ' + (c.type === 'EXAM' ? '考试' : '考查') + ' | ' + c.weeks +
+    ' | ' + s.classes + ' | ' + s.students + ' | ' + s.spread + ' | ' + s.sd + ' | ' + s.failCurrent +
+    ' | ' + s.failHistory.slice().reverse().join(' / ') + ' |');
+});
+story.push('', '## 三、分班成因说明（答辩可直接引用）', '');
+COURSES.forEach((c) => {
+  story.push('### ' + c.key + ' ' + c.name + '（' + (c.type === 'EXAM' ? '考试课' : '考查课') + '，' + c.weeks + ' 周）', '');
+  story.push('| 教学班 | 教师 | 学生 | 过程/总评分均值 | 班内 sd | 缺勤超限 | 当前挂科 | 成因 |');
+  story.push('|---|---|---|---|---|---|---|---|');
+  classDetails.filter((d) => d.courseKey === c.key).forEach((d) => {
+    story.push('| ' + d.code + ' | ' + d.teacherName + ' | ' + d.n + ' | ' + d.avg + ' | ' + d.sd +
+      ' | ' + d.absentOver + ' | ' + d.hardFail + ' | ' + causeOf(d) + ' |');
+  });
+  story.push('');
+});
+story.push('## 四、数据口径与复现', '',
   '- 当前学期为第 9 周：EXAM 课期末未考（PARTIAL），ASSESS 课大作业已批（FINAL）；',
   '- 缺课硬线、需考不可达等 A 通道信号由考勤与成绩自然产生；',
-  '- 试卷 / 项目 / 问卷等演示模块暂不生成（P2 前补齐）。');
+  '- 课程因子（course_fail_rate_history.course_factor）由 P0-2 脚本按 clamp(1+k*(fail_rate-baseline),0.90,1.15) 初始化；',
+  '- 教师尺度 λ=n/(n+k) 与熔断由 P0-3 脚本重算；',
+  '- 复现：`node v3.0/tool/gen_v3_seed.js` → `bootstrap_v3.ps1 -Force` → `run_v3_pipeline.ps1`；',
+  '- 试卷 / 项目 / 问卷等演示模块暂不生成（P2 前补齐）。', '');
 fs.writeFileSync(OUT_STORY, story.join('\n'), 'utf8');
 
 // ============================================================ 控制台输出
