@@ -636,8 +636,18 @@ public class RiskEngineService {
         if (deltaOn) {
             TeacherStyle ts = teacherStyleOf(tc);
             if (ts != null) {
-                cc.delta = ts.getDelta();
-                cc.teacher = teacherFactor(ts.getDelta(), ts.getSampleSize(), config);
+                boolean fused = ts.getFused() != null && ts.getFused() == 1;
+                if (fused || "FUSED".equalsIgnoreCase(ts.getStatus())) {
+                    // P0-3：熔断的 Δ 一律不采用（样本不足/异常），留 WARN 供教务复核
+                    log.warn("teacher_style(id={}, teacherId={}, offeringId={}) 已熔断：{}，Δ 按 1.00 处理",
+                            ts.getId(), ts.getTeacherId(), ts.getOfferingId(), ts.getFuseReason());
+                } else if ("INSUFFICIENT".equalsIgnoreCase(ts.getStatus())) {
+                    log.warn("teacher_style(id={}, teacherId={}, offeringId={}) 样本不足（sampleSize={}），Δ 按 1.00 处理",
+                            ts.getId(), ts.getTeacherId(), ts.getOfferingId(), ts.getSampleSize());
+                } else {
+                    cc.delta = ts.getDelta();
+                    cc.teacher = teacherFactor(ts.getDelta(), ts.getSampleSize(), config);
+                }
             }
         }
         cc.personal = personalFactors(classEnrollments, course == null ? null : course.getId(),
@@ -730,11 +740,15 @@ public class RiskEngineService {
                 config.getTeacherStrictFactor(), config.getTeacherLooseFactor());
     }
 
+    /**
+     * 取"该教师在该课"的整体级 Δ。P0-3 起不再只在 SQL 层过滤 ACTIVE：
+     * FUSED/INSUFFICIENT 行也要读出来，由 {@link #channelC} 显式跳过并留 WARN。
+     */
     private TeacherStyle teacherStyleOf(TeachingClass tc) {
         return teacherStyleMapper.selectOne(Wrappers.<TeacherStyle>lambdaQuery()
                 .eq(TeacherStyle::getTeacherId, tc.getTeacherId())
                 .eq(TeacherStyle::getOfferingId, tc.getOfferingId())
-                .eq(TeacherStyle::getStatus, "ACTIVE")
+                .eq(TeacherStyle::getItemCode, "OVERALL")
                 .last("limit 1"));
     }
 

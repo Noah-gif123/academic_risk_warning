@@ -1,6 +1,8 @@
 package com.example.academic_risk_warning.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
@@ -79,7 +81,8 @@ public class RiskState {
     /** C通道：折算后的跨班可比风险分（影子分数，不落成绩表） */
     private BigDecimal channelCScore;
 
-    /** C通道：本次使用的教师尺度 Δ̂（收缩后） */
+    /** C通道：本次使用的教师尺度 Δ̂（收缩后）；P0-3 起熔断时按 1.00 处理、落 NULL（ALWAYS 让 null 也能写回） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private BigDecimal deltaUsed;
 
     /** C通道：本次使用的课程因子 c */

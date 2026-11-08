@@ -71,7 +71,7 @@
 
 1. ✅ `v3.0/sql/snapshot_v2.0.sql`（先能回滚，再动数据）—— 2026-11-08 完成，见 `v3.0/evidence/P0.md`
 2. ✅ `course_factor` 初始化：`clamp(1 + k*(fail_rate - baseline), 0.90, 1.15)`，写回 `is_initialized=1`；引擎读 NULL 时按 1.0 + WARN —— 2026-11-08 完成，见 §十 与 `v3.0/sql/40_p0_2_course_factor_init.sql`
-3. `λ = n/(n+k)` 随样本量生效 + 造 1–2 个样本 <10 的熔断案例（`fused=1` + 原因）
+3. ✅ `λ = n/(n+k)` 随样本量生效 + 造 1–2 个样本 <10 的熔断案例（`fused=1` + 原因）—— 2026-11-08 完成，见 §十 与 `v3.0/sql/41_p0_3_lambda_and_fuse.sql`
 4. 拟真数据生成器（教师 12–15 / 课程 8–10 / 班 6–8 / 3 学期 / 对照组 60:40），参数化 + seed 可复现
 5. 重算流水线 `v3.0/tool/run_v3_pipeline.ps1`：seed → 判定 → 报告 → 快照 → 基线，一条命令 <3 分钟
 6. 数据校验脚本 + `v3.0/sql/seeds/data_story.md`
@@ -162,4 +162,5 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 | 任务 | 改动摘要 | 验证结论 | 遗留风险 |
 |---|---|---|---|
 | **P0-2**（2026-11-08） | 新增 `v3.0/sql/40_p0_2_course_factor_init.sql`：按 `clamp(1 + k*(fail_rate - baseline), 0.90, min(cap,1.15))` 幂等回填 `course_fail_rate_history.course_factor` 并置 `is_initialized=1`；`RiskEngineService#failRateFactor` 改为读落库因子（`round(avg,4)`），行存在但因子 NULL 时按 1.00 并 `log.warn`，无历史行时保留 `student_fail_history` 反推兜底 | `javac @javac-full.args` 通过；RiskMathTest 20/20；SQL 回填后 5/5 行 factor 非空、`is_initialized=1`（1.006/0.983/0.983/0.987/0.987）；探针行验证两条路径：NULL→日志出现 WARN 且 `data_quality_json.failRateFactor=1.0`；落库 0.990→`risk_state.course_factor_used=1.089`（1.10×0.99） | 现有历史行只有当学期（term 5），引擎按口径排除，本次初始化对当前 `risk_state` 无直接影响，效果在下一学期体现；历史行若忘初始化会按 1.00 低估课程风险，需 P0-5 流水线保证回填 |
+| **P0-3**（2026-11-08） | 新增 `v3.0/sql/41_p0_3_lambda_and_fuse.sql`：λ=n/(n+k)（k=delta_shrink_k）重算 6 行并同步 Δ̂=raw×λ；造 2 个样本<10 熔断案例（teacher1/offering101、teacher4/offering104，sample_size=8、fused=1、status=FUSED、fuse_reason）。引擎 `channelC` 跳过 FUSED/INSUFFICIENT 的 Δ 并按 1.00 处理 + `log.warn`；`teacherStyleOf` 改读 OVERALL 行（不再只在 SQL 侧过滤 ACTIVE）；`RiskState.deltaUsed` 加 `updateStrategy=ALWAYS` 让熔断时的 null 能写回 | `javac` 通过、RiskMathTest 20/20；λ 由全 0.620 → 45 人 0.429 / 8 人 0.118；重算 term 5（540 行）后：熔断 3 个班（201/207/208/209，共 180 行）`delta_used` 为 NULL，日志出现 4 条「已熔断」WARN；非熔断班 Δ 用 λ 后值（-0.57/-0.40/-1.11/-0.79），`data_quality_json.teacherFactor` 相应为 1.0282/1.0197/1.0557/1.0390；等级分布 421/3/16/100 → 424/3/16/97（3 人黄→绿） | 引擎仍保留 `RiskMath.teacherStyleFactor` 的「样本<30 折半收缩」旧逻辑，与数据层 λ 叠加会双重收缩；当前 45 人样本不触发，P0-4 生成小样本班级时需统一（建议下沉为 λ 或删除折半）；熔断为演示用人工样本 8，非真实班级人数 |
 
