@@ -659,28 +659,35 @@ public class RiskEngineService {
     }
 
     /**
-     * 该科历史挂科率：优先用 `course_fail_rate_history` 的**已结束学期**；没有就用
-     * `student_fail_history` 按课程聚合反推（本学期与合成学期一律排除）。
+     * 该科历史挂科率因子：以 `course_fail_rate_history.course_factor` 的**已结束学期**行取平均
+     * （P0-2 起改为读落库因子，初始化脚本见 `v3.0/sql/40_p0_2_course_factor_init.sql`）。
+     *
+     * <p>行存在但 `course_factor` 为 NULL 时按 1.00 兜底并记 WARN —— 宁可不用，也不凭空抬风险；
+     * 完全没有已结束学期的行时，退回 `student_fail_history` 按课程聚合反推。</p>
      *
      * <p>不能用 `teaching_class_fail_rate` / `admin_class_fail_rate`：那是本期数据、且是旧口径算出来的，
      * 拿它当"历史"等于用旧结论喂新口径。</p>
      */
     private FailRateFactor failRateFactor(Long courseId, Long currentTermId, Set<Long> syntheticTerms,
                                           RiskEngineConfig config) {
-        BigDecimal sumRate = BigDecimal.ZERO;
+        BigDecimal sumFactor = BigDecimal.ZERO;
         int rateRows = 0;
-        int examinees = 0;
+        boolean missingFactor = false;
         for (CourseFailRateHistory r : courseFailRateMapper.selectList(
                 Wrappers.<CourseFailRateHistory>lambdaQuery().eq(CourseFailRateHistory::getCourseId, courseId))) {
             if (r.getTermId() == null || r.getTermId().equals(currentTermId)
-                    || syntheticTerms.contains(r.getTermId()) || r.getFailRate() == null) {
+                    || syntheticTerms.contains(r.getTermId())) {
                 continue;
             }
-            sumRate = sumRate.add(r.getFailRate());
             rateRows++;
-            examinees += r.getExamineeCount() == null ? 0 : r.getExamineeCount();
+            if (r.getCourseFactor() == null) {
+                // P0-2 兜底：历史行存在但因子未初始化 → 按 1.00，不许凭空抬风险，并留 WARN 供排查
+                missingFactor = true;
+                sumFactor = sumFactor.add(ONE);
+            } else {
+                sumFactor = sumFactor.add(r.getCourseFactor());
+            }
         }
-        String source = "course_fail_rate_history";
         if (rateRows == 0) {
             // 兜底：从归档的挂科历史反推课程级挂科率（term 4 起才有真历史）
             int n = 0;
@@ -699,15 +706,19 @@ public class RiskEngineService {
             if (n == 0) {
                 return new FailRateFactor(ONE, "absent（没有已结束学期的课程级挂科记录，按 1.00）");
             }
-            sumRate = BigDecimal.valueOf(fails * 100.0 / n).setScale(2, RoundingMode.HALF_UP);
-            rateRows = 1;
-            examinees = n;
-            source = "student_fail_history";
+            BigDecimal avg = BigDecimal.valueOf(fails * 100.0 / n).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal factor = RiskMath.failRateFactor(avg, n, config.getFailRateBase(),
+                    config.getFailRateStep(), config.getFailRateCap());
+            return new FailRateFactor(factor, "student_fail_history avg=" + avg.toPlainString()
+                    + "% examinees=" + n);
         }
-        BigDecimal avg = sumRate.divide(BigDecimal.valueOf(rateRows), 2, RoundingMode.HALF_UP);
-        BigDecimal factor = RiskMath.failRateFactor(avg, examinees, config.getFailRateBase(),
-                config.getFailRateStep(), config.getFailRateCap());
-        return new FailRateFactor(factor, source + " avg=" + avg.toPlainString() + "% examinees=" + examinees);
+        BigDecimal factor = sumFactor.divide(BigDecimal.valueOf(rateRows), 4, RoundingMode.HALF_UP);
+        if (missingFactor) {
+            log.warn("course_fail_rate_history 存在未初始化的 course_factor（courseId={}，当前学期={}），"
+                    + "按 1.00 兜底；请执行 v3.0/sql/40_p0_2_course_factor_init.sql", courseId, currentTermId);
+        }
+        return new FailRateFactor(factor, "course_fail_rate_history rows=" + rateRows
+                + " factor_avg=" + factor.toPlainString());
     }
 
     /**

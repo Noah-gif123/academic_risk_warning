@@ -70,7 +70,7 @@
 按 `v3.0规划清单.docx` 的 P0-1 … P0-8 执行，顺序：
 
 1. ✅ `v3.0/sql/snapshot_v2.0.sql`（先能回滚，再动数据）—— 2026-11-08 完成，见 `v3.0/evidence/P0.md`
-2. `course_factor` 初始化：`clamp(1 + k*(fail_rate - baseline), 0.90, 1.15)`，写回 `is_initialized=1`；引擎读 NULL 时按 1.0 + WARN
+2. ✅ `course_factor` 初始化：`clamp(1 + k*(fail_rate - baseline), 0.90, 1.15)`，写回 `is_initialized=1`；引擎读 NULL 时按 1.0 + WARN —— 2026-11-08 完成，见 §十 与 `v3.0/sql/40_p0_2_course_factor_init.sql`
 3. `λ = n/(n+k)` 随样本量生效 + 造 1–2 个样本 <10 的熔断案例（`fused=1` + 原因）
 4. 拟真数据生成器（教师 12–15 / 课程 8–10 / 班 6–8 / 3 学期 / 对照组 60:40），参数化 + seed 可复现
 5. 重算流水线 `v3.0/tool/run_v3_pipeline.ps1`：seed → 判定 → 报告 → 快照 → 基线，一条命令 <3 分钟
@@ -156,4 +156,10 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 - 需要 `keys.json`（已 gitignore，不进仓库）
 - 结论：**群聊模式实测可用但不进系统**（决策 19 只做 L2）；头脑风暴记录见 `v3.0/eval/brainstorm_20261106_2040.md`
 - 注意那份记录里有幻觉（`agent/orchestrator.py`、`arXiv` 假引用、`Dify v1.22`），**只取判断，不取路径与文献**
+
+## 十、P0 进度记录（逐项追加）
+
+| 任务 | 改动摘要 | 验证结论 | 遗留风险 |
+|---|---|---|---|
+| **P0-2**（2026-11-08） | 新增 `v3.0/sql/40_p0_2_course_factor_init.sql`：按 `clamp(1 + k*(fail_rate - baseline), 0.90, min(cap,1.15))` 幂等回填 `course_fail_rate_history.course_factor` 并置 `is_initialized=1`；`RiskEngineService#failRateFactor` 改为读落库因子（`round(avg,4)`），行存在但因子 NULL 时按 1.00 并 `log.warn`，无历史行时保留 `student_fail_history` 反推兜底 | `javac @javac-full.args` 通过；RiskMathTest 20/20；SQL 回填后 5/5 行 factor 非空、`is_initialized=1`（1.006/0.983/0.983/0.987/0.987）；探针行验证两条路径：NULL→日志出现 WARN 且 `data_quality_json.failRateFactor=1.0`；落库 0.990→`risk_state.course_factor_used=1.089`（1.10×0.99） | 现有历史行只有当学期（term 5），引擎按口径排除，本次初始化对当前 `risk_state` 无直接影响，效果在下一学期体现；历史行若忘初始化会按 1.00 低估课程风险，需 P0-5 流水线保证回填 |
 
