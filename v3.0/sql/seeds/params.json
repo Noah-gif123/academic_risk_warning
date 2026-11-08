@@ -46,12 +46,12 @@
   "classPlan": {
     "comment": "每个行政班本学期修的课程；retake 指定给哪些行政班开重修班",
     "coursesByClass": {
-      "2025": ["A", "B", "C", "D", "E", "G"],
-      "2024": ["A", "B", "C", "D", "E", "H"]
+      "2025": ["A", "B", "C", "D", "E", "F"],
+      "2024": ["A", "B", "C", "G", "H", "I"]
     },
     "retake": [
       { "courseKey": "D", "adminClassId": 8 },
-      { "courseKey": "H", "adminClassId": 6 }
+      { "courseKey": "H", "adminClassId": 1 }
     ]
   },
   "quality": {

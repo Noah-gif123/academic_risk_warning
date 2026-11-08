@@ -7,7 +7,7 @@
 
 ## 一、当前状态（一句话）
 
-**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 已完成 P0-1 ~ P0-3；P0-4 进行中（已定 v3.0 独立库方案：v2.0 演示库保持原样，v3.0 用 `study_warning_system_v3`）。**
+**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 已完成 P0-1 ~ P0-4（v2.0 演示库隔离 + v3.0 独立生成器）；P0-5 起未开工。**
 
 | 项 | 状态 |
 |---|---|
@@ -16,7 +16,7 @@
 | v2.0 Release | GitHub 上已发布 3 个（v1.0.0 / v1.1.0 / v2.0.0），**不要动** |
 | v3.0 规划 | 已完成：`v3.0/PLAN_v3.0.md`（**终版 v3.0.5**）+ `v3.0/word/v3.0规划清单.docx`（**56 项 / 49.5 人日，11 页**） |
 | v3.0 目录 | 已建骨架：backend / frontend / ai(dify) / sql(seeds) / tool / word / eval / evidence |
-| v3.0 代码 | **P0-1 ~ P0-3 完成**（2026-11-08）；**P0-4 进行中**（独立库链路已通，生成器待写）；见 §十 |
+| v3.0 代码 | **P0-1 ~ P0-4 完成**（2026-11-08）；**P0-5 起未开始**；见 §十 |
 
 ## 二、推送规则（务必遵守）
 
@@ -73,7 +73,7 @@
 1. ✅ `v3.0/sql/snapshot_v2.0.sql`（先能回滚，再动数据）—— 2026-11-08 完成，见 `v3.0/evidence/P0.md`
 2. ✅ `course_factor` 初始化：`clamp(1 + k*(fail_rate - baseline), 0.90, 1.15)`，写回 `is_initialized=1`；引擎读 NULL 时按 1.0 + WARN —— 2026-11-08 完成，见 §十 与 `v3.0/sql/40_p0_2_course_factor_init.sql`
 3. ✅ `λ = n/(n+k)` 随样本量生效 + 造 1–2 个样本 <10 的熔断案例（`fused=1` + 原因）—— 2026-11-08 完成，见 §十 与 `v3.0/sql/41_p0_3_lambda_and_fuse.sql`
-4. 拟真数据生成器（教师 12–15 / 课程 8–10 / 班 6–8 / 3 学期 / 对照组 60:40），参数化 + seed 可复现
+4. ✅ 拟真数据生成器（教师 12–15 / 课程 8–10 / 班 6–8 / 3 学期 / 对照组 60:40），参数化 + seed 可复现 —— 2026-11-08 完成，见 §十 与 `v3.0/tool/gen_v3_seed.js`
 5. 重算流水线 `v3.0/tool/run_v3_pipeline.ps1`：seed → 判定 → 报告 → 快照 → 基线，一条命令 <3 分钟
 6. 数据校验脚本 + `v3.0/sql/seeds/data_story.md`
 7. 重跑 C1/C2 消融 → `v3.0/evidence/P0.md`（修前 vs 修后对照）
@@ -106,6 +106,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\rollback_v2.0.ps1 
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\rollback_v2.0.ps1
 
 # v3.0 独立库（P0-4 起；v2.0 库 study_warning_system_v2 不受影响）
+node v3.0\tool\gen_v3_seed.js
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\bootstrap_v3.ps1 -Force
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\run_v3_backend.ps1 -Port 8080
 ```
@@ -168,5 +169,5 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 |---|---|---|---|
 | **P0-2**（2026-11-08） | 新增 `v3.0/sql/40_p0_2_course_factor_init.sql`：按 `clamp(1 + k*(fail_rate - baseline), 0.90, min(cap,1.15))` 幂等回填 `course_fail_rate_history.course_factor` 并置 `is_initialized=1`；`RiskEngineService#failRateFactor` 改为读落库因子（`round(avg,4)`），行存在但因子 NULL 时按 1.00 并 `log.warn`，无历史行时保留 `student_fail_history` 反推兜底 | `javac @javac-full.args` 通过；RiskMathTest 20/20；SQL 回填后 5/5 行 factor 非空、`is_initialized=1`（1.006/0.983/0.983/0.987/0.987）；探针行验证两条路径：NULL→日志出现 WARN 且 `data_quality_json.failRateFactor=1.0`；落库 0.990→`risk_state.course_factor_used=1.089`（1.10×0.99） | 现有历史行只有当学期（term 5），引擎按口径排除，本次初始化对当前 `risk_state` 无直接影响，效果在下一学期体现；历史行若忘初始化会按 1.00 低估课程风险，需 P0-5 流水线保证回填 |
 | **P0-3**（2026-11-08） | 新增 `v3.0/sql/41_p0_3_lambda_and_fuse.sql`：λ=n/(n+k)（k=delta_shrink_k）重算 6 行并同步 Δ̂=raw×λ；造 2 个样本<10 熔断案例（teacher1/offering101、teacher4/offering104，sample_size=8、fused=1、status=FUSED、fuse_reason）。引擎 `channelC` 跳过 FUSED/INSUFFICIENT 的 Δ 并按 1.00 处理 + `log.warn`；`teacherStyleOf` 改读 OVERALL 行（不再只在 SQL 侧过滤 ACTIVE）；`RiskState.deltaUsed` 加 `updateStrategy=ALWAYS` 让熔断时的 null 能写回 | `javac` 通过、RiskMathTest 20/20；λ 由全 0.620 → 45 人 0.429 / 8 人 0.118；重算 term 5（540 行）后：熔断 3 个班（201/207/208/209，共 180 行）`delta_used` 为 NULL，日志出现 4 条「已熔断」WARN；非熔断班 Δ 用 λ 后值（-0.57/-0.40/-1.11/-0.79），`data_quality_json.teacherFactor` 相应为 1.0282/1.0197/1.0557/1.0390；等级分布 421/3/16/100 → 424/3/16/97（3 人黄→绿） | 引擎仍保留 `RiskMath.teacherStyleFactor` 的「样本<30 折半收缩」旧逻辑，与数据层 λ 叠加会双重收缩；当前 45 人样本不触发，P0-4 生成小样本班级时需统一（建议下沉为 λ 或删除折半）；熔断为演示用人工样本 8，非真实班级人数 |
-| **P0-4**（进行中，2026-11-08） | 用户确认方案 B（v3.0 独立生成器、v2.0 演示数据隔离）：① 用 P0-1 快照把 v2.0 库恢复原状；② 新增 `v3.0/sql/seeds/params.json`（seed=20261108、教师 14 / 课程 9 / 行政班 8（30–45 人）/ 当前+3 历史学期 / 对照组 40%、班间差 6–12、sd 9–12、挂科率 3–25%）；③ 新增 `v3.0/tool/bootstrap_v3.ps1`（快照→克隆 v3 库→生成器→P0-2/P0-3 脚本→规模校验）；④ 新增 `v3.0/tool/run_v3_backend.ps1`（连 v3 库启动） | v2.0 库恢复校验通过（cfr 5 行全 NULL、λ 全 0.620、风险分布 16/3/100/421）；`bootstrap_v3.ps1 -Force -SkipSeed` 跑通：v3 库 75 表、克隆规模 9 教师 / 8 课 / 3 班 / 540 选课 / 5,535 考勤 | 生成器 `gen_v3_seed.js` 尚未实现，P0-4 未完成；v3 库当前是 v2 克隆数据，待生成器覆盖；初版生成器先保证引擎与统计所需主链路（不生成试卷/项目/问卷），P2 前再补齐 |
+| **P0-4**（完成，2026-11-08） | 方案 B：v2.0 演示库隔离 + v3.0 独立生成器。新增 `v3.0/tool/gen_v3_seed.js`：当前+3 历史学期、14 教师、9 课程、8 行政班（30–45 人）、50 教学班、1,927 选课、17,343 考勤、6,895 分项、1,927 成绩单、5,544 条历史挂科、36 行课程挂科率、12 行教师尺度、60:40 对照组 `v3_cohort.json`、`data_story.md`；`params.json` 全参数化（seed=20261108）；`bootstrap_v3.ps1` 全链路（快照→克隆 v3 库→生成→导入→P0-2/P0-3→规模校验）；`run_v3_backend.ps1` 连 v3 库启动 | 同 seed 两次生成 sha256 一致（`3f5ed3a9…`）；bootstrap 全流程通过：75 表 / 14 教师 / 9 课 / 8 行政班 / 50 教学班 / 1,927 选课；统计自检全绿：班间差 8.4–11.7（目标 6–12）、班内 sd 9.0–11.4（目标 9–12）、历史挂科率 1.8–23.7%（目标 3–25%）；v3 引擎实测：`risk_state` 1,927 行（GREEN 1265 / YELLOW 383 / ORANGE 138 / RED 141）、`alert_record` 662；课程因子取 3 个历史学期均值（101 班 factor_avg=1.081→×1.10=1.189）、熔断班 433 行 `delta_used=NULL` | v2.0 演示库校验未变（421/3/16/100、cfr 全 NULL）；初版不生成试卷/项目/问卷（v3 对应页面为空，P2 前补齐）；当前学期 RED 占 7.3% 偏高，P1 看板前可再调参；生成器只应写 `study_warning_system_v3`，不要指向 v2 库 |
 
