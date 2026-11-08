@@ -140,6 +140,9 @@ v3.0/sql/_backup/
 v3.0/sql/snapshot_v3.sql
 v3.0/sql/snapshot_v3.manifest.json
 
+### v3.0 消融工具编译产物（可重编译，不入库） ###
+v3.0/tool/ablation/classes/
+
 ### DSH 沙箱工作区权限修复记录（本机） ###
 .dsh-acl-recovery/
 
