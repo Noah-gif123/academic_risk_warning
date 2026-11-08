@@ -7,7 +7,7 @@
 
 ## 一、当前状态（一句话）
 
-**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 P0 数据底座已完成（P0-1 ~ P0-8；P0-7 效应量两项超目标已如实标注），下一步 P1 统计模块。**
+**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 P0 数据底座已完成（P0-1~P0-8，P0-7 部分达标如实标注）；P1 进行中：仅 P1-4（stats 模块 + /api/stats 七接口）完成，P1 其余任务未做。**
 
 | 项 | 状态 |
 |---|---|
@@ -16,7 +16,7 @@
 | v2.0 Release | GitHub 上已发布 3 个（v1.0.0 / v1.1.0 / v2.0.0），**不要动** |
 | v3.0 规划 | 已完成：`v3.0/PLAN_v3.0.md`（**终版 v3.0.5**）+ `v3.0/word/v3.0规划清单.docx`（**56 项 / 49.5 人日，11 页**） |
 | v3.0 目录 | 已建骨架：backend / frontend / ai(dify) / sql(seeds) / tool / word / eval / evidence |
-| v3.0 代码 | **P0-1 ~ P0-8 完成**（2026-11-08；P0-7 部分达标）；下一步 P1；见 §十、§十一 |
+| v3.0 代码 | **P0-1 ~ P0-8 完成**（2026-11-08；P0-7 部分达标）；**P1-4 完成**（stats 模块 /api/stats 七接口）；P1 其余未做；见 §十、§十二 |
 
 ## 二、推送规则（务必遵守）
 
@@ -199,3 +199,11 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 | 证据卡 | ✅ `v3.0/evidence/P0.md`（P0-1 快照 + P0-7 修前/修后消融）、`verify_data_v3.md`、`ablation_v2/v3.json` |
 
 > 结论：P0 数据底座可交付；唯一未闭合项是 P0-7 的两项效应量超目标（原因与调参方向见证据卡），不影响 P1 统计模块开工。
+
+## 十二、P1 进度记录（2026-11-08 起）
+
+**P1-4 决策（用户已确认）**：D1 方案 A（实时查询现有业务表 + `NO_DATA/PARTIAL` 降级，不改数据库结构）；D2 统一返回 200 + `current=null` + `dataStatus/reason`；D3 旧 `/api/{admin,counselor}/metrics/intervention` 保留未下线；D4 单路径 `/api/stats` + 角色裁剪（COUNSELOR 本班 / ADMIN 全校，教师端不开放）；D5 最小口径（关闭率分母=周期内新增、处置时长=close−create、干预改善暂用 `intervention_record.effective` 字段、P1-4 不做对照组）；D6 包名 `stats` + CSV 导出；D7 默认 `termId=当前学期`、`period=week`（自然周）。
+
+| 任务 | 改动摘要 | 验证结论 | 遗留风险 |
+|---|---|---|---|
+| **P1-4**（完成，2026-11-08） | 新建 `com...stats` 模块：`controller/stats/StatsController`、`service/stats/StatsService|StatsRepository|StatsScopeResolver`、`vo/stats/StatsEnvelope|StatsVos|StatsQuery`；`/api/stats` 七接口（overview/trend/distribution/compare/funnel/effect/export），统一 `current/previous/deltaRate/dataStatus/reason/sampleSize/asOf/period`；辅导员按 `counselor_class` 裁剪、教务全校；CSV 导出；本地 `javac-full.args` 追加 7 个源文件（该文件被 .gitignore，仅本机） | `javac @javac-full.args` 通过；v3 库实测与 SQL 逐项一致：admin overview **1927 / RED141 / ORANGE138 / YELLOW383 / GREEN1265**、avgRisk 29.14、classCount 50、active/new 662、closed 0；C001 范围 **1222 / 99 / 93 / 266 / 764**、classCount 31、alerts 458；distribution/compare `OK`，funnel `PARTIAL`（关闭/干预 0），effect `NO_DATA`（干预 0），trend 8 周（当前周 662）；无 token **401**、学生 token **403**；export CSV 与接口数字一致 | P1-2/P1-3 物化表未落地：trend 仅预警/干预事件口径、effect 用 `effective` 字段、无对照组；旧干预指标接口保留；P1-1 口径文档、P1-5/6 看板、P1-7 气泡/Excel、P1-8 对账脚本、P1-9 证据卡未做 |
