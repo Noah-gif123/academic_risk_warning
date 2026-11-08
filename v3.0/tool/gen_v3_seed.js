@@ -592,6 +592,85 @@ ins('enrollment', ENROLL.map((e) => ({
   create_by: 1, create_time: '2026-08-25 14:00:00', update_by: null, update_time: '2026-08-25 14:00:00'
 })));
 
+// 7.5) P2-0b Grader 最小数据：2 门课 × 5 道主观题 × 30 份提交
+const GRADER_QUESTIONS = {
+  B: [
+    { stem: '求极限 lim(x→0) sin(3x)/x，并说明使用的等价无穷小。', ref: 'sin(3x)~3x，故极限为 3', rubric: ['等价无穷小', '极限结果'] },
+    { stem: '说明导数与函数单调性的关系，并给出一个单调递增的判定条件。', ref: 'f\'(x)>0 则严格递增；f\'(x)<0 则递减', rubric: ['导数符号', '单调性结论'] },
+    { stem: '计算定积分 ∫₀¹ (2x+1) dx，并写出牛顿-莱布尼茨公式。', ref: '原函数 x²+x，结果 2；∫ₐᵇ f=F(b)−F(a)', rubric: ['原函数', '公式', '结果'] },
+    { stem: '判断级数 Σ 1/n² 的敛散性，并说明依据。', ref: 'p=2>1 的 p 级数收敛', rubric: ['p 级数', '收敛结论'] },
+    { stem: '简述矩阵可逆的两种判定方法。', ref: '行列式非零；秩等于阶数', rubric: ['行列式', '秩'] }
+  ],
+  D: [
+    { stem: '简述顺序表与链表的优缺点，并说明各自适用场景。', ref: '顺序表随机访问快、插入删除慢；链表相反', rubric: ['访问复杂度', '插入删除', '适用场景'] },
+    { stem: '写出二叉树前序遍历的递归定义，并给出一个例子。', ref: '根→左→右；例子略', rubric: ['遍历顺序', '递归', '例子'] },
+    { stem: '说明栈与队列的区别，并各举一个应用。', ref: '栈 LIFO（表达式求值）；队列 FIFO（BFS）', rubric: ['LIFO/FIFO', '应用'] },
+    { stem: '简述哈希表冲突处理的两种方法。', ref: '开放定址法；链地址法', rubric: ['开放定址', '链地址'] },
+    { stem: '分析快速排序平均时间复杂度及最坏情况。', ref: '平均 O(n log n)，最坏 O(n²)', rubric: ['平均', '最坏', '原因'] }
+  ]
+};
+const graderPapers = [];
+const graderQuestions = [];
+const graderSubs = [];
+const graderAnswers = [];
+let gpid = 9001;
+['B', 'D'].forEach((key, pi) => {
+  const cl = CLASSES.find((c) => c.key === key && c.acId === 1 && c.retake === 0);
+  const course = COURSE_BY_KEY[key];
+  const pid = gpid++;
+  graderPapers.push({
+    id: pid, teaching_class_id: cl.id, offering_id: cl.offeringId, term_id: CUR.id,
+    paper_type: 'HOMEWORK', paper_name: course.name + ' · 主观题联调卷（P2-0b）', lesson_id: null,
+    start_time: '2026-10-01 08:00:00', end_time: '2026-10-15 23:59:59', duration_minutes: 60,
+    full_score: 50, scheme_item_id: null, publisher_role: 'TEACHER', publisher_id: cl.teacherId,
+    allow_view_paper: 1, show_score: 1, show_answer: 'AFTER', status: 'PUBLISHED',
+    remark: 'P2 Grader 联调数据', create_by: cl.teacherId, create_time: '2026-09-28 09:00:00',
+    update_by: cl.teacherId, update_time: '2026-10-01 08:00:00'
+  });
+  const qids = [];
+  GRADER_QUESTIONS[key].forEach((q, qi) => {
+    const qid = 90001 + pi * 10 + qi;
+    qids.push(qid);
+    graderQuestions.push({
+      id: qid, paper_id: pid, q_no: qi + 1, q_type: 'SHORT', stem: q.stem, options_json: null,
+      answer_json: JSON.stringify({ ref: q.ref, rubric: q.rubric }), analysis: q.ref,
+      full_score: 10, group_name: '一、简答题', sort_no: qi + 1,
+      create_time: '2026-09-28 09:00:00', update_time: '2026-09-28 09:00:00'
+    });
+  });
+  ENROLL.filter((e) => e.cl.id === cl.id).slice(0, 30).forEach((e, si) => {
+    const sid = 900000 + pi * 1000 + si + 1;
+    let total = 0;
+    GRADER_QUESTIONS[key].forEach((q, qi) => {
+      const score = 5 + ((e.student.id * 13 + qi * 7 + pi * 3) % 6); // 5..10，人工分
+      total += score;
+      const quality = score >= 9 ? '完整' : score >= 7 ? '基本完整' : '要点不足';
+      const text = `（${quality}作答）${q.ref.slice(0, 30)}${score >= 9 ? '，并补充了推导与例子。' : score >= 7 ? '。' : '，部分步骤缺失。'}`;
+      graderAnswers.push({
+        id: 910000 + pi * 1000 + si * 10 + qi, submission_id: sid, question_id: qids[qi],
+        answer_json: JSON.stringify({ text }), score, is_correct: null,
+        comment: quality === '完整' ? '要点齐全' : quality === '基本完整' ? '基本正确' : '要点不足',
+        marked_by_type: 'TEACHER', marked_by: cl.teacherId, marked_at: '2026-10-16 10:00:00',
+        create_time: '2026-10-15 20:00:00', update_time: '2026-10-16 10:00:00'
+      });
+    });
+    graderSubs.push({
+      id: sid, paper_id: pid, teaching_class_id: cl.id, term_id: CUR.id, student_id: e.student.id,
+      enrollment_id: e.id, submit_status: 'SUBMITTED', start_time: '2026-10-15 19:00:00',
+      submit_time: '2026-10-15 20:00:00', duration_seconds: 3600, objective_score: 0,
+      subjective_score: total, total_score: total, marked_status: 'ALL_MARKED',
+      marked_by: cl.teacherId, marked_at: '2026-10-16 10:00:00', is_absent: 0,
+      remark: 'P2-0b 联调', create_time: '2026-10-15 20:00:00', update_time: '2026-10-16 10:00:00'
+    });
+  });
+});
+ins('paper', graderPapers);
+ins('question', graderQuestions);
+ins('submission', graderSubs);
+ins('submission_answer', graderAnswers);
+out.push('-- P2-0b Grader：' + graderPapers.length + ' 套卷 / ' + graderQuestions.length + ' 题 / ' +
+  graderSubs.length + ' 份提交 / ' + graderAnswers.length + ' 条作答');
+
 // 8) 成绩构成
 out.push('-- 8) 成绩构成（每门课一套，全部手工录入口径）');
 ins('score_scheme', COURSES.map((c) => ({

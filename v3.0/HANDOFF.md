@@ -233,3 +233,14 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 | 限制 12 | 复合索引 + 多门预警单查询 + 接口计时 | 26–54ms；索引检查 PASS |
 
 > P1-8 对账升级为 **22 项**（原 11 项 + term_id/日快照/scope/source/stale/中位/逾期/全类型导出/xlsx 内容/时延/索引）。
+
+## 十四、P2-0 前置记录（2026-11-08）
+
+| 项 | 改动 | 验证 |
+|---|---|---|
+| **P2-0a 模型自检** | 新增 `v3.0/tool/check_model.ps1`：读取 `ai.env`（不打印密钥）→ DeepSeek `/chat/completions` 两次调用（temperature=0）→ 写 `eval/model_check.json` | 可达 true；model=`deepseek-flash`；延迟 1.39–1.64s；tokens≈120；返回非空；**temperature=0 不可复现（false）**，P2 评测需多次运行/缓存 |
+| **P2-0b Grader 数据** | `gen_v3_seed.js` 新增：2 门课（高数/数据结构）× 5 道主观题（q_type=SHORT，含 ref/rubric）× 30 份提交/课；人工分 5–10、评语齐全；随 bootstrap 重建 | v3 库实测：paper=2、question=10、submission=60、submission_answer=300；每卷 5 题、每份 5 答、人工分无缺失；覆盖 2 门课 |
+| **P2-0c KB 语料** | 新增 `gen_kb_seed.js` → `sql/seeds/v3_kb_seed.sql`：课程 5/6/9/11 各 8 篇（大纲/6 讲/习题），32 篇/116 chunk；bootstrap 导入 | 总量 **61 篇/330 chunk/9 门课**；缺失 4 门各≥8 篇；全文检索冒烟（静电场/索引/特征值）通过 |
+
+> 对账：`verify_p2_0.ps1` **17/17 PASS**；重建后 `verify_data_v3` 43/43、`verify_stats` 22/22、`ci.ps1` 6/6 均 PASS。
+> P2-0a 结论：模型可达、延迟可接受，但**temperature=0 不保证逐字一致**；P2-13 评测需固定模型 + 多次运行/缓存，不能假设严格确定性。

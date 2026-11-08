@@ -1,0 +1,32 @@
+{
+    "id":  "53df8ef2-ee2e-4613-a6af-05ab387700e6",
+    "object":  "chat.completion",
+    "created":  1794136048,
+    "model":  "deepseek-flash",
+    "choices":  [
+                    {
+                        "index":  0,
+                        "message":  {
+                                        "role":  "assistant",
+                                        "content":  "学情预警系统通过分析学习数据提前识别学业风险并发出预警，帮助师生及时干预、改进教学与学习。",
+                                        "reasoning_content":  "我们需要回答中文，一句话。需要简洁。学情预警系统作用：通过采集分析学习行为数据，提前识别学业风险并预警，帮助师生及时干预，降低挂科/流失等。一句话。不要多余。"
+                                    },
+                        "logprobs":  null,
+                        "finish_reason":  "stop"
+                    }
+                ],
+    "usage":  {
+                  "prompt_tokens":  47,
+                  "completion_tokens":  73,
+                  "total_tokens":  120,
+                  "prompt_tokens_details":  {
+                                                "cached_tokens":  0
+                                            },
+                  "completion_tokens_details":  {
+                                                    "reasoning_tokens":  46
+                                                },
+                  "prompt_cache_hit_tokens":  0,
+                  "prompt_cache_miss_tokens":  47
+              },
+    "system_fingerprint":  "bc19ba97cbe016479903222bb1578db6"
+}

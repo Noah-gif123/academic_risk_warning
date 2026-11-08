@@ -1,0 +1,13 @@
+{
+    "checkedAt":  "2026-11-08T19:07:32+08:00",
+    "endpoint":  "https://api.deepseek.com/v1",
+    "model":  "deepseek-flash",
+    "reachable":  true,
+    "firstLatencyMs":  1516,
+    "secondLatencyMs":  1393,
+    "totalTokens":  120,
+    "sampleAnswer":  "学情预警系统通过分析学习数据提前识别学业风险并发出预警，帮助师生及时干预、改进教学与学习。",
+    "temperature0Reproducible":  false,
+    "error":  null,
+    "note":  "费用未按单价折算；token 用量见 totalTokens，按所用模型官网单价另算"
+}

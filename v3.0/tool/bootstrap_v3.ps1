@@ -75,6 +75,11 @@ if (-not $SkipSeed) {
     Assert-PathExists $seedSql 'v3 种子 SQL'
     Write-Host ("== 导入 v3 种子：{0}" -f $seedSql)
     Import-SqlFile -Ctx $ctx -Database $Db -File $seedSql
+    $kbSql = [IO.Path]::GetFullPath((Join-Path $v3Dir 'sql\seeds\v3_kb_seed.sql'))
+    if (Test-Path -LiteralPath $kbSql) {
+        Write-Host ("== 导入 P2-0c KB 语料：{0}" -f $kbSql)
+        Import-SqlFile -Ctx $ctx -Database $Db -File $kbSql
+    }
 
     if (-not $SkipP0Sql) {
         foreach ($name in @('40_p0_2_course_factor_init.sql', '41_p0_3_lambda_and_fuse.sql',
