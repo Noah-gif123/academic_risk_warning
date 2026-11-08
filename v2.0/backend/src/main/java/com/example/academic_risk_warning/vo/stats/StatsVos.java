@@ -38,6 +38,7 @@ public final class StatsVos {
         private BigDecimal riskRatio;
         private BigDecimal closeRate;
         private BigDecimal avgHandleHours;
+        private BigDecimal medianHandleHours;
         private HandleBuckets handleBuckets;
     }
 
@@ -95,6 +96,7 @@ public final class StatsVos {
         private Integer yellow;
         private Integer green;
         private Integer total;
+        private BigDecimal riskRatio;
     }
 
     /** compare：教学班/课程对比（当前快照，无历史环比）。 */
@@ -116,6 +118,7 @@ public final class StatsVos {
         private BigDecimal avgRiskScore;
         private BigDecimal avgScore;
         private Integer hardFail;
+        private BigDecimal riskRatio;
     }
 
     /** funnel：周期内新增预警的处置漏斗。 */
@@ -149,6 +152,8 @@ public final class StatsVos {
         private Integer unchanged;
         private Integer worsened;
         private Integer pending;
+        private Integer notReviewed;
+        private Integer overdue;
         private BigDecimal improveRate;
         private String note;
         private List<Cohort> cohorts = new ArrayList<>();

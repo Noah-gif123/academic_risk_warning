@@ -132,6 +132,12 @@ public class StatsController {
                 case "compare":
                     body = excelExporter.compare(statsService.compare(user, q));
                     break;
+                case "funnel":
+                    body = excelExporter.funnel(statsService.funnel(user, q));
+                    break;
+                case "effect":
+                    body = excelExporter.effect(statsService.effect(user, q));
+                    break;
                 default:
                     body = excelExporter.overview(statsService.overview(user, q));
                     break;

@@ -149,3 +149,10 @@ v3.0/tool/ablation/classes/
 
 ### P1-0 生命周期生成器编译产物（可重编译，不入库） ###
 v3.0/tool/demo/classes/
+
+### P1 硬化：置换检验编译产物 ###
+v3.0/tool/placebo/classes/
+
+### P1 硬化：误生成的编译产物兜底 ###
+v3.0/tool/classes/
+v3.0/tool/**/classes/

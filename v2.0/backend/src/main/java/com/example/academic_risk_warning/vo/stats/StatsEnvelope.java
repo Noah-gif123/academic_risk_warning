@@ -31,6 +31,9 @@ public class StatsEnvelope<T> {
     private String periodStart;
     private String periodEnd;
     private Boolean stale;
+    private Boolean staleBefore;
+    private Boolean refreshed;
+    private String refreshReason;
     private String engineVersion;
     private String materializedAt;
 

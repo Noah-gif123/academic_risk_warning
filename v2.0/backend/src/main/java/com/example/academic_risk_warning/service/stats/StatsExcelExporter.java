@@ -93,6 +93,38 @@ public class StatsExcelExporter {
         }
     }
 
+    public byte[] funnel(StatsEnvelope<StatsVos.Funnel> envelope) {
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            Sheet sh = wb.createSheet("成效漏斗");
+            int r = meta(wb, sh, 0, envelope);
+            r = head(sh, r, "阶段", "数量");
+            for (StatsVos.FunnelStage f : envelope.getCurrent().getStages()) {
+                r = row(sh, r, f.getName(), String.valueOf(f.getValue()));
+            }
+            return bytes(wb);
+        } catch (Exception e) {
+            throw new IllegalStateException("导出漏斗 Excel 失败", e);
+        }
+    }
+
+    public byte[] effect(StatsEnvelope<StatsVos.Effect> envelope) {
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            Sheet sh = wb.createSheet("干预成效");
+            int r = meta(wb, sh, 0, envelope);
+            r = head(sh, r, "组别", "干预数", "到期复评", "改善", "持平", "恶化", "改善率%");
+            for (StatsVos.Cohort c : envelope.getCurrent().getCohorts()) {
+                r = row(sh, r, c.getCohort(), String.valueOf(c.getIntervened()), String.valueOf(c.getDue()),
+                        String.valueOf(c.getImproved()), String.valueOf(c.getUnchanged()),
+                        String.valueOf(c.getWorsened()), String.valueOf(c.getImproveRate()));
+            }
+            StatsVos.Effect v = envelope.getCurrent();
+            r = row(sh, r, "TREAT−CONTROL(pp)", String.valueOf(v.getDiffPp()));
+            return bytes(wb);
+        } catch (Exception e) {
+            throw new IllegalStateException("导出成效 Excel 失败", e);
+        }
+    }
+
     // ------------------------------------------------------------ 单元格工具
     private int meta(XSSFWorkbook wb, Sheet sh, int r, StatsEnvelope<?> e) {
         r = row(sh, r, "数据状态", e.getDataStatus());

@@ -53,7 +53,7 @@ public class StatsService {
     // ============================================================ 七接口
     public StatsEnvelope<StatsVos.Overview> overview(LoginUser user, StatsQuery query) {
         Scope scope = scopeResolver.resolve(user, query);
-        materializer.ensureFresh(scope.termId());
+        StatsMaterializer.RefreshResult fresh = materializer.ensureFresh(scope.termId());
         Period period = period(query, scope);
         Map<String, Object> risk = repo.riskAggregate(scope);
         Map<String, Object> alerts = repo.alertAggregate(scope, period.start(), period.end());
@@ -65,6 +65,10 @@ public class StatsService {
         Map<String, Object> handle = repo.handleStats(scope, period.start(), period.end());
         current.setCloseRate(pct(i(alerts, "closedIn"), i(alerts, "newIn")));
         current.setAvgHandleHours(dec(handle, "avgHours"));
+        current.setMedianHandleHours(BigDecimal.valueOf(
+                repo.medianHandleHours(scope, period.start(), period.end()) == null ? 0
+                        : repo.medianHandleHours(scope, period.start(), period.end()))
+                .setScale(1, RoundingMode.HALF_UP));
         StatsVos.HandleBuckets buckets = new StatsVos.HandleBuckets();
         buckets.setLt24(i(handle, "lt24"));
         buckets.setH24to72(i(handle, "h24to72"));
@@ -109,12 +113,13 @@ public class StatsService {
         envelope.setPrevious(previous);
         envelope.setDeltaRate(delta);
         envelope.setSampleSize(i(risk, "total"));
-        fillMeta(envelope, scope, period);
+        fillMeta(envelope, scope, period, fresh);
         return envelope;
     }
 
     public StatsEnvelope<StatsVos.Trend> trend(LoginUser user, StatsQuery query) {
         Scope scope = scopeResolver.resolve(user, query);
+        StatsMaterializer.RefreshResult fresh = materializer.ensureFresh(scope.termId());
         LocalDate thisMonday = LocalDate.now().with(DayOfWeek.MONDAY);
         LocalDate from = thisMonday.minusWeeks(7);
         if (scope.termStart() != null && scope.termStart().isAfter(from)) {
@@ -137,13 +142,18 @@ public class StatsService {
             p.setAlertClosed(0);
             p.setInterventions(0);
             p.setImproved(0);
-            p.setMultiWarn(repo.multiWarnStudents(scope, week.atStartOfDay(), week.plusDays(7).atStartOfDay()));
             points.put(p.getWeekStart(), p);
         }
         mergeWeekly(points, repo.alertCreatedByWeek(scope, start, end), "alertNew");
         mergeWeekly(points, repo.alertClosedByWeek(scope, start, end), "alertClosed");
         mergeWeekly(points, repo.interventionsByWeek(scope, start, end), "interventions");
         mergeWeekly(points, repo.improvedByWeek(scope, start, end), "improved");
+        for (Map<String, Object> row : repo.multiWarnByWeek(scope, start, end)) {
+            StatsVos.TrendPoint p = points.get(String.valueOf(row.get("wk")));
+            if (p != null) {
+                p.setMultiWarn(i(row, "c"));
+            }
+        }
         for (Map<String, Object> row : repo.dailySeries(scope)) {
             LocalDate d = toLocalDate(row.get("stat_date"));
             StatsVos.TrendPoint p = points.get(d.with(DayOfWeek.MONDAY).format(DATE));
@@ -168,12 +178,13 @@ public class StatsService {
         } else {
             envelope = StatsEnvelope.noData("周期内没有预警/干预事件");
         }
-        fillMeta(envelope, scope, new Period(start, end, start.minusDays(7), start.minusSeconds(1)));
+        fillMeta(envelope, scope, new Period(start, end, start.minusDays(7), start.minusSeconds(1)), fresh);
         return envelope;
     }
 
     public StatsEnvelope<StatsVos.Distribution> distribution(LoginUser user, StatsQuery query) {
         Scope scope = scopeResolver.resolve(user, query);
+        StatsMaterializer.RefreshResult fresh = materializer.ensureFresh(scope.termId());
         Map<String, Object> risk = repo.riskAggregate(scope);
         StatsVos.Distribution d = new StatsVos.Distribution();
         d.getLevels().put("RED", i(risk, "red"));
@@ -189,6 +200,7 @@ public class StatsService {
             r.setYellow(i(row, "yellow"));
             r.setGreen(i(row, "green"));
             r.setTotal(i(row, "total"));
+            r.setRiskRatio(riskRatio(r.getRed(), r.getOrange(), r.getYellow(), r.getTotal()));
             d.getByCourse().add(r);
         }
         for (Map<String, Object> row : repo.classDistribution(scope, 30)) {
@@ -200,6 +212,7 @@ public class StatsService {
             r.setYellow(i(row, "yellow"));
             r.setGreen(i(row, "green"));
             r.setTotal(i(row, "total"));
+            r.setRiskRatio(riskRatio(r.getRed(), r.getOrange(), r.getYellow(), r.getTotal()));
             d.getByClass().add(r);
         }
         for (Map<String, Object> row : repo.calibration(scope.termId())) {
@@ -215,12 +228,13 @@ public class StatsService {
         }
         StatsEnvelope<StatsVos.Distribution> envelope = StatsEnvelope.ok(d);
         envelope.setSampleSize(i(risk, "total"));
-        fillMeta(envelope, scope, period(query, scope));
+        fillMeta(envelope, scope, period(query, scope), fresh);
         return envelope;
     }
 
     public StatsEnvelope<StatsVos.Compare> compare(LoginUser user, StatsQuery query) {
         Scope scope = scopeResolver.resolve(user, query);
+        StatsMaterializer.RefreshResult fresh = materializer.ensureFresh(scope.termId());
         StatsVos.Compare c = new StatsVos.Compare();
         for (Map<String, Object> row : repo.classCompare(scope)) {
             StatsVos.CompareRow r = new StatsVos.CompareRow();
@@ -235,16 +249,18 @@ public class StatsService {
             r.setAvgRiskScore(dec(row, "avgRisk"));
             r.setAvgScore(dec(row, "avgScore"));
             r.setHardFail(i(row, "hardFail"));
+            r.setRiskRatio(riskRatio(r.getRed(), r.getOrange(), r.getYellow(), r.getStudentCount()));
             c.getRows().add(r);
         }
         StatsEnvelope<StatsVos.Compare> envelope = StatsEnvelope.ok(c);
         envelope.setSampleSize(c.getRows().size());
-        fillMeta(envelope, scope, period(query, scope));
+        fillMeta(envelope, scope, period(query, scope), fresh);
         return envelope;
     }
 
     public StatsEnvelope<StatsVos.Funnel> funnel(LoginUser user, StatsQuery query) {
         Scope scope = scopeResolver.resolve(user, query);
+        StatsMaterializer.RefreshResult fresh = materializer.ensureFresh(scope.termId());
         Period period = period(query, scope);
         Map<String, Object> f = repo.funnelAggregate(scope, period.start(), period.end());
         Map<String, Object> iv = repo.interventionAggregate(scope, period.start(), period.end());
@@ -265,17 +281,17 @@ public class StatsService {
             envelope = StatsEnvelope.ok(funnel);
         }
         envelope.setSampleSize(created);
-        fillMeta(envelope, scope, period);
+        fillMeta(envelope, scope, period, fresh);
         return envelope;
     }
 
     public StatsEnvelope<StatsVos.Effect> effect(LoginUser user, StatsQuery query) {
         Scope scope = scopeResolver.resolve(user, query);
-        materializer.ensureFresh(scope.termId());
+        StatsMaterializer.RefreshResult fresh = materializer.ensureFresh(scope.termId());
         Period period = period(query, scope);
         List<Map<String, Object>> rows = repo.effectByCohort(scope, period.start(), period.end());
         StatsVos.Effect effect = new StatsVos.Effect();
-        int total = 0, due = 0, improved = 0, unchanged = 0, worsened = 0;
+        int total = 0, due = 0, improved = 0, unchanged = 0, worsened = 0, notReviewed = 0, overdue = 0;
         BigDecimal treatRate = null, controlRate = null;
         for (Map<String, Object> row : rows) {
             StatsVos.Cohort c = new StatsVos.Cohort();
@@ -292,6 +308,8 @@ public class StatsService {
             improved += c.getImproved();
             unchanged += c.getUnchanged();
             worsened += c.getWorsened();
+            notReviewed += i(row, "notReviewed");
+            overdue += i(row, "overdue");
             if ("TREAT".equals(c.getCohort())) {
                 treatRate = c.getImproveRate();
             } else if ("CONTROL".equals(c.getCohort())) {
@@ -303,6 +321,8 @@ public class StatsService {
         effect.setImproved(improved);
         effect.setUnchanged(unchanged);
         effect.setWorsened(worsened);
+        effect.setNotReviewed(notReviewed);
+        effect.setOverdue(overdue);
         effect.setPending(Math.max(0, total - due));
         effect.setImproveRate(pct(improved, due));
         effect.setTreatRate(treatRate);
@@ -319,7 +339,7 @@ public class StatsService {
             envelope = StatsEnvelope.ok(effect);
         }
         envelope.setSampleSize(total);
-        fillMeta(envelope, scope, period);
+        fillMeta(envelope, scope, period, fresh);
         return envelope;
     }
 
@@ -339,6 +359,29 @@ public class StatsService {
                             .append(r.getYellow()).append(',').append(r.getGreen()).append(',')
                             .append(r.getTotal()).append('\n');
                 }
+                break;
+            }
+            case "funnel": {
+                StatsEnvelope<StatsVos.Funnel> e = funnel(user, query);
+                sb.append("阶段,数量\n");
+                for (StatsVos.FunnelStage f : e.getCurrent().getStages()) {
+                    sb.append(csv(f.getName())).append(',').append(f.getValue()).append('\n');
+                }
+                break;
+            }
+            case "effect": {
+                StatsEnvelope<StatsVos.Effect> e = effect(user, query);
+                StatsVos.Effect v = e.getCurrent();
+                sb.append("组别,干预数,到期复评,改善,持平,恶化,未复评,逾期,改善率%\n");
+                for (StatsVos.Cohort c : v.getCohorts()) {
+                    sb.append(csv(c.getCohort())).append(',').append(c.getIntervened()).append(',')
+                            .append(c.getDue()).append(',').append(c.getImproved()).append(',')
+                            .append(c.getUnchanged()).append(',').append(c.getWorsened()).append(',')
+                            .append(v.getNotReviewed() == null ? 0 : v.getNotReviewed()).append(',')
+                            .append(v.getOverdue() == null ? 0 : v.getOverdue()).append(',')
+                            .append(c.getImproveRate()).append('\n');
+                }
+                sb.append("差值pp,").append(v.getDiffPp()).append('\n');
                 break;
             }
             case "compare": {
@@ -437,11 +480,15 @@ public class StatsService {
         return o;
     }
 
-    private void fillMeta(StatsEnvelope<?> envelope, Scope scope, Period period) {
+    private void fillMeta(StatsEnvelope<?> envelope, Scope scope, Period period,
+                          StatsMaterializer.RefreshResult fresh) {
         envelope.setAsOf(OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         envelope.setPeriodStart(period.start().format(DATETIME));
         envelope.setPeriodEnd(period.end().format(DATETIME));
         envelope.setStale(Boolean.FALSE);
+        envelope.setStaleBefore(fresh != null && fresh.staleBefore());
+        envelope.setRefreshed(fresh != null && fresh.refreshed());
+        envelope.setRefreshReason(fresh == null ? null : fresh.reason());
         envelope.setEngineVersion(repo.currentEngine(scope.termId()));
         envelope.setMaterializedAt(envelope.getAsOf());
     }

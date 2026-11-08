@@ -15,7 +15,7 @@
 | “等级下降” | 复评后等级在等级序上更低（如 ORANGE→YELLOW）；跨档才算改善，同档不算 |
 | 复评窗口 | 干预后 **第 7 天起、第 14 天止**；<7 天不计改善，>14 天标「逾期未复评」 |
 | 关闭判定 | `alert_record.close_time is not null` 且 `status='CLOSED'`（两者一致才算关闭；物化时以 close_time 为准） |
-| 范围 | 教务=全校；辅导员=`counselor_class` 中本人名下行政班；教师不开放 |
+| 范围 | 教务=全校；辅导员=本人行政班对应的**教学班**（enrollment→student→counselor_class 映射，班级级口径）；教师不开放 |
 
 ## 1. 预警关闭率
 
@@ -165,9 +165,9 @@ GROUP BY rs.teaching_class_id;
 | `/api/stats/effect` | 指标 3/4 + 对照组 | 无干预 → NO_DATA；`effective` 字段近似 | 等级口径 + cohort |
 | `/api/stats/export` | 导出 | CSV | CSV / Excel（P1-7） |
 
-## 8. 物化与失效（P1-2/P1-3 约定）
+## 8. 物化与失效（P1-2/P1-3 约定；P1 硬化后）
 
-- 三表：`stat_daily_class`（日快照，班级）、`stat_weekly_kpi`（周 KPI，scope 级）、`stat_intervention_effect`（周成效，班×cohort）。
+- 三表均带 `term_id`；`stat_daily_class` 另带 `source`（`DEMO_BACKFILL` / `MATERIALIZED`）；周 KPI 分 `ALL/COUNSELOR/CLASS` scope（COURSE 暂缓）。
 - 每行带 `engine_version`、`source_max_update_time`、`is_stale`。
 - 失效判定：最新 `risk_state.engine_version ≠ 行.engine_version` 或 `max(risk_state.update_time/alert_record.update_time/intervention_record.update_time) > source_max_update_time` → `is_stale=1`；读取时自动重算（幂等 upsert），界面显示“数据重算于 …”。
 - 触发：每日定时（`@Scheduled`）+ 手动重算接口（仅教务）。

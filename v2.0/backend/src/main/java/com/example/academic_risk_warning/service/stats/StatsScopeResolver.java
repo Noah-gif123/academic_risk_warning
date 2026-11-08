@@ -25,7 +25,7 @@ public class StatsScopeResolver {
 
     /** 解析后的统计范围；classIds == null 表示全校（管理员）。 */
     public record Scope(Long termId, String termName, LocalDate termStart, LocalDate termEnd,
-                        List<Long> classIds, String scopeText) {
+                        List<Long> classIds, List<Long> teachingClassIds, String scopeText) {
         public boolean allScope() {
             return classIds == null;
         }
@@ -39,7 +39,7 @@ public class StatsScopeResolver {
         LocalDate end = toLocalDate(term.get("end_date"));
 
         if ("ADMIN".equalsIgnoreCase(user.getRole())) {
-            return new Scope(termId, termName, start, end, null, "全校");
+            return new Scope(termId, termName, start, end, null, null, "全校");
         }
         if (!"COUNSELOR".equalsIgnoreCase(user.getRole())) {
             throw new BizException(403, "该统计接口仅对辅导员与教务开放");
@@ -58,7 +58,18 @@ public class StatsScopeResolver {
                     Long.class, user.getRefId());
             classIds = new ArrayList<>(new java.util.LinkedHashSet<>(classIds));
         }
-        return new Scope(termId, termName, start, end, classIds,
+        List<Long> teachingClassIds = jdbc.queryForList(
+                "select distinct e.teaching_class_id from enrollment e join student st on st.id = e.student_id"
+                        + " where st.admin_class_id in (select admin_class_id from counselor_class"
+                        + " where counselor_id = ? and term_id = ?)",
+                Long.class, user.getRefId(), termId);
+        if (teachingClassIds.isEmpty()) {
+            teachingClassIds = jdbc.queryForList(
+                    "select distinct e.teaching_class_id from enrollment e join student st on st.id = e.student_id"
+                            + " where st.admin_class_id in (select admin_class_id from counselor_class"
+                            + " where counselor_id = ?)", Long.class, user.getRefId());
+        }
+        return new Scope(termId, termName, start, end, classIds, teachingClassIds,
                 counselorName == null ? "本人行政班" : counselorName + " 名下行政班");
     }
 

@@ -216,3 +216,20 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 | **P1-7**（完成，2026-11-08） | 新增 `StatsExcelExporter`（POI）与 `/api/stats/export?format=xlsx`；看板每图接入 `InfoTooltip`（定义 + SQL）；CSV/XLSX 与接口同源数据 | 每图可点开口径气泡；CSV 与接口数字一致（verify_stats 内校验）；XLSX PK 头、~3.9KB 可下载 | 前端未引图表库（自研 SVG）；气泡为静态文案 + SQL，未从后端动态取 SQL 文本 |
 | **P1-8**（完成，2026-11-08） | 新增 `v3.0/tool/verify_stats.ps1`：起后端（18085）→ 7 接口取数 → SQL 逐项对照 → 401/403 → 导出校验 → 写 `evidence/verify_stats.md`，失败非零退出；`ci.ps1` 增加第 6 步 `stats-verify` | `verify_stats.ps1` **11/11 PASS**；`ci.ps1` **6/6 PASS（35.7s）**：compile/unit-tests/data-verify/report-audit/baseline-diff/stats-verify | 对账覆盖 7 接口 + 权限 + 导出；未覆盖前端 DOM 数字（由截图人工核对） |
 | **P1-9**（完成，2026-11-08） | 新增 `v3.0/evidence/P1.md`：五指标实测、P1-0/2/3 数据底座、验收对照、复现命令、限制；新增 `evidence/screenshots/admin_stats.png`、`counselor_stats.png`（Chrome headless CDP 注入登录态截取） | 教务 5 图 + 辅导员 5 图截图可复核；对照组差值 29.54pp（全校）/32.93pp（C001）；CI 证据 `ci_report.md`、对账 `verify_stats.md` | 截图为 1280×900 首屏（班级对比图在折叠下方）；数据为演示构造，需在论文标注准实验边界 |
+
+## 十三、P1 硬化记录（限制 1–9、12，2026-11-08）
+
+| 项 | 改动 | 验证 |
+|---|---|---|
+| 限制 1 | `docs/data_authenticity.md` + `tool/placebo/PlaceboTest.java` + `run_placebo.ps1` + `eval/placebo.json` | 置换检验：观测差 29.54pp，零分布 95% [−8.46, 8.52]，p≈0.0002（5000 次） |
+| 限制 2 | `52_stats_term_id.sql`：stat 三表加 term_id + 唯一键；Materializer/Repository 按 term 读写；bootstrap 应用 50/51/52/53 | null term rows=0；verify_stats PASS |
+| 限制 3 | Materializer 周 KPI 分 `ALL/COUNSELOR/CLASS` | scope types=3；KPI 1211 行 |
+| 限制 4 | Scope 增加 teachingClassIds（enrollment→student 映射），Repository 统一 teaching_class_id 口径 | C001=1222=SQL；与 C002 无重叠；verify PASS |
+| 限制 5 | 中位处置时长、逾期/未复评、课程/班级风险占比 | median=178h、overdue/notReviewed 有值；verify PASS |
+| 限制 6 | export CSV/XLSX 覆盖 5 类；verify 校验表头与 XLSX 内容 | 5/5 CSV + xlsx 内容 PASS |
+| 限制 7 | GenLifecycle 逐日回填 62 天、source 标记 | distinct dates=62、source kinds=2 |
+| 限制 8 | Envelope `staleBefore/refreshed/refreshReason`；看板提示 | verify 字段检查 PASS |
+| 限制 9 | 离线 ECharts（ESM）+ 缩放/图例/点击/筛选/明细；截图更新 | `npm run build` 通过；截图 `screenshots/*.png` |
+| 限制 12 | 复合索引 + 多门预警单查询 + 接口计时 | 26–54ms；索引检查 PASS |
+
+> P1-8 对账升级为 **22 项**（原 11 项 + term_id/日快照/scope/source/stale/中位/逾期/全类型导出/xlsx 内容/时延/索引）。

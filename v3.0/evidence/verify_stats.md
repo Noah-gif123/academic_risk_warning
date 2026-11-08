@@ -1,9 +1,9 @@
 # v3.0 P1-8 统计对账报告
 
-- 时间：2026-11-08T16:53:22+08:00
+- 时间：2026-11-08T18:56:18+08:00
 - 数据库：`study_warning_system_v3`；termId=5
-- 结果：**PASS**（11/11）
-- 耗时：10.3s
+- 结果：**PASS**（22/22）
+- 耗时：12s
 
 | # | 检查 | 结果 | 证据 |
 |---|---|---|---|
@@ -18,5 +18,16 @@
 | 9 | export XLSX 可下载 | PASS | bytes=3941（PK 头） |
 | 10 | 权限 401/403 | PASS | 无 token=401；学生=403 |
 | 11 | 辅导员范围裁剪 | PASS | C001=1222；SQL=1222 |
+| 12 | stat.term_id 已回填 | PASS | null term rows=0 |
+| 13 | 日快照为逐日累积 | PASS | distinct dates=62 |
+| 14 | 周 KPI 分 scope | PASS | scope types=3 |
+| 15 | 回填来源可区分 | PASS | source kinds=2 |
+| 16 | stale 语义字段 | PASS | refreshed=False staleBefore=False |
+| 17 | 辅助口径 中位处置时长 | PASS | median=178.0 |
+| 18 | 辅助口径 逾期/未复评 | PASS | overdue=0 notReviewed=20 |
+| 19 | export 全类型 CSV | PASS | 5 类均含表头 |
+| 20 | export XLSX 内容 | PASS | bytes=3829 contains TREAT/CONTROL=True |
+| 21 | 接口时延 <2s | PASS | overview=52ms trend=40ms distribution=46ms compare=56ms funnel=32ms effect=30ms |
+| 22 | 性能索引存在 | PASS | alert_record indexes=6 |
 
 > 复现：`powershell -NoProfile -ExecutionPolicy Bypass -File v3.0/tool/verify_stats.ps1`

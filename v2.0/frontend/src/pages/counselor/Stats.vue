@@ -4,8 +4,9 @@
       <div>
         <h1 class="text-xl font-semibold text-slate-800">统计看板</h1>
         <p class="text-xs text-slate-400 mt-1">
-          数据重算于 {{ overview.materializedAt || '—' }}
-          <span v-if="overview.stale" class="text-amber-600 ml-1">（过期，读取时已触发重算）</span>
+          数据重算于 {{ meta.materializedAt || '—' }}
+          <span v-if="meta.refreshed" class="text-brand-600 ml-1">（因 {{ meta.refreshReason }} 已自动重算）</span>
+          <span v-else-if="meta.stale" class="text-amber-600 ml-1">（数据过期，读取时已触发重算）</span>
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -26,25 +27,27 @@
       <StatCard label="红黄占比" :value="ov.riskRatio" unit="%" hint="红+橙+黄 ÷ 学生数">
         <template #label>红黄占比
           <InfoTooltip title="风险面变化率（指标 5）" definition="红黄灯占比 =（红+橙+黄）÷ 学生数；与上一自然周快照对比得到变化（百分点）。"
-            sql="SELECT SUM(red+orange+yellow)/SUM(student_count) FROM stat_daily_class WHERE stat_date BETWEEN ..." />
+            sql="SELECT SUM(red+orange+yellow)/SUM(student_count) FROM stat_daily_class WHERE term_id=? AND stat_date BETWEEN ..." />
         </template>
       </StatCard>
       <StatCard label="预警关闭率" :value="ov.closeRate" unit="%" hint="周期内新增中已关闭占比">
         <template #label>预警关闭率
-          <InfoTooltip title="预警关闭率（指标 1）" definition="周期内新增且已关闭的预警数 ÷ 周期内新增预警数；辅助口径为消化能力（周期内关闭总数 ÷ 新增总数）。"
-            sql="SELECT SUM(close_time IS NOT NULL)*100.0/COUNT(*) FROM alert_record WHERE create_time BETWEEN ? AND ?" />
+          <InfoTooltip title="预警关闭率（指标 1）" definition="周期内新增且已关闭的预警数 ÷ 周期内新增预警数；辅助口径为消化能力。"
+            sql="SELECT SUM(close_time IS NOT NULL)*100.0/COUNT(*) FROM alert_record WHERE term_id=? AND create_time BETWEEN ? AND ?" />
         </template>
       </StatCard>
-      <StatCard label="平均处置时长" :value="ov.avgHandleHours" unit="小时" hint="close_time − create_time">
+      <StatCard label="平均处置时长" :value="ov.avgHandleHours" unit="小时"
+        :hint="`中位 ${ov.medianHandleHours ?? '—'} h`">
         <template #label>平均处置时长
-          <InfoTooltip title="平均处置时长（指标 2）" definition="周期内关闭的预警，close_time − create_time 的均值（小时）；辅助口径为中位数与分档分布。"
-            sql="SELECT AVG(TIMESTAMPDIFF(MINUTE, create_time, close_time))/60 FROM alert_record WHERE close_time BETWEEN ? AND ?" />
+          <InfoTooltip title="平均处置时长（指标 2）" definition="周期内关闭预警的 close_time − create_time 均值（小时）；辅助口径为中位数与分档分布。"
+            sql="SELECT AVG(TIMESTAMPDIFF(MINUTE, create_time, close_time))/60 FROM alert_record WHERE term_id=? AND close_time BETWEEN ? AND ?" />
         </template>
       </StatCard>
-      <StatCard label="对照组差值" :value="effect.diffPp" unit="pp" :hint="`干预 ${fmt(effect.treatRate)}% vs 对照 ${fmt(effect.controlRate)}%`">
+      <StatCard label="对照组差值" :value="effect.diffPp" unit="pp"
+        :hint="`干预 ${fmt(effect.treatRate)}% vs 对照 ${fmt(effect.controlRate)}%`">
         <template #label>对照组差值
-          <InfoTooltip title="对照组（可归因）" definition="干预组改善率 − 对照组改善率（百分点）。TREAT 为干预组，CONTROL 为本周期仅复评的延迟干预组；属准实验，非净效应。"
-            sql="SELECT cohort, SUM(improved)/SUM(due) FROM stat_intervention_effect GROUP BY cohort" />
+          <InfoTooltip title="对照组（可归因）" definition="干预组改善率 − 对照组改善率（百分点）；TREAT 为干预组，CONTROL 为仅复评的延迟干预组；属准实验。"
+            sql="SELECT cohort, SUM(improved)/SUM(due) FROM stat_intervention_effect WHERE term_id=? GROUP BY cohort" />
         </template>
       </StatCard>
     </div>
@@ -53,9 +56,9 @@
       <section class="card p-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-medium text-slate-700">班级风险趋势
-            <InfoTooltip title="趋势" definition="按自然周聚合：红黄占比（折线）与新增预警（柱）。数据来自 stat_daily_class 与 alert_record。" />
+            <InfoTooltip title="趋势" definition="按自然周聚合：红黄占比（折线）与新增预警（柱）；支持缩放与图例开关。" />
           </h2>
-          <span class="text-[11px] text-slate-400">{{ trendStatus }}</span>
+          <span class="text-[11px] text-slate-400">{{ statuses.trend }}</span>
         </div>
         <TrendChart :points="trend" />
       </section>
@@ -75,7 +78,7 @@
           <h2 class="text-sm font-medium text-slate-700">干预成效漏斗
             <InfoTooltip title="成效漏斗" definition="周期内新增预警 → 已处置 → 已关闭 → 已干预 → 已改善；用于定位闭环堵点。" />
           </h2>
-          <span class="text-[11px] text-slate-400">{{ funnelStatus }}</span>
+          <span class="text-[11px] text-slate-400">{{ statuses.funnel }}</span>
         </div>
         <FunnelChart :stages="funnel" />
       </section>
@@ -83,26 +86,37 @@
       <section class="card p-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-medium text-slate-700">对照组对比
-            <InfoTooltip title="干预组 vs 对照组" definition="T+7（第 7–14 天）复评等级下降算改善；干预组改善率与延迟干预对照组改善率之差 ≥20pp 说明干预有可观测效果（准实验）。" />
+            <InfoTooltip title="干预组 vs 对照组" definition="T+7（第 7–14 天）复评等级下降算改善；干预组与延迟干预对照组改善率之差 ≥20pp 说明有可观测效果（准实验）。" />
           </h2>
           <span class="text-[11px] text-slate-400">改善率 %</span>
         </div>
         <BarChart :rows="cohortRows" title="TREAT vs CONTROL 改善率" unit="%" />
         <p class="text-xs text-slate-500 mt-2">
           差值 <b class="text-brand-600">{{ fmt(effect.diffPp) }}pp</b>
-          ｜到期复评 {{ effect.due || 0 }} 例，未到期 {{ effect.pending || 0 }} 例
+          ｜到期复评 {{ effect.due || 0 }} 例｜未到期 {{ effect.pending || 0 }} 例
+          ｜未复评 {{ effect.notReviewed || 0 }} 例｜逾期 {{ effect.overdue || 0 }} 例
         </p>
       </section>
     </div>
 
     <section class="card p-4">
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="text-sm font-medium text-slate-700">班级风险对比（Top 12）
-          <InfoTooltip title="班级对比" definition="按教学班聚合当前风险等级分布与平均风险分；红/橙/黄/绿堆叠。" />
+      <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <h2 class="text-sm font-medium text-slate-700">班级风险对比
+          <InfoTooltip title="班级对比" definition="按教学班聚合当前风险等级分布与平均风险分；点击柱条可查看该班明细。" />
         </h2>
-        <span class="text-[11px] text-slate-400">{{ compare.length }} 个教学班</span>
+        <div class="flex items-center gap-2">
+          <select v-model="selectedClass" class="input !w-36 !py-1 text-xs">
+            <option value="ALL">全部教学班</option>
+            <option v-for="c in classOptions" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <span class="text-[11px] text-slate-400">{{ compareRows.length }} 个教学班</span>
+        </div>
       </div>
-      <StackedBars :rows="compareRows" />
+      <StackedBars :rows="compareRows" @row-click="onClassClick" />
+      <div v-if="detail" class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+        <b>{{ detail.label }}</b>：人数 {{ detail.total }}｜红 {{ detail.red }}｜橙 {{ detail.orange }}｜黄 {{ detail.yellow }}｜绿 {{ detail.green }}
+        ｜平均风险分 {{ fmt(detail.avgRisk) }}
+      </div>
     </section>
   </div>
 </template>
@@ -126,25 +140,31 @@ const funnel = ref([])
 const effect = ref({})
 const compare = ref([])
 const statuses = ref({})
-const overviewMeta = ref({})
+const meta = ref({})
+const selectedClass = ref('ALL')
+const detail = ref(null)
 
-const overview = computed(() => overviewMeta.value || {})
 const fmt = (v) => (v === null || v === undefined ? '—' : Number(v).toFixed(2))
-const trendStatus = computed(() => statuses.value.trend || '')
-const funnelStatus = computed(() => statuses.value.funnel || '')
 const multiWarnRows = computed(() => trend.value.map((p) => ({ label: String(p.weekStart).slice(5), value: p.multiWarn || 0 })))
 const cohortRows = computed(() => [
   { label: '干预组', value: effect.value.treatRate },
   { label: '对照组', value: effect.value.controlRate }
 ].filter((r) => r.value !== null && r.value !== undefined))
-const compareRows = computed(() => compare.value
-  .map((r) => ({
-    label: `${r.classCode}`,
-    red: r.red, orange: r.orange, yellow: r.yellow, green: r.green, total: r.studentCount,
-    avgRisk: r.avgRiskScore
-  }))
-  .sort((a, b) => (b.red + b.orange) - (a.red + a.orange))
-  .slice(0, 12))
+const allCompareRows = computed(() => compare.value.map((r) => ({
+  label: `${r.classCode}`,
+  classCode: r.classCode,
+  red: r.red, orange: r.orange, yellow: r.yellow, green: r.green,
+  total: r.studentCount, avgRisk: r.avgRiskScore
+})).sort((a, b) => (b.red + b.orange) - (a.red + a.orange)))
+const classOptions = computed(() => allCompareRows.value.map((r) => r.classCode))
+const compareRows = computed(() => selectedClass.value === 'ALL'
+  ? allCompareRows.value.slice(0, 15)
+  : allCompareRows.value.filter((r) => r.classCode === selectedClass.value))
+
+function onClassClick(name) {
+  const row = allCompareRows.value.find((r) => r.classCode === name)
+  if (row) detail.value = row
+}
 
 async function load() {
   loading.value = true
@@ -158,12 +178,15 @@ async function load() {
       statsApi.compare({ period: period.value })
     ])
     ov.value = o.current || {}
-    overviewMeta.value = { materializedAt: o.materializedAt, stale: o.stale }
+    meta.value = {
+      materializedAt: o.materializedAt, stale: o.stale,
+      refreshed: o.refreshed, refreshReason: o.refreshReason
+    }
     trend.value = t.current?.points || []
     funnel.value = f.current?.stages || []
     effect.value = e.current || {}
     compare.value = c.current?.rows || []
-    statuses.value = { trend: t.dataStatus + (t.reason ? ' · ' + t.reason : ''), funnel: f.dataStatus }
+    statuses.value = { trend: t.dataStatus, funnel: f.dataStatus }
   } catch (e2) {
     error.value = e2.message || String(e2)
   } finally {

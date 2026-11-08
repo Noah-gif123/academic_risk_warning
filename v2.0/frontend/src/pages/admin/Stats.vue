@@ -5,7 +5,8 @@
         <h1 class="text-xl font-semibold text-slate-800">统计看板（教务）</h1>
         <p class="text-xs text-slate-400 mt-1">
           数据重算于 {{ meta.materializedAt || '—' }}
-          <span v-if="meta.stale" class="text-amber-600 ml-1">（过期，读取时已触发重算）</span>
+          <span v-if="meta.refreshed" class="text-brand-600 ml-1">（因 {{ meta.refreshReason }} 已自动重算）</span>
+          <span v-else-if="meta.stale" class="text-amber-600 ml-1">（数据过期，读取时已触发重算）</span>
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -26,12 +27,12 @@
       <StatCard label="预警关闭率" :value="ov.closeRate" unit="%">
         <template #label>预警关闭率
           <InfoTooltip title="预警关闭率（指标 1）" definition="周期内新增且已关闭 ÷ 周期内新增；辅助口径为消化能力。"
-            sql="SELECT SUM(close_time IS NOT NULL)*100.0/COUNT(*) FROM alert_record WHERE create_time BETWEEN ? AND ?" />
+            sql="SELECT SUM(close_time IS NOT NULL)*100.0/COUNT(*) FROM alert_record WHERE term_id=? AND create_time BETWEEN ? AND ?" />
         </template>
       </StatCard>
-      <StatCard label="平均处置时长" :value="ov.avgHandleHours" unit="小时">
+      <StatCard label="平均处置时长" :value="ov.avgHandleHours" unit="小时" :hint="`中位 ${ov.medianHandleHours ?? '—'} h`">
         <template #label>平均处置时长
-          <InfoTooltip title="平均处置时长（指标 2）" definition="周期内关闭的预警 close_time − create_time 均值；辅助看分档分布。" />
+          <InfoTooltip title="平均处置时长（指标 2）" definition="周期内关闭预警 close��time − create_time 均值；辅助看中位数与分档分布。" />
         </template>
       </StatCard>
       <StatCard label="红黄占比" :value="ov.riskRatio" unit="%">
@@ -42,7 +43,7 @@
       <StatCard label="干预组改善率" :value="effect.treatRate" unit="%" :hint="`对照组 ${fmt(effect.controlRate)}%`">
         <template #label>干预组改善率
           <InfoTooltip title="干预后等级下降比例（指标 3）" definition="周期内干预且完成 T+7 复评的记录中，等级下降数 ÷ 有效复评数。"
-            sql="SELECT SUM(rank(level_after) &lt; rank(level_before))/COUNT(*) FROM intervention_record WHERE effect_check_time BETWEEN create_time + 7 DAY AND create_time + 14 DAY" />
+            sql="SELECT SUM(rank(level_after) &lt; rank(level_before)) FROM intervention_record WHERE effect_check_time BETWEEN create_time + 7 DAY AND create_time + 14 DAY" />
         </template>
       </StatCard>
       <StatCard label="对照组差值" :value="effect.diffPp" unit="pp" hint="TREAT − CONTROL（准实验）">
@@ -56,21 +57,21 @@
       <section class="card p-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-medium text-slate-700">课程集中风险 Top5
-            <InfoTooltip title="课程集中风险" definition="按课程汇总当前风险等级分布，取红+橙最多的前 5 门。" />
+            <InfoTooltip title="课程集中风险" definition="按课程汇总当前风险等级分布，取红+橙最多的前 5 门；点击柱条可筛选该课程。" />
           </h2>
           <span class="text-[11px] text-slate-400">红+橙人数</span>
         </div>
-        <BarChart :rows="courseTop5" title="红+橙人数 Top5 课程" unit=" 人" />
+        <BarChart :rows="courseTop5" title="红+橙人数 Top5 课程" unit=" 人" @row-click="onTopClick" />
       </section>
 
       <section class="card p-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-medium text-slate-700">课程因子校准
-            <InfoTooltip title="course_factor 校准" definition="横轴为课程历史挂科率（course_fail_rate_history.fail_rate），纵轴为 P0-2 初始化后的课程因子（0.90–1.15）；偏离 1.00 越多表示该课程历史挂科对风险分影响越大。" />
+            <InfoTooltip title="course_factor 校准" definition="横轴为课程历史挂科率，纵轴为 P0-2 初始化后的课程因子（0.90–1.15）；偏离 1.00 越多表示历史挂科对风险分影响越大。点击点可筛选课程。" />
           </h2>
           <span class="text-[11px] text-slate-400">{{ calibration.length }} 门课</span>
         </div>
-        <ScatterPlot :points="calibration" />
+        <ScatterPlot :points="calibration" @point-click="onPointClick" />
       </section>
 
       <section class="card p-4">
@@ -84,13 +85,23 @@
       </section>
 
       <section class="card p-4">
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
           <h2 class="text-sm font-medium text-slate-700">课程风险分布
-            <InfoTooltip title="课程分布" definition="各课程当前红/橙/黄/绿人数堆叠；用于定位高风险课程。" />
+            <InfoTooltip title="课程分布" definition="各课程当前红/橙/黄/绿人数堆叠；点击柱条可筛选该课程并查看明细。" />
           </h2>
-          <span class="text-[11px] text-slate-400">{{ distribution.byCourse?.length || 0 }} 门课</span>
+          <div class="flex items-center gap-2">
+            <select v-model="selectedCourse" class="input !w-44 !py-1 text-xs">
+              <option value="ALL">全部课程</option>
+              <option v-for="c in courseOptions" :key="c" :value="c">{{ c }}</option>
+            </select>
+            <span class="text-[11px] text-slate-400">{{ courseRows.length }} 门课</span>
+          </div>
         </div>
-        <StackedBars :rows="courseRows" />
+        <StackedBars :rows="courseRows" :height="300" @row-click="onCourseClick" />
+        <div v-if="detail" class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+          <b>{{ detail.name }}</b>：红 {{ detail.red }}｜橙 {{ detail.orange }}｜黄 {{ detail.yellow }}｜绿 {{ detail.green }}
+          ｜合计 {{ detail.total }}｜风险占比 {{ fmt(detail.riskRatio) }}%
+        </div>
       </section>
     </div>
 
@@ -119,9 +130,14 @@ const ov = ref({})
 const distribution = ref({})
 const effect = ref({})
 const meta = ref({})
+const selectedCourse = ref('ALL')
+const detail = ref(null)
 
 const fmt = (v) => (v === null || v === undefined ? '—' : Number(v).toFixed(2))
-const courseTop5 = computed(() => (distribution.value.byCourse || [])
+const allCourses = computed(() => distribution.value.byCourse || [])
+const courseOptions = computed(() => allCourses.value.map((c) => c.name))
+const courseTop5 = computed(() => allCourses.value
+  .filter((c) => selectedCourse.value === 'ALL' || c.name === selectedCourse.value)
   .map((c) => ({ label: shortName(c.name), value: c.red + c.orange }))
   .sort((a, b) => b.value - a.value)
   .slice(0, 5))
@@ -133,21 +149,46 @@ const handleRows = computed(() => {
     { label: '>72h', value: b.gt72 || 0 }
   ]
 })
-const courseRows = computed(() => (distribution.value.byCourse || []).map((c) => ({
-  label: shortName(c.name),
-  red: c.red, orange: c.orange, yellow: c.yellow, green: c.green, total: c.total
-})))
-const calibration = computed(() => (distribution.value.calibration || []).map((c) => ({
-  x: Number(c.failRate) || 0,
-  y: Number(c.courseFactor) || 1,
-  label: c.courseName,
-  short: shortName(c.courseName),
-  ok: Number(c.courseFactor) <= 1.15
-})))
+const courseRows = computed(() => allCourses.value
+  .filter((c) => selectedCourse.value === 'ALL' || c.name === selectedCourse.value)
+  .map((c) => ({
+    label: shortName(c.name), name: c.name,
+    red: c.red, orange: c.orange, yellow: c.yellow, green: c.green,
+    total: c.total, riskRatio: c.riskRatio
+  })))
+const calibration = computed(() => (distribution.value.calibration || [])
+  .filter((c) => selectedCourse.value === 'ALL' || c.courseName === selectedCourse.value)
+  .map((c) => ({
+    x: Number(c.failRate) || 0,
+    y: Number(c.courseFactor) || 1,
+    label: c.courseName,
+    short: shortName(c.courseName),
+    ok: Number(c.courseFactor) <= 1.15
+  })))
 
 function shortName(name) {
   if (!name) return ''
   return name.length > 8 ? name.slice(0, 7) + '…' : name
+}
+
+function onTopClick(short) {
+  const hit = allCourses.value.find((c) => shortName(c.name) === short)
+  if (hit) selectedCourse.value = hit.name
+}
+
+function onPointClick(data) {
+  if (data && data.label) selectedCourse.value = data.label
+}
+
+function onCourseClick(short) {
+  const hit = allCourses.value.find((c) => shortName(c.name) === short)
+  if (hit) {
+    selectedCourse.value = hit.name
+    detail.value = {
+      name: hit.name, red: hit.red, orange: hit.orange, yellow: hit.yellow,
+      green: hit.green, total: hit.total, riskRatio: hit.riskRatio
+    }
+  }
 }
 
 async function load() {
@@ -160,7 +201,10 @@ async function load() {
       statsApi.effect({ period: period.value })
     ])
     ov.value = o.current || {}
-    meta.value = { materializedAt: o.materializedAt, stale: o.stale }
+    meta.value = {
+      materializedAt: o.materializedAt, stale: o.stale,
+      refreshed: o.refreshed, refreshReason: o.refreshReason
+    }
     distribution.value = d.current || {}
     effect.value = e.current || {}
   } catch (e2) {

@@ -1,37 +1,32 @@
 <template>
-  <div class="space-y-2">
-    <div v-for="(r, i) in rows" :key="i" class="flex items-center gap-2">
-      <div class="w-24 shrink-0 text-[11px] text-slate-500 truncate text-right" :title="r.label">{{ r.label }}</div>
-      <div class="flex-1 h-5 bg-slate-100 rounded overflow-hidden flex">
-        <div v-for="seg in segments(r)" :key="seg.key" :style="{ width: seg.w + '%', background: seg.color }"
-             class="h-full" :title="seg.title" />
-      </div>
-      <div class="w-10 text-[11px] text-slate-400 text-right">{{ r.total }}</div>
-    </div>
-    <div class="flex items-center gap-4 text-[11px] text-slate-500 pt-1">
-      <span v-for="l in legend" :key="l.key"><i class="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle"
-            :style="{ background: l.color }" />{{ l.text }}</span>
-    </div>
-  </div>
+  <EChart :option="option" :height="height" @chart-click="onClick" />
 </template>
 
 <script setup>
 import { computed } from 'vue'
-const props = defineProps({ rows: { type: Array, default: () => [] } })
-const legend = [
-  { key: 'red', text: '红', color: '#ef4444' },
-  { key: 'orange', text: '橙', color: '#f97316' },
-  { key: 'yellow', text: '黄', color: '#eab308' },
-  { key: 'green', text: '绿', color: '#22c55e' }
-]
-const maxTotal = computed(() => Math.max(1, ...props.rows.map((r) => Number(r.total) || 1)))
-const segments = (r) => {
-  const total = Number(r.total) || 1
-  return legend.map((l) => ({
-    key: l.key,
-    color: l.color,
-    w: ((Number(r[l.key]) || 0) / maxTotal.value) * 100,
-    title: `${l.text}：${r[l.key] || 0} / ${total}`
-  }))
+import EChart from './EChart.vue'
+
+const props = defineProps({
+  rows: { type: Array, default: () => [] },
+  height: { type: Number, default: 280 }
+})
+const emit = defineEmits(['row-click'])
+
+const option = computed(() => ({
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+  legend: { data: ['红', '橙', '黄', '绿'], bottom: 0, textStyle: { fontSize: 10 } },
+  grid: { left: 96, right: 30, top: 12, bottom: 34 },
+  xAxis: { type: 'value', axisLabel: { fontSize: 9 } },
+  yAxis: { type: 'category', data: props.rows.map((r) => r.label), inverse: true, axisLabel: { fontSize: 9 } },
+  series: [
+    { name: '红', type: 'bar', stack: 'total', itemStyle: { color: '#ef4444' }, data: props.rows.map((r) => r.red || 0) },
+    { name: '橙', type: 'bar', stack: 'total', itemStyle: { color: '#f97316' }, data: props.rows.map((r) => r.orange || 0) },
+    { name: '黄', type: 'bar', stack: 'total', itemStyle: { color: '#eab308' }, data: props.rows.map((r) => r.yellow || 0) },
+    { name: '绿', type: 'bar', stack: 'total', itemStyle: { color: '#22c55e' }, data: props.rows.map((r) => r.green || 0) }
+  ]
+}))
+
+function onClick(params) {
+  if (params && params.name) emit('row-click', params.name)
 }
 </script>

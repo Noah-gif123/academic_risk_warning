@@ -273,10 +273,14 @@ public class GenLifecycle {
                 + " interventions TREAT=" + treat + " CONTROL=" + control + " stat_daily_class=" + snapshots);
     }
 
-    // ============================================================ 回填日快照
+    // ============================================================ 回填日快照（逐日 + 来源标记）
     private static int backfillDaily(Connection conn, long termId, LocalDate termStart, LocalDateTime now,
                                      long seed, String engineVersion, Map<Long, Integer> counselorOfClass) throws Exception {
-        LocalDate currentMonday = LocalDate.now().with(DayOfWeek.MONDAY);
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = termStart.plusDays(7);
+        if (startDate.isBefore(today.minusDays(62))) {
+            startDate = today.minusDays(62);
+        }
         Map<Long, String> classes = new HashMap<>();
         Map<Long, Map<String, Integer>> current = new HashMap<>();
         Map<Long, Integer> studentCount = new HashMap<>();
@@ -304,45 +308,50 @@ public class GenLifecycle {
             }
         }
         int rows = 0;
+        long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, today) + 1;
         try (PreparedStatement ins = conn.prepareStatement(
-                "insert into stat_daily_class (stat_date, teaching_class_id, student_count, red, orange, yellow, green,"
-                        + " avg_score, alert_new, alert_closed, intervention_count, engine_version,"
-                        + " source_max_update_time, is_stale, create_time, update_time)"
-                        + " values (?,?,?,?,?,?,?,?,?,?,?,?,?,0,now(),now())")) {
-            for (int w = 0; w <= 8; w++) {
-                LocalDate weekMonday = currentMonday.minusWeeks(8 - w);
-                LocalDate statDate = weekMonday.plusDays(4); // 周五
-                if (statDate.isAfter(LocalDate.now())) {
-                    statDate = LocalDate.now();
-                }
+                "insert into stat_daily_class (term_id, stat_date, teaching_class_id, student_count, red, orange,"
+                        + " yellow, green, avg_score, alert_new, alert_closed, intervention_count, engine_version,"
+                        + " source_max_update_time, is_stale, source, create_time, update_time)"
+                        + " values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'DEMO_BACKFILL',now(),now())")) {
+            for (long i = 0; i < days; i++) {
+                LocalDate statDate = startDate.plusDays(i);
+                double progress = (double) (i + 1) / days; // 0→1 收敛到当前
+                double intro = 1.0 - progress;
                 for (Map.Entry<Long, String> e : classes.entrySet()) {
                     long cid = e.getKey();
-                    Random r = new Random(seed * 3000017L + cid * 131 + w);
                     Map<String, Integer> cur = current.get(cid);
                     int total = studentCount.get(cid);
-                    int weeksAgo = 8 - w;
-                    // 越早的周红/黄越多，逐渐收敛到当前值（演示回填，非真实历史）
-                    int red = Math.min(total, cur.get("RED") + weeksAgo * (1 + (int) (cid % 2)) + (weeksAgo > 3 ? 1 : 0));
-                    int orange = Math.min(total - red, cur.get("ORANGE") + weeksAgo * ((int) (cid % 3) == 0 ? 1 : 0));
-                    int yellow = Math.min(total - red - orange, cur.get("YELLOW") + weeksAgo * ((int) (cid % 2) == 0 ? 1 : 0));
-                    int green = Math.max(0, total - red - orange - yellow);
+                    int red = cur.get("RED");
+                    int orange = cur.get("ORANGE");
+                    int yellow = cur.get("YELLOW");
+                    int green = cur.get("GREEN");
+                    if (!statDate.equals(today)) {
+                        red = (int) Math.round(red + intro * (red * 0.9 + (int) (cid % 2)));
+                        orange = (int) Math.round(orange + intro * (orange * 0.6 + (int) (cid % 3)));
+                        yellow = (int) Math.round(yellow + intro * (yellow * 0.3));
+                        red = Math.min(red, total);
+                        orange = Math.min(orange, total - red);
+                        yellow = Math.min(yellow, total - red - orange);
+                        green = Math.max(0, total - red - orange - yellow);
+                    }
                     double baseAvg = avgRisk.getOrDefault(cid, 30.0);
-                    // 事件计数（按周窗口）
-                    int[] ev = eventsForWeek(conn, termId, cid, weekMonday, weekMonday.plusDays(6));
-                    ins.setDate(1, java.sql.Date.valueOf(statDate));
-                    ins.setLong(2, cid);
-                    ins.setInt(3, total);
-                    ins.setInt(4, red);
-                    ins.setInt(5, orange);
-                    ins.setInt(6, yellow);
-                    ins.setInt(7, green);
-                    ins.setBigDecimal(8, java.math.BigDecimal.valueOf(Math.max(0, baseAvg - weeksAgo * 0.8))
-                            .setScale(2, java.math.RoundingMode.HALF_UP));
-                    ins.setInt(9, ev[0]);
-                    ins.setInt(10, ev[1]);
-                    ins.setInt(11, ev[2]);
-                    ins.setString(12, engineVersion);
-                    ins.setTimestamp(13, Timestamp.valueOf(now));
+                    double avg = baseAvg + intro * (6.0 + (int) (cid % 3));
+                    int[] ev = eventsForDay(conn, termId, cid, statDate);
+                    ins.setLong(1, termId);
+                    ins.setDate(2, java.sql.Date.valueOf(statDate));
+                    ins.setLong(3, cid);
+                    ins.setInt(4, total);
+                    ins.setInt(5, red);
+                    ins.setInt(6, orange);
+                    ins.setInt(7, yellow);
+                    ins.setInt(8, green);
+                    ins.setBigDecimal(9, java.math.BigDecimal.valueOf(avg).setScale(2, java.math.RoundingMode.HALF_UP));
+                    ins.setInt(10, ev[0]);
+                    ins.setInt(11, ev[1]);
+                    ins.setInt(12, ev[2]);
+                    ins.setString(13, engineVersion);
+                    ins.setTimestamp(14, Timestamp.valueOf(now));
                     ins.addBatch();
                     rows++;
                 }
@@ -352,6 +361,19 @@ public class GenLifecycle {
         return rows;
     }
 
+    private static int[] eventsForDay(Connection conn, long termId, long classId, LocalDate day) throws Exception {
+        Timestamp s = Timestamp.valueOf(day.atStartOfDay());
+        Timestamp e = Timestamp.valueOf(day.plusDays(1).atStartOfDay());
+        int created = count(conn, "select count(*) from alert_record where term_id=? and teaching_class_id=?"
+                + " and is_void=0 and create_time>=? and create_time<?", termId, classId, s, e);
+        int closed = count(conn, "select count(*) from alert_record where term_id=? and teaching_class_id=?"
+                + " and is_void=0 and close_time>=? and close_time<?", termId, classId, s, e);
+        int intervened = count(conn, "select count(*) from intervention_record ir"
+                + " join alert_record ar on ar.id = ir.alert_id"
+                + " where ar.term_id=? and ar.teaching_class_id=? and ir.is_void=0"
+                + " and ir.create_time>=? and ir.create_time<?", termId, classId, s, e);
+        return new int[]{created, closed, intervened};
+    }
     private static int[] eventsForWeek(Connection conn, long termId, long classId,
                                        LocalDate from, LocalDate to) throws Exception {
         Timestamp s = Timestamp.valueOf(from.atStartOfDay());

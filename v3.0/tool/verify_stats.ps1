@@ -163,6 +163,72 @@ try {
     $cOv = (Get-Json "$base/api/stats/overview?$q" $coun).data
     $sqlScope = Sql1 "select count(*) from risk_state rs join student s on s.id=rs.student_id where rs.term_id=$TermId and rs.is_void=0 and s.admin_class_id in (select admin_class_id from counselor_class where counselor_id=1 and term_id=$TermId)"
     Check '辅导员范围裁剪' ($cOv.current.total -eq [int]$sqlScope[0]) ("C001={0}；SQL={1}" -f $cOv.current.total, $sqlScope[0])
+
+    # ---------- 11) 硬化校验：term_id / 日快照 / scope / stale / 全类型导出 / 性能 / 索引 ----------
+    $nullTerm = [int](Sql1 "select count(*) from stat_daily_class where term_id is null")[0]
+    Check 'stat.term_id 已回填' ($nullTerm -eq 0) ("null term rows=" + $nullTerm)
+    $dailyDays = [int](Sql1 "select count(distinct stat_date) from stat_daily_class where term_id=$TermId")[0]
+    Check '日快照为逐日累积' ($dailyDays -ge 30) ("distinct dates=" + $dailyDays)
+    $scopes = [int](Sql1 "select count(distinct scope_type) from stat_weekly_kpi where term_id=$TermId")[0]
+    Check '周 KPI 分 scope' ($scopes -ge 3) ("scope types=" + $scopes)
+    $sourceKinds = [int](Sql1 "select count(distinct source) from stat_daily_class where term_id=$TermId")[0]
+    Check '回填来源可区分' ($sourceKinds -ge 2) ("source kinds=" + $sourceKinds)
+    $staleFields = ($ov.PSObject.Properties.Name -contains 'refreshed') -and ($ov.PSObject.Properties.Name -contains 'staleBefore')
+    Check 'stale 语义字段' $staleFields ("refreshed=" + $ov.refreshed + " staleBefore=" + $ov.staleBefore)
+    $medianOk = $null -ne $ov.current.medianHandleHours
+    Check '辅助口径 中位处置时长' $medianOk ("median=" + $ov.current.medianHandleHours)
+    $overdueOk = ($eff.current.PSObject.Properties.Name -contains 'overdue') -and ($eff.current.PSObject.Properties.Name -contains 'notReviewed')
+    Check '辅助口径 逾期/未复评' $overdueOk ("overdue=" + $eff.current.overdue + " notReviewed=" + $eff.current.notReviewed)
+
+    # 全类型导出：CSV 头 + XLSX 内容
+    $exportOk = $true
+    $exportDetail = @()
+    foreach ($t in @('overview','distribution','compare','funnel','effect')) {
+        $pth = Join-Path $tmpDir ("verify_export_" + $t + ".csv")
+        Invoke-WebRequest -Uri "$base/api/stats/export?type=$t&$q" -Headers $h -OutFile $pth -UseBasicParsing
+        $txt = [IO.File]::ReadAllText($pth, [Text.Encoding]::UTF8)
+        $expect = switch ($t) {
+            'overview' { '风险总人数' }
+            'distribution' { '等级,数量' }
+            'compare' { '教学班' }
+            'funnel' { '阶段,数量' }
+            'effect' { '组别' }
+        }
+        $ok = $txt.Contains($expect)
+        if (-not $ok) { $exportOk = $false; $exportDetail += ($t + ' 缺 ' + $expect) }
+    }
+    Check 'export 全类型 CSV' $exportOk (($exportDetail -join '；') + $(if ($exportOk) { '5 类均含表头' } else { '' }))
+
+    function Get-XlsxText([string]$path) {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $entry = $zip.Entries | Where-Object { $_.FullName -eq 'xl/sharedStrings.xml' }
+            if (-not $entry) { return '' }
+            $reader = New-Object IO.StreamReader($entry.Open())
+            return $reader.ReadToEnd()
+        } finally { $zip.Dispose() }
+    }
+    $fx = Join-Path $tmpDir 'verify_export_effect.xlsx'
+    Invoke-WebRequest -Uri "$base/api/stats/export?type=effect&format=xlsx&$q" -Headers $h -OutFile $fx -UseBasicParsing
+    $xtext = Get-XlsxText $fx
+    $xlsxOk = $xtext.Contains('TREAT') -and $xtext.Contains('CONTROL')
+    Check 'export XLSX 内容' $xlsxOk ("bytes=" + (Get-Item $fx).Length + " contains TREAT/CONTROL=" + $xlsxOk)
+
+    # 性能：warm 请求单接口 <2s
+    $perfOk = $true
+    $perfDetail = @()
+    foreach ($ep in @('overview','trend','distribution','compare','funnel','effect')) {
+        $sw2 = [Diagnostics.Stopwatch]::StartNew()
+        Get-Json "$base/api/stats/$ep`?$q" $admin | Out-Null
+        $sw2.Stop()
+        $perfDetail += ($ep + '=' + [math]::Round($sw2.Elapsed.TotalMilliseconds) + 'ms')
+        if ($sw2.Elapsed.TotalMilliseconds -gt 2000) { $perfOk = $false }
+    }
+    Check '接口时延 <2s' $perfOk ($perfDetail -join ' ')
+
+    $idx = [int](Sql1 "select count(*) from information_schema.statistics where table_schema=database() and table_name='alert_record' and index_name in ('idx_term_create','idx_term_class_create')")[0]
+    Check '性能索引存在' ($idx -ge 2) ("alert_record indexes=" + $idx)
 } catch {
     Check '脚本执行' $false $_.Exception.Message
 } finally {

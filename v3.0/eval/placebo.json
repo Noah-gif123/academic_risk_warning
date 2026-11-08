@@ -1,0 +1,12 @@
+{
+  "method": "permutation test on TREAT/CONTROL labels",
+  "db": "study_warning_system_v3", "termId": 5, "seed": 20261108,
+  "permutations": 5000,
+  "treat": {"due": 299, "improved": 162, "rate": 54.180602006688964},
+  "control": {"due": 211, "improved": 52, "rate": 24.644549763033176},
+  "observedDiffPp": 29.54,
+  "nullQuantiles": {"q025": -8.46, "q975": 8.52},
+  "pValue": 2.0E-4,
+  "significantAt05": true,
+  "note": "P1-0 为构造数据；置换检验仅说明差值非标签随机所致，不能替代真实因果识别"
+}
