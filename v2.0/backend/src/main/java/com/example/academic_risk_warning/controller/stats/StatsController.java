@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -99,6 +100,13 @@ public class StatsController {
             @RequestParam(required = false) String endDate) {
         LoginUser user = UserContext.require();
         return Result.ok(statsService.effect(user, query(termId, period, startDate, endDate)));
+    }
+
+    /** 手动重算物化表（P1-3，仅教务）。 */
+    @PostMapping("/recompute")
+    @RequireRole("ADMIN")
+    public Result<String> recompute(@RequestParam(required = false) Long termId) {
+        return Result.ok(statsService.recompute(termId));
     }
 
     /** 导出 CSV：type = overview（默认）/ distribution / compare，数字与对应接口一致。 */

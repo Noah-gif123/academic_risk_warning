@@ -35,6 +35,7 @@ public final class StatsVos {
         private Integer alertClosed;
         private Integer interventions;
         private Integer improved;
+        private BigDecimal riskRatio;
     }
 
     /** trend：按自然周的过程事件序列（当前无风险历史快照，只做事件口径）。 */
@@ -50,6 +51,9 @@ public final class StatsVos {
         private Integer alertClosed;
         private Integer interventions;
         private Integer improved;
+        private Integer red;
+        private Integer yellow;
+        private java.math.BigDecimal riskRatio;
     }
 
     /** distribution：当前风险分布（等级 / 课程 / 班级）。 */
@@ -125,5 +129,20 @@ public final class StatsVos {
         private Integer pending;
         private BigDecimal improveRate;
         private String note;
+        private List<Cohort> cohorts = new ArrayList<>();
+        private BigDecimal treatRate;
+        private BigDecimal controlRate;
+        private BigDecimal diffPp;
+    }
+
+    @Data
+    public static class Cohort {
+        private String cohort;
+        private Integer intervened;
+        private Integer due;
+        private Integer improved;
+        private Integer unchanged;
+        private Integer worsened;
+        private BigDecimal improveRate;
     }
 }

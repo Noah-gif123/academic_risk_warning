@@ -184,6 +184,95 @@ public class StatsRepository {
         return jdbc.queryForMap(sql, args.toArray());
     }
 
+
+    // ============================================================ 物化读取（P1-3）
+    /** 物化日快照按 stat_date 聚合（Scope 按 teaching_class_id 过滤）。 */
+    public List<Map<String, Object>> dailySeries(Scope scope) {
+        List<Object> args = new ArrayList<>();
+        String sql = "select stat_date, sum(red) red, sum(orange) orange, sum(yellow) yellow, sum(green) green,"
+                + " sum(student_count) total, round(avg(avg_score), 2) avg_score"
+                + " from stat_daily_class where 1 = 1 " + classScopeFilter(scope, "stat_daily_class")
+                + " group by stat_date order by stat_date";
+        addClassScopeArgs(args, scope);
+        return jdbc.queryForList(sql, args.toArray());
+    }
+
+    /** 干预成效按 cohort（T+7 窗口 + 等级序比较）。 */
+    public List<Map<String, Object>> effectByCohort(Scope scope, LocalDateTime start, LocalDateTime end) {
+        List<Object> args = new ArrayList<>();
+        args.add(scope.termId());
+        args.add(start);
+        args.add(end);
+        addScopeArgs(args, scope);
+        String sql = "select ir.cohort, count(*) intervened,"
+                + " sum(ir.level_after is not null and ir.effect_check_time between ir.create_time + interval 7 day"
+                + "     and ir.create_time + interval 14 day) due,"
+                + " sum(ir.level_after is not null and ir.effect_check_time between ir.create_time + interval 7 day"
+                + "     and ir.create_time + interval 14 day and"
+                + "     (case ir.level_after when 'RED' then 4 when 'ORANGE' then 3 when 'YELLOW' then 2 else 1 end)"
+                + "     < (case ir.level_before when 'RED' then 4 when 'ORANGE' then 3 when 'YELLOW' then 2 else 1 end)) improved,"
+                + " sum(ir.level_after is not null and ir.effect_check_time between ir.create_time + interval 7 day"
+                + "     and ir.create_time + interval 14 day and"
+                + "     (case ir.level_after when 'RED' then 4 when 'ORANGE' then 3 when 'YELLOW' then 2 else 1 end)"
+                + "     = (case ir.level_before when 'RED' then 4 when 'ORANGE' then 3 when 'YELLOW' then 2 else 1 end)) unchanged,"
+                + " sum(ir.level_after is not null and ir.effect_check_time between ir.create_time + interval 7 day"
+                + "     and ir.create_time + interval 14 day and"
+                + "     (case ir.level_after when 'RED' then 4 when 'ORANGE' then 3 when 'YELLOW' then 2 else 1 end)"
+                + "     > (case ir.level_before when 'RED' then 4 when 'ORANGE' then 3 when 'YELLOW' then 2 else 1 end)) worsened"
+                + " from intervention_record ir join student s on s.id = ir.student_id"
+                + " where ir.term_id = ? and ir.is_void = 0 and ir.create_time between ? and ? "
+                + scopeFilter(scope, "s") + " group by ir.cohort";
+        return jdbc.queryForList(sql, args.toArray());
+    }
+
+    /** 按复评周统计改善数（trend 用）。 */
+    public List<Map<String, Object>> improvedByWeek(Scope scope, LocalDateTime start, LocalDateTime end) {
+        List<Object> args = new ArrayList<>();
+        args.add(scope.termId());
+        args.add(start);
+        args.add(end);
+        addScopeArgs(args, scope);
+        String sql = "select date_format(date_sub(ir.effect_check_time, interval weekday(ir.effect_check_time) day),"
+                + " '%Y-%m-%d') wk, count(*) c from intervention_record ir join student s on s.id = ir.student_id"
+                + " where ir.term_id = ? and ir.is_void = 0 and ir.effective = 'EFFECTIVE'"
+                + " and ir.effect_check_time between ? and ? " + scopeFilter(scope, "s")
+                + " group by wk";
+        return jdbc.queryForList(sql, args.toArray());
+    }
+
+    /** 当前学期 ID。 */
+    public Long currentTermId() {
+        List<Long> ids = jdbc.queryForList(
+                "select id from term where is_current = 1 order by id desc limit 1", Long.class);
+        return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    /** 当前引擎版本。 */
+    public String currentEngine(long termId) {
+        return jdbc.queryForObject(
+                "select coalesce(max(engine_version), '') from risk_state where term_id = ?", String.class, termId);
+    }
+
+    private String classScopeFilter(Scope scope, String alias) {
+        if (scope.allScope()) {
+            return "";
+        }
+        if (scope.classIds().isEmpty()) {
+            return " and 1 = 0 ";
+        }
+        StringBuilder sb = new StringBuilder(" and ").append(alias).append(".teaching_class_id in (");
+        for (int i = 0; i < scope.classIds().size(); i++) {
+            sb.append(i == 0 ? "?" : ", ?");
+        }
+        return sb.append(") ").toString();
+    }
+
+    private void addClassScopeArgs(List<Object> args, Scope scope) {
+        if (!scope.allScope() && !scope.classIds().isEmpty()) {
+            args.addAll(scope.classIds());
+        }
+    }
+
     // ============================================================ helpers
     private List<Object> trendArgs(Scope scope, LocalDateTime start, LocalDateTime end) {
         List<Object> args = new ArrayList<>();

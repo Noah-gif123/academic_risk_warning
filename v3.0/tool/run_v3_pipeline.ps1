@@ -146,6 +146,14 @@ if (-not ($SkipEngine -and $SkipReports)) {
             }
         } else { Write-Host "== 跳过 P1-0 生命周期" }
 
+        Write-Step "2.6/5 物化：POST /api/stats/recompute（stat_* 刷新）"
+        Time-Step 'materialize' {
+            $tStat = Login $base 'admin001'
+            $m = Post-Json "$base/api/stats/recompute" @{} $tStat
+            if ($m.code -ne 0) { throw ("统计物化失败：" + $m.message) }
+            Write-Host ("   " + $m.data)
+        }
+
         if (-not $SkipReports) {
             Write-Step "3/5 报告：学生/班级/课程/行政班三类演示报告（模板通道）"
             Time-Step 'reports' {

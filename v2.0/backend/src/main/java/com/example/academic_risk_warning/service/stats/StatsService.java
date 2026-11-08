@@ -43,6 +43,7 @@ public class StatsService {
 
     private final StatsScopeResolver scopeResolver;
     private final StatsRepository repo;
+    private final StatsMaterializer materializer;
 
     /** 统计区间：当前期 + 上期（等长）。 */
     private record Period(LocalDateTime start, LocalDateTime end,
@@ -52,6 +53,7 @@ public class StatsService {
     // ============================================================ 七接口
     public StatsEnvelope<StatsVos.Overview> overview(LoginUser user, StatsQuery query) {
         Scope scope = scopeResolver.resolve(user, query);
+        materializer.ensureFresh(scope.termId());
         Period period = period(query, scope);
         Map<String, Object> risk = repo.riskAggregate(scope);
         Map<String, Object> alerts = repo.alertAggregate(scope, period.start(), period.end());
@@ -67,10 +69,36 @@ public class StatsService {
         previous.setInterventions(i(prevInterventions, "interventions"));
         previous.setImproved(i(prevInterventions, "improved"));
 
-        StatsEnvelope<StatsVos.Overview> envelope = StatsEnvelope.partial(current,
-                "风险历史快照未物化（P1-2/P1-3 未完成）：previous 仅含预警/干预事件，风险面与环比留空");
+        BigDecimal currentRatio = riskRatio(i(risk, "red"), i(risk, "orange"), i(risk, "yellow"), i(risk, "total"));
+        current.setRiskRatio(currentRatio);
+        List<Map<String, Object>> daily = repo.dailySeries(scope);
+        Map<LocalDate, Map<String, Object>> lastOfWeek = new LinkedHashMap<>();
+        for (Map<String, Object> row : daily) {
+            LocalDate d = toLocalDate(row.get("stat_date"));
+            lastOfWeek.put(d.with(DayOfWeek.MONDAY), row);
+        }
+        List<Map<String, Object>> weeks = new ArrayList<>(lastOfWeek.values());
+        BigDecimal delta = null;
+        String reason = null;
+        if (weeks.size() >= 2) {
+            Map<String, Object> prev = weeks.get(weeks.size() - 2);
+            previous.setRed(i(prev, "red"));
+            previous.setOrange(i(prev, "orange"));
+            previous.setYellow(i(prev, "yellow"));
+            previous.setGreen(i(prev, "green"));
+            previous.setTotal(i(prev, "total"));
+            previous.setAvgRiskScore(dec(prev, "avg_score"));
+            previous.setRiskRatio(riskRatio(i(prev, "red"), i(prev, "orange"), i(prev, "yellow"), i(prev, "total")));
+            if (currentRatio != null && previous.getRiskRatio() != null) {
+                delta = currentRatio.subtract(previous.getRiskRatio()).setScale(2, RoundingMode.HALF_UP);
+            }
+        } else {
+            reason = "物化历史不足：仅当前快照，previous/deltaRate 留空（P1-3 物化后补齐）";
+        }
+        StatsEnvelope<StatsVos.Overview> envelope = reason == null
+                ? StatsEnvelope.ok(current) : StatsEnvelope.partial(current, reason);
         envelope.setPrevious(previous);
-        envelope.setDeltaRate(deltaRate(i(alerts, "newIn"), i(prevAlerts, "newIn")));
+        envelope.setDeltaRate(delta);
         envelope.setSampleSize(i(risk, "total"));
         fillMeta(envelope, scope, period);
         return envelope;
@@ -105,14 +133,31 @@ public class StatsService {
         mergeWeekly(points, repo.alertCreatedByWeek(scope, start, end), "alertNew");
         mergeWeekly(points, repo.alertClosedByWeek(scope, start, end), "alertClosed");
         mergeWeekly(points, repo.interventionsByWeek(scope, start, end), "interventions");
+        mergeWeekly(points, repo.improvedByWeek(scope, start, end), "improved");
+        for (Map<String, Object> row : repo.dailySeries(scope)) {
+            LocalDate d = toLocalDate(row.get("stat_date"));
+            StatsVos.TrendPoint p = points.get(d.with(DayOfWeek.MONDAY).format(DATE));
+            if (p == null) {
+                continue;
+            }
+            p.setRed(i(row, "red"));
+            p.setYellow(i(row, "yellow"));
+            p.setRiskRatio(riskRatio(i(row, "red"), i(row, "orange"), i(row, "yellow"), i(row, "total")));
+        }
 
         StatsVos.Trend trend = new StatsVos.Trend();
         trend.setPoints(new ArrayList<>(points.values()));
-        boolean any = points.values().stream().anyMatch(p -> p.getAlertNew() > 0 || p.getAlertClosed() > 0
+        boolean anyRisk = points.values().stream().anyMatch(p -> p.getRiskRatio() != null);
+        boolean anyEvent = points.values().stream().anyMatch(p -> p.getAlertNew() > 0 || p.getAlertClosed() > 0
                 || p.getInterventions() > 0 || p.getImproved() > 0);
-        StatsEnvelope<StatsVos.Trend> envelope = any
-                ? StatsEnvelope.partial(trend, "风险历史快照未物化：趋势仅含预警/干预事件口径，不含红黄灯周序列")
-                : StatsEnvelope.noData("周期内没有预警/干预事件（历史数据待 P1-0/P1-3 补齐）");
+        StatsEnvelope<StatsVos.Trend> envelope;
+        if (anyRisk) {
+            envelope = StatsEnvelope.ok(trend);
+        } else if (anyEvent) {
+            envelope = StatsEnvelope.partial(trend, "风险历史快照不足：趋势仅含预警/干预事件口径");
+        } else {
+            envelope = StatsEnvelope.noData("周期内没有预警/干预事件");
+        }
         fillMeta(envelope, scope, new Period(start, end, start.minusDays(7), start.minusSeconds(1)));
         return envelope;
     }
@@ -205,25 +250,52 @@ public class StatsService {
 
     public StatsEnvelope<StatsVos.Effect> effect(LoginUser user, StatsQuery query) {
         Scope scope = scopeResolver.resolve(user, query);
+        materializer.ensureFresh(scope.termId());
         Period period = period(query, scope);
-        Map<String, Object> e = repo.effectAggregate(scope, period.start(), period.end());
-        int total = i(e, "total");
+        List<Map<String, Object>> rows = repo.effectByCohort(scope, period.start(), period.end());
+        StatsVos.Effect effect = new StatsVos.Effect();
+        int total = 0, due = 0, improved = 0, unchanged = 0, worsened = 0;
+        BigDecimal treatRate = null, controlRate = null;
+        for (Map<String, Object> row : rows) {
+            StatsVos.Cohort c = new StatsVos.Cohort();
+            c.setCohort(String.valueOf(row.get("cohort")));
+            c.setIntervened(i(row, "intervened"));
+            c.setDue(i(row, "due"));
+            c.setImproved(i(row, "improved"));
+            c.setUnchanged(i(row, "unchanged"));
+            c.setWorsened(i(row, "worsened"));
+            c.setImproveRate(pct(i(row, "improved"), i(row, "due")));
+            effect.getCohorts().add(c);
+            total += c.getIntervened();
+            due += c.getDue();
+            improved += c.getImproved();
+            unchanged += c.getUnchanged();
+            worsened += c.getWorsened();
+            if ("TREAT".equals(c.getCohort())) {
+                treatRate = c.getImproveRate();
+            } else if ("CONTROL".equals(c.getCohort())) {
+                controlRate = c.getImproveRate();
+            }
+        }
+        effect.setInterventions(total);
+        effect.setDue(due);
+        effect.setImproved(improved);
+        effect.setUnchanged(unchanged);
+        effect.setWorsened(worsened);
+        effect.setPending(Math.max(0, total - due));
+        effect.setImproveRate(pct(improved, due));
+        effect.setTreatRate(treatRate);
+        effect.setControlRate(controlRate);
+        effect.setDiffPp(treatRate != null && controlRate != null
+                ? treatRate.subtract(controlRate).setScale(2, RoundingMode.HALF_UP) : null);
+        effect.setNote("口径：T+7（第 7–14 天）复评等级下降算改善；CONTROL 为延迟干预对照组（准实验）");
         StatsEnvelope<StatsVos.Effect> envelope;
         if (total == 0) {
-            envelope = StatsEnvelope.noData("周期内没有干预记录（P1-0 未补演示干预数据）");
+            envelope = StatsEnvelope.noData("周期内没有干预记录");
+        } else if (due == 0) {
+            envelope = StatsEnvelope.partial(effect, "干预尚未到 T+7 复评窗口");
         } else {
-            StatsVos.Effect effect = new StatsVos.Effect();
-            effect.setInterventions(total);
-            effect.setDue(i(e, "due"));
-            effect.setImproved(i(e, "improved"));
-            effect.setUnchanged(i(e, "unchanged"));
-            effect.setWorsened(0);
-            effect.setPending(i(e, "pending"));
-            effect.setImproveRate(i(e, "due") > 0
-                    ? BigDecimal.valueOf(i(e, "improved") * 100.0 / i(e, "due")).setScale(2, RoundingMode.HALF_UP)
-                    : null);
-            effect.setNote("worsened 字段与 T+7 等级对比待 P1-0/P1-1 补齐；本版按 effective 字段口径");
-            envelope = StatsEnvelope.partial(effect, "T+7 等级字段未落库：改善率暂用 effective='EFFECTIVE' 统计");
+            envelope = StatsEnvelope.ok(effect);
         }
         envelope.setSampleSize(total);
         fillMeta(envelope, scope, period);
@@ -348,6 +420,42 @@ public class StatsService {
         envelope.setAsOf(OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         envelope.setPeriodStart(period.start().format(DATETIME));
         envelope.setPeriodEnd(period.end().format(DATETIME));
+        envelope.setStale(Boolean.FALSE);
+        envelope.setEngineVersion(repo.currentEngine(scope.termId()));
+        envelope.setMaterializedAt(envelope.getAsOf());
+    }
+
+    /** 手动重算（P1-3，教务）。 */
+    public String recompute(Long termId) {
+        Long id = termId != null ? termId : repo.currentTermId();
+        if (id == null) {
+            throw new BizException(400, "没有当前学期");
+        }
+        return materializer.refresh(id);
+    }
+
+    private static BigDecimal riskRatio(int red, int orange, int yellow, int total) {
+        if (total <= 0) {
+            return null;
+        }
+        return BigDecimal.valueOf((red + orange + yellow) * 100.0 / total).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal pct(int n, int d) {
+        return d <= 0 ? null : BigDecimal.valueOf(n * 100.0 / d).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static LocalDate toLocalDate(Object v) {
+        if (v == null) {
+            return LocalDate.now();
+        }
+        if (v instanceof LocalDate) {
+            return (LocalDate) v;
+        }
+        if (v instanceof java.sql.Date) {
+            return ((java.sql.Date) v).toLocalDate();
+        }
+        return LocalDate.parse(String.valueOf(v).substring(0, 10));
     }
 
     private void mergeWeekly(Map<String, StatsVos.TrendPoint> points, List<Map<String, Object>> rows,
@@ -363,6 +471,7 @@ public class StatsService {
                 case "alertNew": p.setAlertNew(value); break;
                 case "alertClosed": p.setAlertClosed(value); break;
                 case "interventions": p.setInterventions(value); break;
+                case "improved": p.setImproved(value); break;
                 default: break;
             }
         }

@@ -30,6 +30,9 @@ public class StatsEnvelope<T> {
     private String asOf;
     private String periodStart;
     private String periodEnd;
+    private Boolean stale;
+    private String engineVersion;
+    private String materializedAt;
 
     public static <T> StatsEnvelope<T> ok(T current) {
         StatsEnvelope<T> e = new StatsEnvelope<>();
