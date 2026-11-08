@@ -77,7 +77,8 @@ if (-not $SkipSeed) {
     Import-SqlFile -Ctx $ctx -Database $Db -File $seedSql
 
     if (-not $SkipP0Sql) {
-        foreach ($name in @('40_p0_2_course_factor_init.sql', '41_p0_3_lambda_and_fuse.sql')) {
+        foreach ($name in @('40_p0_2_course_factor_init.sql', '41_p0_3_lambda_and_fuse.sql',
+                            '50_stats_ddl.sql', '51_p1_intervention_review.sql')) {
             $f = [IO.Path]::GetFullPath((Join-Path $v3Dir ("sql\" + $name)))
             Assert-PathExists $f ("P0 数据脚本 " + $name)
             Write-Host ("== 应用 {0}" -f $name)
