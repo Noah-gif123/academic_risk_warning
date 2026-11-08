@@ -49,6 +49,7 @@ public class DiagnosticianAgent {
         out.put("ledger", r.ledger());
         out.put("quality", r.quality());
         out.put("latencyMs", r.elapsedMs());
+        out.put("traceRunId", r.traceRunId());
         return out;
     }
 }

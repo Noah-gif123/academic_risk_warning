@@ -2,6 +2,7 @@ package com.example.academic_risk_warning.agent;
 
 import com.example.academic_risk_warning.agent.exec.ToolCallExecutor;
 import com.example.academic_risk_warning.agent.ledger.EvidenceLedger;
+import com.example.academic_risk_warning.agent.trace.AgentTraceService;
 import com.example.academic_risk_warning.agent.tool.ToolContext;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class AgentOrchestrator {
     private final ToolCallExecutor executor;
     private final CriticRules criticRules;
     private final EvidenceLedger ledger;
+    private final AgentTraceService trace;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json = new ObjectMapper();
 
@@ -53,7 +55,7 @@ public class AgentOrchestrator {
                             double confidence, String mode, int maxSteps, int usedSteps, boolean blocked,
                             String blockedReason, List<Step> steps, List<RoleCall> roles, int roleCalls,
                             LedgerInfo ledger, CriticRules.Result critic, Map<String, Object> quality,
-                            String answerDraft, long elapsedMs) {
+                            String answerDraft, long elapsedMs, Long traceRunId) {
     }
 
     private record Plan(String tool, Map<String, Object> args) {
@@ -72,7 +74,9 @@ public class AgentOrchestrator {
         boolean complex = route.intent() == IntentRouter.Intent.INTERVENTION
                 || route.intent() == IntentRouter.Intent.COURSE_QA || plans.size() > 1;
         boolean fourRoles = "4".equals(mode) || ("auto".equals(mode) && complex);
-        String runKey = ledger.newRunKey();
+        AgentTraceService.Start traceStart = trace.start("AGENT", question, ctx.user(), ctx.termId());
+        String runKey = traceStart == null ? ledger.newRunKey() : traceStart.runKey();
+        Long traceRunId = traceStart == null ? null : traceStart.runId();
         List<RoleCall> roles = new ArrayList<>();
         roles.add(new RoleCall("PLANNER", "plan=" + plans.stream().map(Plan::tool).toList(), true));
 
@@ -105,6 +109,16 @@ public class AgentOrchestrator {
             steps.add(new Step(steps.size() + 1, out.tool(), out.args(), out.ok(),
                     out.result().getErrorCode(), out.result().getElapsedMs(), out.result().getDigest(),
                     out.result().getEvidence()));
+            if (traceRunId != null) {
+                try {
+                    trace.step(traceRunId, steps.size(), "EXECUTOR", out.tool(),
+                            json.writeValueAsString(plan.args()),
+                            json.writeValueAsString(out.result().getEvidence()),
+                            out.ok() ? "PASS" : "FAIL", out.result().getElapsedMs(),
+                            out.result().getErrorCode());
+                } catch (Exception ignored) {
+                }
+            }
             if (!out.ok()) {
                 blocked = true;
                 blockedReason = out.result().getErrorCode() + "：" + out.result().getMessage();
@@ -133,10 +147,24 @@ public class AgentOrchestrator {
         if (fourRoles) {
             roles.add(new RoleCall("WRITER", "ledgerHit=" + ledgerInfo.hitRate(), !ledgerInfo.degraded()));
         }
+        if (traceRunId != null) {
+            try {
+                if (critic != null) {
+                    trace.step(traceRunId, 90, "CRITIC", null, null,
+                            json.writeValueAsString(critic), critic.passed() ? "PASS" : "ASK_EVIDENCE", 0,
+                            critic.message());
+                }
+                trace.step(traceRunId, 91, "WRITER", null, null,
+                        json.writeValueAsString(ledgerInfo), ledgerInfo.degraded() ? "DEGRADED" : "PASS", 0,
+                        ledgerInfo.runKey());
+                trace.finish(traceRunId, blocked ? "DEGRADED" : "DONE", roles.size());
+            } catch (Exception ignored) {
+            }
+        }
         Map<String, Object> quality = quality(route.intent().name(), steps, ledgerInfo);
         return new RunResult(question, route.intent().name(), route.intent().label(), route.method(),
                 route.confidence(), mode, maxSteps, used, blocked, blockedReason, steps, roles,
-                roles.size(), ledgerInfo, critic, quality, draft, System.currentTimeMillis() - t0);
+                roles.size(), ledgerInfo, critic, quality, draft, System.currentTimeMillis() - t0, traceRunId);
     }
 
     private List<Plan> plan(String question, IntentRouter.Intent intent, ToolContext ctx) {

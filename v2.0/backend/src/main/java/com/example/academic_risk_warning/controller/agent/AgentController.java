@@ -9,6 +9,7 @@ import com.example.academic_risk_warning.agent.tool.ToolContext;
 import com.example.academic_risk_warning.agent.tool.ToolRegistry;
 import com.example.academic_risk_warning.agent.tool.ToolResult;
 import com.example.academic_risk_warning.agent.tool.ToolSpecLoader;
+import com.example.academic_risk_warning.agent.trace.AgentTraceService;
 import com.example.academic_risk_warning.common.BizException;
 import com.example.academic_risk_warning.common.Result;
 import com.example.academic_risk_warning.security.LoginUser;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,6 +45,7 @@ public class AgentController {
     private final ToolCallExecutor executor;
     private final EvidenceLedger ledger;
     private final CriticRules criticRules;
+    private final AgentTraceService traceService;
     private final ObjectMapper json = new ObjectMapper();
 
     /** 工具清单；format=openapi 时返回 OpenAPI 3 文档。 */
@@ -78,6 +81,18 @@ public class AgentController {
         String mode = body.get("mode") == null ? "auto" : String.valueOf(body.get("mode"));
         LoginUser user = UserContext.require();
         return Result.ok(orchestrator.run(question, new ToolContext(user, termId), maxSteps, mode));
+    }
+
+    /** P2-12 运行轨迹列表（仅教务/辅导员）。 */
+    @GetMapping("/runs")
+    public Result<java.util.List<Map<String, Object>>> runs(@RequestParam(required = false, defaultValue = "20") int limit) {
+        return Result.ok(traceService.list(limit));
+    }
+
+    /** P2-12 运行轨迹详情：步骤 + 台账（数字回溯）。 */
+    @GetMapping("/runs/{runId}")
+    public Result<Map<String, Object>> runDetail(@PathVariable long runId) {
+        return Result.ok(traceService.detail(runId));
     }
 
     /** 台账查询（仅教务，P2-6 落库校验）。 */

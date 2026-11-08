@@ -7,7 +7,8 @@ export const NAV = {
       { text: '我的考试', path: '/student/exams' },
       { text: '问卷调查', path: '/student/questionnaires' }
     ] },
-    { text: '学情预警', path: '/student/warnings' }
+    { text: '学情预警', path: '/student/warnings' },
+    { text: '我的画像', path: '/student/memory' }
   ],
   // 教师端：口径只有「首页 / 预警监控」两项；因新增「全部课程」独立页，补一项「课程」
   TEACHER: [
@@ -18,6 +19,7 @@ export const NAV = {
   COUNSELOR: [
     { text: '首页看板', path: '/counselor/home' },
     { text: '统计看板', path: '/counselor/stats' },
+    { text: '运行轨迹', path: '/counselor/trace' },
     { text: '重点关注', path: '/counselor/focus' },
     { text: '班级管理', path: '/counselor/classes' },
     { text: '干预记录', path: '/counselor/interventions' },
@@ -29,6 +31,7 @@ export const NAV = {
   ADMIN: [
     { text: '首页', path: '/admin/home' },
     { text: '统计看板', path: '/admin/stats' },
+    { text: '运行轨迹', path: '/admin/trace' },
     { text: '基础数据', path: '/admin/base' },
     { text: '排课与教学班', path: '/admin/offerings' },
     { text: '成绩构成', path: '/admin/schemes' },

@@ -279,3 +279,16 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 
 > 契约文档：`v3.0/docs/agent_contracts.md`；对账：`verify_p2_7_10.ps1` **10/10 PASS**；回归 P2-1~3 22/22、P2-4~6 12/12、`ci.ps1` 6/6（41.7s）。
 > 边界：P2-7 选路为规则版、P2-9 评分为确定性基线、P2-10 为核心集；LLM 替换与 60 题盲评在 P2-13 完成。
+
+## 十八、P2-11~P2-15 记录（2026-11-08）
+
+| 项 | 改动 | 验证 |
+|---|---|---|
+| **P2-11 记忆** | `55_student_memory.sql`（student_memory / student_memory_event）；`MemoryService` 类型开关/摘要重建/删除；`MemoryController`：学生 GET/DELETE、管理员 GET/rebuild；学生端 `/student/memory`「我的画像」页面 | 摘要 95 字（≤300）；学生可查；删除后 `exists=false`、工具 items=0；重建可恢复 |
+| **P2-12 轨迹** | `56_ai_run_trace.sql`（provider/role_count/run_key + step_role/tool_name/args_digest/result_digest/gate_status）；`AgentTraceService` 落库 ai_run/step；Orchestrator 每步落轨迹；`/api/agent/runs`、`/runs/{id}`；`pages/Trace.vue`（admin/counselor「运行轨迹」） | run #259：provider=LOCAL、role_count=4、4 步（2 工具+Critic+Writer）、台账 11 条可回溯；截图 `screenshots/trace_page.png` |
+| **P2-13 评测** | `gen_agent_eval.ps1`（SQL 生成期望值）+ `agent_cases_expected.json` + `run_agent_eval.ps1` | 30/30 工具（100%）、期望数字 100%、P95 77ms |
+| **P2-14 护栏** | `verify_p2_14.ps1` 10 例：JSON 解析/白名单/参数/必填/未知参数/步数/证据不足/空转/越权/拒答 | **10/10 PASS** |
+| **P2-15 证据卡** | `evidence/P2.md` + 轨迹截图；汇总 P2-1~P2-15 证据与边界 | 见证据卡 |
+
+> 回归：P2-1~3 22/22、P2-4~6 12/12、P2-7~10 10/10、P2-11/12 12/12、P2-13 100%/100%、P2-14 10/10；`ci.ps1` 6/6。
+> 下一步：P2-R（retrieveCourseDocs 工具已存在；补句级引用绑定、五类混淆表、语料扩到 100–150 篇）。

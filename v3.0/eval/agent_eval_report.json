@@ -1,0 +1,252 @@
+{
+    "generatedAt":  "2026-11-08T19:52:25+08:00",
+    "cases":  30,
+    "toolAccuracy":  100,
+    "numberConsistency":  100,
+    "p95LatencyMs":  77,
+    "failed":  [
+
+               ],
+    "details":  [
+                    {
+                        "id":  1,
+                        "intent":  "CLASS_STATS",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  140
+                    },
+                    {
+                        "id":  2,
+                        "intent":  "CLASS_STATS",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  75
+                    },
+                    {
+                        "id":  3,
+                        "intent":  "CLASS_STATS",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  73
+                    },
+                    {
+                        "id":  4,
+                        "intent":  "CLASS_STATS",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  69
+                    },
+                    {
+                        "id":  5,
+                        "intent":  "CLASS_STATS",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  67
+                    },
+                    {
+                        "id":  6,
+                        "intent":  "TREND",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  59
+                    },
+                    {
+                        "id":  7,
+                        "intent":  "TREND",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  66
+                    },
+                    {
+                        "id":  8,
+                        "intent":  "TREND",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  53
+                    },
+                    {
+                        "id":  9,
+                        "intent":  "TREND",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  57
+                    },
+                    {
+                        "id":  10,
+                        "intent":  "TREND",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  54
+                    },
+                    {
+                        "id":  11,
+                        "intent":  "COURSE_COMPARE",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  53
+                    },
+                    {
+                        "id":  12,
+                        "intent":  "COURSE_COMPARE",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  45
+                    },
+                    {
+                        "id":  13,
+                        "intent":  "COURSE_COMPARE",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  45
+                    },
+                    {
+                        "id":  14,
+                        "intent":  "COURSE_COMPARE",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  46
+                    },
+                    {
+                        "id":  15,
+                        "intent":  "COURSE_COMPARE",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  47
+                    },
+                    {
+                        "id":  16,
+                        "intent":  "STUDENT_RISK",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  29
+                    },
+                    {
+                        "id":  17,
+                        "intent":  "STUDENT_RISK",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  29
+                    },
+                    {
+                        "id":  18,
+                        "intent":  "STUDENT_RISK",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  28
+                    },
+                    {
+                        "id":  19,
+                        "intent":  "STUDENT_RISK",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  27
+                    },
+                    {
+                        "id":  20,
+                        "intent":  "STUDENT_RISK",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  29
+                    },
+                    {
+                        "id":  21,
+                        "intent":  "INTERVENTION",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  77
+                    },
+                    {
+                        "id":  22,
+                        "intent":  "INTERVENTION",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  76
+                    },
+                    {
+                        "id":  23,
+                        "intent":  "INTERVENTION",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  74
+                    },
+                    {
+                        "id":  24,
+                        "intent":  "INTERVENTION",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  75
+                    },
+                    {
+                        "id":  25,
+                        "intent":  "INTERVENTION",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  68
+                    },
+                    {
+                        "id":  26,
+                        "intent":  "COURSE_QA",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  75
+                    },
+                    {
+                        "id":  27,
+                        "intent":  "COURSE_QA",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  33
+                    },
+                    {
+                        "id":  28,
+                        "intent":  "COURSE_QA",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  33
+                    },
+                    {
+                        "id":  29,
+                        "intent":  "COURSE_QA",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  34
+                    },
+                    {
+                        "id":  30,
+                        "intent":  "COURSE_QA",
+                        "toolOk":  true,
+                        "numOk":  true,
+                        "miss":  "",
+                        "latency":  31
+                    }
+                ]
+}

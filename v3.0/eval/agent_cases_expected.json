@@ -1,0 +1,512 @@
+[
+    {
+        "id":  1,
+        "question":  "计算机1班当前红黄灯风险统计",
+        "intent":  "CLASS_STATS",
+        "expectedTools":  [
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1927,
+                                    "metric":  "total"
+                                },
+                                {
+                                    "value":  141,
+                                    "metric":  "red"
+                                },
+                                {
+                                    "value":  383,
+                                    "metric":  "yellow"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "riskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  2,
+        "question":  "当前班级风险人数与占比",
+        "intent":  "CLASS_STATS",
+        "expectedTools":  [
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1927,
+                                    "metric":  "total"
+                                },
+                                {
+                                    "value":  141,
+                                    "metric":  "red"
+                                },
+                                {
+                                    "value":  383,
+                                    "metric":  "yellow"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "riskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  3,
+        "question":  "预警红黄灯统计",
+        "intent":  "CLASS_STATS",
+        "expectedTools":  [
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1927,
+                                    "metric":  "total"
+                                },
+                                {
+                                    "value":  141,
+                                    "metric":  "red"
+                                },
+                                {
+                                    "value":  383,
+                                    "metric":  "yellow"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "riskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  4,
+        "question":  "班级风险概况",
+        "intent":  "CLASS_STATS",
+        "expectedTools":  [
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1927,
+                                    "metric":  "total"
+                                },
+                                {
+                                    "value":  141,
+                                    "metric":  "red"
+                                },
+                                {
+                                    "value":  383,
+                                    "metric":  "yellow"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "riskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  5,
+        "question":  "红黄灯人数统计",
+        "intent":  "CLASS_STATS",
+        "expectedTools":  [
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1927,
+                                    "metric":  "total"
+                                },
+                                {
+                                    "value":  141,
+                                    "metric":  "red"
+                                },
+                                {
+                                    "value":  383,
+                                    "metric":  "yellow"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "riskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  6,
+        "question":  "最近八周风险趋势",
+        "intent":  "TREND",
+        "expectedTools":  [
+                              "getRiskTrend"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1,
+                                    "metric":  "points"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "lastRiskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  7,
+        "question":  "风险走势如何",
+        "intent":  "TREND",
+        "expectedTools":  [
+                              "getRiskTrend"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1,
+                                    "metric":  "points"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "lastRiskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  8,
+        "question":  "最近4周变化",
+        "intent":  "TREND",
+        "expectedTools":  [
+                              "getRiskTrend"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1,
+                                    "metric":  "points"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "lastRiskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  9,
+        "question":  "风险趋势周报",
+        "intent":  "TREND",
+        "expectedTools":  [
+                              "getRiskTrend"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1,
+                                    "metric":  "points"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "lastRiskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  10,
+        "question":  "风险面变化趋势",
+        "intent":  "TREND",
+        "expectedTools":  [
+                              "getRiskTrend"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  1,
+                                    "metric":  "points"
+                                },
+                                {
+                                    "value":  34.35,
+                                    "metric":  "lastRiskRatio"
+                                }
+                            ]
+    },
+    {
+        "id":  11,
+        "question":  "高等数学和数据结构哪个班风险更高",
+        "intent":  "COURSE_COMPARE",
+        "expectedTools":  [
+                              "getCourseCompare"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  10,
+                                    "metric":  "rows"
+                                }
+                            ]
+    },
+    {
+        "id":  12,
+        "question":  "课程对比 Top5",
+        "intent":  "COURSE_COMPARE",
+        "expectedTools":  [
+                              "getCourseCompare"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  10,
+                                    "metric":  "rows"
+                                }
+                            ]
+    },
+    {
+        "id":  13,
+        "question":  "跨班风险比较",
+        "intent":  "COURSE_COMPARE",
+        "expectedTools":  [
+                              "getCourseCompare"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  10,
+                                    "metric":  "rows"
+                                }
+                            ]
+    },
+    {
+        "id":  14,
+        "question":  "班级风险排名",
+        "intent":  "COURSE_COMPARE",
+        "expectedTools":  [
+                              "getCourseCompare"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  10,
+                                    "metric":  "rows"
+                                }
+                            ]
+    },
+    {
+        "id":  15,
+        "question":  "课程风险对比",
+        "intent":  "COURSE_COMPARE",
+        "expectedTools":  [
+                              "getCourseCompare"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  10,
+                                    "metric":  "rows"
+                                }
+                            ]
+    },
+    {
+        "id":  16,
+        "question":  "学生 1001 的风险情况",
+        "intent":  "STUDENT_RISK",
+        "expectedTools":  [
+                              "getStudentRisk"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  "RED",
+                                    "metric":  "riskLevel"
+                                },
+                                {
+                                    "value":  81.3,
+                                    "metric":  "riskScore"
+                                }
+                            ]
+    },
+    {
+        "id":  17,
+        "question":  "学号 1001 风险",
+        "intent":  "STUDENT_RISK",
+        "expectedTools":  [
+                              "getStudentRisk"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  "RED",
+                                    "metric":  "riskLevel"
+                                },
+                                {
+                                    "value":  81.3,
+                                    "metric":  "riskScore"
+                                }
+                            ]
+    },
+    {
+        "id":  18,
+        "question":  "学生 1001 当前等级",
+        "intent":  "STUDENT_RISK",
+        "expectedTools":  [
+                              "getStudentRisk"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  "RED",
+                                    "metric":  "riskLevel"
+                                },
+                                {
+                                    "value":  81.3,
+                                    "metric":  "riskScore"
+                                }
+                            ]
+    },
+    {
+        "id":  19,
+        "question":  "个体风险诊断 1001",
+        "intent":  "STUDENT_RISK",
+        "expectedTools":  [
+                              "getStudentRisk"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  "RED",
+                                    "metric":  "riskLevel"
+                                },
+                                {
+                                    "value":  81.3,
+                                    "metric":  "riskScore"
+                                }
+                            ]
+    },
+    {
+        "id":  20,
+        "question":  "学生 1001 的红黄灯",
+        "intent":  "STUDENT_RISK",
+        "expectedTools":  [
+                              "getStudentRisk"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  "RED",
+                                    "metric":  "riskLevel"
+                                },
+                                {
+                                    "value":  81.3,
+                                    "metric":  "riskScore"
+                                }
+                            ]
+    },
+    {
+        "id":  21,
+        "question":  "学生 1001 的干预记录和成效",
+        "intent":  "INTERVENTION",
+        "expectedTools":  [
+                              "getInterventions",
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  6,
+                                    "metric":  "interventions"
+                                }
+                            ]
+    },
+    {
+        "id":  22,
+        "question":  "干预复评情况",
+        "intent":  "INTERVENTION",
+        "expectedTools":  [
+                              "getInterventions",
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  6,
+                                    "metric":  "interventions"
+                                }
+                            ]
+    },
+    {
+        "id":  23,
+        "question":  "T+7 改善率",
+        "intent":  "INTERVENTION",
+        "expectedTools":  [
+                              "getInterventions",
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  6,
+                                    "metric":  "interventions"
+                                }
+                            ]
+    },
+    {
+        "id":  24,
+        "question":  "干预是否有效",
+        "intent":  "INTERVENTION",
+        "expectedTools":  [
+                              "getInterventions",
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  6,
+                                    "metric":  "interventions"
+                                }
+                            ]
+    },
+    {
+        "id":  25,
+        "question":  "学生 1001 的复评结果",
+        "intent":  "INTERVENTION",
+        "expectedTools":  [
+                              "getInterventions",
+                              "getClassRiskStats"
+                          ],
+        "expectedNumbers":  [
+                                {
+                                    "value":  6,
+                                    "metric":  "interventions"
+                                }
+                            ]
+    },
+    {
+        "id":  26,
+        "question":  "高等数学 课程中极限的定义是什么",
+        "intent":  "COURSE_QA",
+        "expectedTools":  [
+                              "retrieveCourseDocs"
+                          ],
+        "expectedNumbers":  [
+
+                            ]
+    },
+    {
+        "id":  27,
+        "question":  "数据结构 课程中栈和队列的区别",
+        "intent":  "COURSE_QA",
+        "expectedTools":  [
+                              "retrieveCourseDocs"
+                          ],
+        "expectedNumbers":  [
+
+                            ]
+    },
+    {
+        "id":  28,
+        "question":  "数据库 课程中事务的 ACID 是什么",
+        "intent":  "COURSE_QA",
+        "expectedTools":  [
+                              "retrieveCourseDocs"
+                          ],
+        "expectedNumbers":  [
+
+                            ]
+    },
+    {
+        "id":  29,
+        "question":  "线性代数 课程中特征值的定义",
+        "intent":  "COURSE_QA",
+        "expectedTools":  [
+                              "retrieveCourseDocs"
+                          ],
+        "expectedNumbers":  [
+
+                            ]
+    },
+    {
+        "id":  30,
+        "question":  "计算机网络 课程中 TCP 三次握手",
+        "intent":  "COURSE_QA",
+        "expectedTools":  [
+                              "retrieveCourseDocs"
+                          ],
+        "expectedNumbers":  [
+
+                            ]
+    }
+]

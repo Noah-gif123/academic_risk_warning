@@ -85,7 +85,8 @@ if (-not $SkipSeed) {
         foreach ($name in @('40_p0_2_course_factor_init.sql', '41_p0_3_lambda_and_fuse.sql',
                             '50_stats_ddl.sql', '51_p1_intervention_review.sql',
                             '52_stats_term_id.sql', '53_stats_source_indexes.sql',
-                            '54_ai_evidence_ledger.sql')) {
+                            '54_ai_evidence_ledger.sql',
+                            '55_student_memory.sql', '56_ai_run_trace.sql')) {
             $f = [IO.Path]::GetFullPath((Join-Path $v3Dir ("sql\" + $name)))
             Assert-PathExists $f ("P0 数据脚本 " + $name)
             Write-Host ("== 应用 {0}" -f $name)
