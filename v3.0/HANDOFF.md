@@ -7,7 +7,7 @@
 
 ## 一、当前状态（一句话）
 
-**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 已完成 P0-1 ~ P0-7（P0-7 部分达标：教师松紧达标，课程类型/历史挂科率超目标并如实标注）；P0-8 未开工。**
+**v2.0 已定稿并发布（GitHub Release v2.0.0，含 tag 与文档包）；v3.0 P0 数据底座已完成（P0-1 ~ P0-8；P0-7 效应量两项超目标已如实标注），下一步 P1 统计模块。**
 
 | 项 | 状态 |
 |---|---|
@@ -16,7 +16,7 @@
 | v2.0 Release | GitHub 上已发布 3 个（v1.0.0 / v1.1.0 / v2.0.0），**不要动** |
 | v3.0 规划 | 已完成：`v3.0/PLAN_v3.0.md`（**终版 v3.0.5**）+ `v3.0/word/v3.0规划清单.docx`（**56 项 / 49.5 人日，11 页**） |
 | v3.0 目录 | 已建骨架：backend / frontend / ai(dify) / sql(seeds) / tool / word / eval / evidence |
-| v3.0 代码 | **P0-1 ~ P0-7 完成**（2026-11-08，P0-7 部分达标）；**P0-8 未开始**；见 §十 |
+| v3.0 代码 | **P0-1 ~ P0-8 完成**（2026-11-08；P0-7 部分达标）；下一步 P1；见 §十、§十一 |
 
 ## 二、推送规则（务必遵守）
 
@@ -77,7 +77,7 @@
 5. ✅ 重算流水线 `v3.0/tool/run_v3_pipeline.ps1`：seed → 判定 → 报告 → 快照 → 基线，一条命令 <3 分钟 —— 2026-11-08 完成，见 §十
 6. ✅ 数据校验脚本 + `v3.0/sql/seeds/data_story.md`（每班/课的成因说明）—— 2026-11-08 完成，见 §十 与 `v3.0/tool/verify_data_v3.ps1`
 7. ✅ 重跑 C1/C2 消融 → `v3.0/evidence/P0.md`（修前 vs 修后对照）—— 2026-11-08 完成（教师松紧达标；课程类型/历史挂科率超目标，如实标注部分达标），见 §十
-8. `v3.0/tool/ci.ps1` 骨架（编译 / 单测 / 数据校验 / 报告对账）
+8. ✅ `v3.0/tool/ci.ps1` 骨架（编译 / 单测 / 数据校验 / 报告对账）—— 2026-11-08 完成，见 §十、§十一
 
 **P0 出口标准**：流水线一条命令跑通；C1 效应量达教师松紧 1.5–3%、课程因子 2–4%、历史挂科率 1–2%；v2.0 验收脚本仍全绿（未破坏 v2.0 演示）。
 
@@ -109,6 +109,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\rollback_v2.0.ps1
 node v3.0\tool\gen_v3_seed.js
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\bootstrap_v3.ps1 -Force
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\run_v3_backend.ps1 -Port 8080
+
+# v3.0 重算流水线（P0-5：seed→判定→报告→快照→基线）
+powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\run_v3_pipeline.ps1
+
+# v3.0 数据校验（P0-6：43 项）
+powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\verify_data_v3.ps1
+
+# v3.0 CI（P0-8：编译/单测/数据校验/报告对账/基线 diff）
+powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\ci.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File v3.0\tool\ci.ps1 -Db study_warning_system_v2 -SkipBaseline   # 负向：应退出 1
 ```
 
 - 数据库：`study_warning_system_v2`，`root/root`
@@ -174,3 +184,18 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 | **P0-6**（完成，2026-11-08） | 新增 `v3.0/tool/verify_data_v3.ps1`：**43 项**校验（A 分类合计/选课-成绩单对账、B 20 类孤儿、C 三通道非空率 100%、D v3 口径：因子初始化/λ=n/(n+k)/熔断原因/对照组 60:40/规模区间），失败非零退出，报告写 `v3.0/evidence/verify_data_v3.md`；生成器 `data_story.md` 扩写为「参数+课程总表+分班成因说明」（每班：班效应/教师尺度/缺勤超限/重修，131 行） | 43/43 PASS：risk 等级合计=1,927、risk_state=选课=成绩单 1,927、三通道空值 0、cfr 36/36 已初始化且因子在 [0.90,1.15]、λ 偏差 0、熔断 2 行均有原因、TREAT 181/CONTROL 127（58.8%）、教师 14/课程 9/行政班 8/班额 30–45；生成器 seed SQL sha 未变（`3f5ed3a9…`） | 校验是库内一致性，不含浏览器端到端；班间差/班内 sd 自检在生成器阶段（DB 侧未重复断言）；试卷/项目/问卷仍缺 |
 | **P0-7**（完成·部分达标，2026-11-08） | 新增 `v3.0/tool/ablation/AblationToolV3.java`（可指定库的 C1/C2 消融：复算自检 + 等级变化率/风险分变化/红黄占比 + 阈值扫描 + JSON 输出）与 `v3.0/tool/run_ablation.ps1`（编译+双库运行）；`v3.0/evidence/P0.md` 增加「修前 vs 修后」对照 | 自检复算 540/540、1927/1927 全一致；修前 v2.0：教师 1.48% / 课程类型 3.33% / 历史 0%；修后 v3.0：教师 **2.39%（目标 1.5–3% ✅）**、课程类型 **8.51%（目标 2–4% ❌）**、历史挂科率 **7.78%（目标 1–2% ❌）**；C2 阈值扫描已入 JSON | 两项超目标，按用户确认「如实报告 + 标注部分达标」，未改数据/配置硬凑；原因：1,927 vs 540 行、红黄占比 34.4% vs 22.0%、历史因子由 0 变全覆盖；P1 前需决策是否调参（证据卡列 3 个方向） |
 
+| **P0-8**（完成，2026-11-08） | 新增 `v3.0/tool/ci.ps1`：**5 步本地门禁**（编译 / 单测 25 项 / 数据校验 43 项 / 报告对账 3 份 / 基线 diff），输出 `v3.0/tool/ci_report.md`，任一步失败非零退出；封装原生调用避免 PS5.1 在 EAP=Stop 下把 javac stderr 注记误判为失败 | 正向：**5/5 PASS，24.6s**（compile 10.8s、RiskMathTest 20/20 + TriggerGateTest 5/5、数据 43/43、报告 6/6+10/10+6/6、基线一致）；负向：`-Db study_warning_system_v2 -SkipBaseline` 时数据校验 35/43 → **退出码 1**（阻断验证通过） | CI 依赖 v3 库已由 pipeline 生成（不自动重建）；基线 diff 目前只比关键计数，未做报告文本全文 diff；Dify 用例未纳入（P3 再加 `[skip-if-offline]`） |
+
+## 十一、P0 出口状态（2026-11-08）
+
+| 出口标准（PLAN §一 / §七） | 结果 |
+|---|---|
+| 重算流水线一条命令跑通 <3 分钟 | ✅ 38.7–41.9s（P0-5） |
+| C1 效应量 · 教师松紧 1.5–3% | ✅ 修后 2.39%（P0-7） |
+| C1 效应量 · 课程类型 2–4% / 历史挂科率 1–2% | ⚠️ 修后 8.51% / 7.78%，已如实标注部分达标（P0-7，未改数据/配置硬凑） |
+| v2.0 验收脚本仍全绿（未破坏演示） | ✅ P0-1 在恢复库跑 m3/m4/m5 全绿；v2 库此后未改动 |
+| 数据校验（分类合计/孤儿/三通道） | ✅ 43/43（P0-6） |
+| CI 四步全绿、非零退出阻断 | ✅ 5/5 PASS，负向退出 1（P0-8） |
+| 证据卡 | ✅ `v3.0/evidence/P0.md`（P0-1 快照 + P0-7 修前/修后消融）、`verify_data_v3.md`、`ablation_v2/v3.json` |
+
+> 结论：P0 数据底座可交付；唯一未闭合项是 P0-7 的两项效应量超目标（原因与调参方向见证据卡），不影响 P1 统计模块开工。
