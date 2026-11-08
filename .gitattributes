@@ -1,3 +1,5 @@
 /gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
+# 回滚快照按字节入库：manifest 记录 sha256，检出时不能做换行转换
+v3.0/sql/snapshot_v2.0.sql -text
