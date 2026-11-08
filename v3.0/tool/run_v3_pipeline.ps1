@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   对应 P0-5；只操作 v3.0 独立库（默认 study_warning_system_v3），v2.0 演示库不受影响。
-  步骤可单独跳过（-SkipSeed / -SkipEngine / -SkipReports / -SkipSnapshot / -SkipBaseline），
+  步骤可单独跳过（-SkipSeed / -SkipEngine / -SkipLifecycle / -SkipReports / -SkipSnapshot / -SkipBaseline），
   用于中断后续跑；全部重跑时结果幂等（同 seed 同数据）。
 
 .EXAMPLE
@@ -18,8 +18,10 @@ param(
     [string]$Db = 'study_warning_system_v3',
     [int]$Port = 18082,
     [long]$TermId = 5,
+    [long]$Seed = 20261108,
     [switch]$SkipSeed,
     [switch]$SkipEngine,
+    [switch]$SkipLifecycle,
     [switch]$SkipReports,
     [switch]$SkipSnapshot,
     [switch]$SkipBaseline,
@@ -135,6 +137,14 @@ if (-not ($SkipEngine -and $SkipReports)) {
                     " costMs=" + $res.data.costMs)
             }
         } else { Write-Host "== 跳过判定" }
+
+        if (-not $SkipLifecycle) {
+            Write-Step "2.5/5 P1-0 生命周期：告警关闭 / 干预 / T+7 复评 / 对照组 / 8 周快照"
+            Time-Step 'lifecycle' {
+                & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'gen_p1_lifecycle.ps1') -Db $Db -Term $TermId -Seed $Seed
+                if ($LASTEXITCODE -ne 0) { throw "P1-0 生命周期生成失败（exit=$LASTEXITCODE）" }
+            }
+        } else { Write-Host "== 跳过 P1-0 生命周期" }
 
         if (-not $SkipReports) {
             Write-Step "3/5 报告：学生/班级/课程/行政班三类演示报告（模板通道）"

@@ -146,3 +146,6 @@ v3.0/tool/ablation/classes/
 ### DSH 沙箱工作区权限修复记录（本机） ###
 .dsh-acl-recovery/
 
+
+### P1-0 生命周期生成器编译产物（可重编译，不入库） ###
+v3.0/tool/demo/classes/
