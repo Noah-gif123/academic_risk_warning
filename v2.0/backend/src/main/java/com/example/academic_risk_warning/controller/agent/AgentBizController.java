@@ -4,6 +4,7 @@ import com.example.academic_risk_warning.agent.biz.DiagnosticianAgent;
 import com.example.academic_risk_warning.agent.biz.GraderAgent;
 import com.example.academic_risk_warning.agent.biz.ReporterAgent;
 import com.example.academic_risk_warning.agent.biz.TutorAgent;
+import com.example.academic_risk_warning.agent.dify.DifyAgentProvider;
 import com.example.academic_risk_warning.agent.rag.CitationBinder;
 import com.example.academic_risk_warning.agent.tool.ToolContext;
 import com.example.academic_risk_warning.common.BizException;
@@ -39,6 +40,7 @@ public class AgentBizController {
     private final GraderAgent grader;
     private final TutorAgent tutor;
     private final CitationBinder citationBinder;
+    private final DifyAgentProvider difyProvider;
 
     @PostMapping("/diagnose")
     @RequireRole({"ADMIN", "COUNSELOR"})
@@ -48,8 +50,46 @@ public class AgentBizController {
             throw new BizException(400, "question 不能为空");
         }
         Long termId = body.get("termId") == null ? null : ((Number) body.get("termId")).longValue();
+        String provider = body.get("provider") == null ? "LOCAL" : String.valueOf(body.get("provider")).toUpperCase();
+        boolean strictDify = Boolean.TRUE.equals(body.get("strictDify"));
         LoginUser user = UserContext.require();
-        return Result.ok(diagnostician.diagnose(question, new ToolContext(user, termId)));
+        ToolContext ctx = new ToolContext(user, termId);
+        if ("DIFY".equals(provider)) {
+            try {
+                return Result.ok(difyProvider.diagnose(question, ctx));
+            } catch (Exception e) {
+                if (strictDify) {
+                    throw new BizException(503, "DIFY_FAILED: " + e.getMessage());
+                }
+                Map<String, Object> fallback = diagnostician.diagnose(question, ctx);
+                fallback.put("requestedProvider", "DIFY");
+                fallback.put("provider", "LOCAL");
+                fallback.put("fallbackReason", e.getMessage());
+                fallback.put("difyConfigured", difyProvider.configured());
+                return Result.ok(fallback);
+            }
+        }
+        if (!"LOCAL".equals(provider)) {
+            throw new BizException(400, "provider 仅支持 LOCAL/DIFY");
+        }
+        Map<String, Object> local = diagnostician.diagnose(question, ctx);
+        local.put("requestedProvider", "LOCAL");
+        local.put("provider", "LOCAL");
+        return Result.ok(local);
+    }
+
+    /** P3 契约 `/v1/run`：供 Dify 自定义工具/演示按 diagnostician_openapi.yaml 调用。 */
+    @PostMapping("/v1/run")
+    @RequireRole({"ADMIN", "COUNSELOR"})
+    public Result<Map<String, Object>> runV1(@RequestBody Map<String, Object> body) {
+        return diagnose(body);
+    }
+
+    /** P3 健康探针：Dify 是否配置/可达；离线时 parity 脚本据此 skip。 */
+    @GetMapping("/dify/health")
+    @RequireRole({"ADMIN", "COUNSELOR"})
+    public Result<Map<String, Object>> difyHealth() {
+        return Result.ok(difyProvider.health());
     }
 
     @PostMapping("/report")

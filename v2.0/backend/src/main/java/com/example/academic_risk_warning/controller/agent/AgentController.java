@@ -50,9 +50,10 @@ public class AgentController {
 
     /** 工具清单；format=openapi 时返回 OpenAPI 3 文档。 */
     @GetMapping("/tools")
-    public Result<Object> tools(@RequestParam(required = false, defaultValue = "list") String format) {
+    public Result<Object> tools(@RequestParam(required = false, defaultValue = "list") String format,
+                                @RequestParam(required = false) boolean dify) {
         if ("openapi".equalsIgnoreCase(format)) {
-            return Result.ok(specLoader.openApi());
+            return Result.ok(specLoader.openApi(dify));
         }
         return Result.ok(registry.specSummaries());
     }

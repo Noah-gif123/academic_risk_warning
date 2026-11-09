@@ -111,14 +111,24 @@ public class ToolSpecLoader {
 
     /** 生成 OpenAPI 3.0.3（P2-1 验收：可生成 OpenAPI）。 */
     public Map<String, Object> openApi() {
+        return openApi(false);
+    }
+
+    /** dify=true 时排除写工具 draftIntervention，只暴露 8 个只读工具。 */
+    public Map<String, Object> openApi(boolean dify) {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("openapi", "3.0.3");
         Map<String, Object> info = new LinkedHashMap<>();
         info.put("title", "v3.0 Agent Tools");
         info.put("version", "1.0.0");
         root.put("info", info);
+        // Dify 容器内访问宿主机后端；本地直连工具时可替换为实际地址。
+        root.put("servers", List.of(Map.of("url", "http://host.docker.internal:8080")));
         Map<String, Object> paths = new LinkedHashMap<>();
         for (ToolSpec spec : specs.values()) {
+            if (dify && "draftIntervention".equals(spec.getName())) {
+                continue;
+            }
             Map<String, Object> op = new LinkedHashMap<>();
             op.put("operationId", spec.getName());
             op.put("summary", spec.getDescription());

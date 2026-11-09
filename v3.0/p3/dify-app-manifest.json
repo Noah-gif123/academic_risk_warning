@@ -1,0 +1,30 @@
+{
+  "name": "Diagnostician (P3 Dify)",
+  "mode": "agent-chat",
+  "description": "P3 第二执行器；只读 8 工具，输出 answer/actions/evidence/refuse，复用自研台账与拒答校验。",
+  "inputs": [
+    {"name": "question", "type": "string", "required": true},
+    {"name": "termId", "type": "number", "required": false}
+  ],
+  "promptFile": "v3.0/p3/diagnostician-system-prompt.md",
+  "outputSchema": "v3.0/p3/diagnostician_openapi.yaml#/components/schemas/RunResponse",
+  "tools": [
+    "getClassRiskStats",
+    "getRiskTrend",
+    "getCourseCompare",
+    "getStudentRisk",
+    "getInterventions",
+    "getStudentMemory",
+    "getAlertExplain",
+    "retrieveCourseDocs"
+  ],
+  "excludedTools": ["draftIntervention"],
+  "env": {
+    "appKey": "AI_DIAGNOSTICIAN_APP_KEY",
+    "baseUrl": "AI_DIFY_BASE_URL"
+  },
+  "notes": [
+    "本文件是 Dify 应用配置清单，不是 Dify 导出的 DSL；实际应用需在 Dify 控制台导入 tools.openapi.json 后创建。",
+    "Dify 未配置/离线时 parity 脚本输出 SKIPPED，不判失败。"
+  ]
+}

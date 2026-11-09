@@ -34,6 +34,11 @@ public class AgentTraceService {
     }
 
     public Start start(String scene, String question, LoginUser user, Long termId) {
+        return start(scene, question, user, termId, "LOCAL");
+    }
+
+    /** P3：Dify 运行以 provider=DIFY 记入同一张 ai_run，便于 parity 区分。 */
+    public Start start(String scene, String question, LoginUser user, Long termId, String provider) {
         try {
             String runKey = ledger.newRunKey();
             KeyHolder key = new GeneratedKeyHolder();
@@ -46,9 +51,9 @@ public class AgentTraceService {
                 ps.setString(2, "QUESTION");
                 ps.setLong(3, 0L);
                 ps.setString(4, "RUNNING");
-                ps.setString(5, "LOCAL");
-                ps.setString(6, "baseline-agent");
-                ps.setString(7, "LOCAL");
+                ps.setString(5, provider == null ? "LOCAL" : provider);
+                ps.setString(6, "DIFY".equalsIgnoreCase(provider) ? "dify-agent" : "baseline-agent");
+                ps.setString(7, provider == null ? "LOCAL" : provider);
                 ps.setInt(8, 0);
                 ps.setString(9, runKey);
                 ps.setObject(10, user == null ? null : user.getAccountId());

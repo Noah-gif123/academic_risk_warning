@@ -134,7 +134,9 @@ try {
     # ---------- 7) trend ----------
     $tr = (Get-Json "$base/api/stats/trend?$q" $admin).data
     $sqlTrend = Sql1 "select round(sum(red+orange+yellow)*100.0/sum(student_count),2) from stat_daily_class where stat_date=(select max(stat_date) from stat_daily_class)"
-    $last = $tr.current.points[$tr.current.points.Count - 1]
+    # 当前周可能尚无日快照：取最后一个有 riskRatio 的点，避免日期滚动导致误报
+    $riskPoints = @($tr.current.points | Where-Object { $null -ne $_.riskRatio })
+    $last = $riskPoints[$riskPoints.Count - 1]
     $trOk = ($tr.dataStatus -eq 'OK') -and ([math]::Abs([double]$last.riskRatio - [double]$sqlTrend[0]) -le 0.01)
     Check 'trend 最新周风险面' $trOk ("points={0} last={1} ratio={2}；SQL={3}" -f $tr.current.points.Count, $last.weekStart, $last.riskRatio, $sqlTrend[0])
 

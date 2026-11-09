@@ -1,0 +1,32 @@
+{
+    "status":  "SKIPPED",
+    "reason":  "DIFY_NOT_CONFIGURED: 缺少 AI_DIAGNOSTICIAN_APP_KEY",
+    "total":  30,
+    "passed":  0,
+    "failed":  0,
+    "skipped":  30,
+    "numberParity":  0,
+    "directionParity":  0,
+    "failedCases":  [
+
+                    ],
+    "fallbackOk":  true,
+    "health":  {
+                   "configured":  false,
+                   "appKeyPresent":  false,
+                   "baseUrl":  "http://127.0.0.1:8090",
+                   "reachable":  true,
+                   "allowedTools":  [
+                                        "getRiskTrend",
+                                        "getStudentMemory",
+                                        "getInterventions",
+                                        "getStudentRisk",
+                                        "getCourseCompare",
+                                        "retrieveCourseDocs",
+                                        "getAlertExplain",
+                                        "getClassRiskStats"
+                                    ],
+                   "writeToolExcluded":  "draftIntervention"
+               },
+    "generatedAt":  "2026-11-09T20:00:15+08:00"
+}

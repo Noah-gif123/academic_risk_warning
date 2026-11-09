@@ -1,0 +1,117 @@
+openapi: 3.0.3
+info:
+  title: Diagnostician v1 (P3 Dify second implementation contract)
+  version: 1.0.0
+  description: >
+    Diagnostician 的对外运行契约。Dify Agent 版本与自研版本必须输出同一结构；
+    8 个只读工具按 tools.openapi.json 导入，draftIntervention 不进入 Dify。
+servers:
+  - url: http://localhost:8080/api/agent
+    description: 本地自研层（Dify 自定义工具/演示调用）
+paths:
+  /v1/run:
+    post:
+      operationId: runDiagnostician
+      summary: 运行一次学情研判
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunRequest'
+      responses:
+        '200':
+          description: 研判结果（answer/actions/evidence/refuse 强制 JSON）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunResponse'
+        '401':
+          description: 未认证
+        '403':
+          description: 越权
+        '503':
+          description: Dify 不可用且不允许降级
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    RunRequest:
+      type: object
+      additionalProperties: false
+      required: [question]
+      properties:
+        question:
+          type: string
+          description: 学情问题，如“计算机1班当前红黄灯风险统计”
+        termId:
+          type: integer
+          description: 学期 ID，可选
+        provider:
+          type: string
+          enum: [LOCAL, DIFY]
+          default: LOCAL
+        strictDify:
+          type: boolean
+          default: false
+          description: true 时 Dify 失败直接报错；false 时降级本地并记 fallback_reason
+    Evidence:
+      type: object
+      additionalProperties: false
+      required: [tool, metric, value]
+      properties:
+        tool:
+          type: string
+          enum:
+            - getClassRiskStats
+            - getRiskTrend
+            - getCourseCompare
+            - getStudentRisk
+            - getInterventions
+            - getStudentMemory
+            - getAlertExplain
+            - retrieveCourseDocs
+        metric:
+          type: string
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+        source:
+          type: string
+    Action:
+      type: object
+      additionalProperties: true
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+    RunResponse:
+      type: object
+      additionalProperties: false
+      required: [answer, actions, evidence, refuse]
+      properties:
+        answer:
+          type: string
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Action'
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evidence'
+        refuse:
+          type: boolean
+        provider:
+          type: string
+          enum: [LOCAL, DIFY]
+        fallbackReason:
+          type: string
+          nullable: true
+security:
+  - bearerAuth: []

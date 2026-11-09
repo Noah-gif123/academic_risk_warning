@@ -91,6 +91,8 @@ ai:
   alert-explain-app-key: ${AI_ALERT_APP_KEY:}
   # 群体报告（教学班 / 行政班）工作流 App Key（M8 使用）
   group-report-app-key: ${AI_GROUP_REPORT_APP_KEY:}
+  # P3 Dify Diagnostician Agent App Key；未配置时 parity 用例 skip-if-offline
+  diagnostician-app-key: ${AI_DIAGNOSTICIAN_APP_KEY:}
   # 课程问答 App API Key（M4 使用）
   chat-app-key: ${AI_CHAT_APP_KEY:}
   timeout-seconds: ${AI_TIMEOUT_SECONDS:120}

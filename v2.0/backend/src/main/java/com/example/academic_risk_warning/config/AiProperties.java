@@ -40,6 +40,9 @@ public class AiProperties {
     /** 群体报告（教学班 / 行政班）工作流 App Key，未配置则走直连或模板 */
     private String groupReportAppKey = "";
 
+    /** P3 Dify Diagnostician Agent App Key；未配置时 P3 parity 自动跳过 */
+    private String diagnosticianAppKey = "";
+
     /** 单次调用超时（秒） */
     private int timeoutSeconds = 120;
 

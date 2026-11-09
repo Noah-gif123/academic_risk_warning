@@ -1,0 +1,294 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "v3.0 Agent Tools",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/agent/tools/getClassRiskStats": {
+      "post": {
+        "operationId": "getClassRiskStats",
+        "summary": "班级/教学班当前风险统计（人数、红橙黄绿、红黄占比、预警数）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "termId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "teachingClassId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "adminClassId": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ToolResult"
+          }
+        }
+      }
+    },
+    "/api/agent/tools/getRiskTrend": {
+      "post": {
+        "operationId": "getRiskTrend",
+        "summary": "风险面与预警/干预的周趋势（默认最近 8 周，可指定 termId）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "termId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "weeks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 12
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ToolResult"
+          }
+        }
+      }
+    },
+    "/api/agent/tools/getCourseCompare": {
+      "post": {
+        "operationId": "getCourseCompare",
+        "summary": "课程/教学班风险对比（当前快照，按班级聚合）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "termId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "topN": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ToolResult"
+          }
+        }
+      }
+    },
+    "/api/agent/tools/getStudentRisk": {
+      "post": {
+        "operationId": "getStudentRisk",
+        "summary": "单个学生的风险分、等级、班级与关键指标",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "studentId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "termId": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "studentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ToolResult"
+          }
+        }
+      }
+    },
+    "/api/agent/tools/getInterventions": {
+      "post": {
+        "operationId": "getInterventions",
+        "summary": "单个学生的干预记录与 T+7 复评结果",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "studentId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "termId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20
+                  }
+                },
+                "required": [
+                  "studentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ToolResult"
+          }
+        }
+      }
+    },
+    "/api/agent/tools/retrieveCourseDocs": {
+      "post": {
+        "operationId": "retrieveCourseDocs",
+        "summary": "在课程知识库中检索资料片段（带 chunkId，供引用）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "courseId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "query": {
+                    "type": "string"
+                  },
+                  "topK": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "FULLTEXT",
+                      "VECTOR",
+                      "HYBRID"
+                    ]
+                  }
+                },
+                "required": [
+                  "courseId",
+                  "query"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ToolResult"
+          }
+        }
+      }
+    },
+    "/api/agent/tools/getAlertExplain": {
+      "post": {
+        "operationId": "getAlertExplain",
+        "summary": "读取某条预警的解释卡（若未生成则返回 found=false）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "alertId": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "alertId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ToolResult"
+          }
+        }
+      }
+    },
+    "/api/agent/tools/getStudentMemory": {
+      "post": {
+        "operationId": "getStudentMemory",
+        "summary": "读取学生画像摘要（P2-11 建表后生效；当前返回空 + 说明）",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "studentId": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "studentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ToolResult"
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://host.docker.internal:8080",
+      "description": "Dify 容器访问宿主机后端；本地直连可替换"
+    }
+  ]
+}
