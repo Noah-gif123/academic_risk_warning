@@ -47,3 +47,9 @@
 
 - 当前 Dify 控制台没有 Diagnostician Agent 应用，环境无 `AI_DIAGNOSTICIAN_APP_KEY`；因此 **parity 0 passed / 0 failed / 30 skipped**，不能声称已通过。
 - Dify 自定义工具调用自研后端需要服务令牌；未配置前不要用“放宽校验”绕过，按 P3 规则如实记失败/跳过。
+
+
+## 本次收口补充
+
+- 已提供 `POST /api/agent/dify/tool/{tool}`，由 `X-Dify-Token`（环境变量 `AI_DIFY_TOOL_TOKEN`）保护，供 Dify 自定义工具回调；不带 token 返回 401，`draftIntervention` 返回 403。
+- Dify 1.18 本机可达；最小 `/ping` 工具可导入，但 8 工具 OpenAPI 的导入请求在 Dify 端挂起（provider 未创建），故 Diagnostician Agent 仍无法发布拿 Key。这是当前 parity 的唯一外部阻塞，未伪造结果。

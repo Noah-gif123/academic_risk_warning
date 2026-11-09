@@ -93,6 +93,8 @@ ai:
   group-report-app-key: ${AI_GROUP_REPORT_APP_KEY:}
   # P3 Dify Diagnostician Agent App Key；未配置时 parity 用例 skip-if-offline
   diagnostician-app-key: ${AI_DIAGNOSTICIAN_APP_KEY:}
+  # Dify 自定义工具回调自研后端的服务令牌；离线演示可不配，但工具调用会被拒
+  dify-tool-token: ${AI_DIFY_TOOL_TOKEN:}
   # 课程问答 App API Key（M4 使用）
   chat-app-key: ${AI_CHAT_APP_KEY:}
   timeout-seconds: ${AI_TIMEOUT_SECONDS:120}

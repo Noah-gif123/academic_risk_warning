@@ -71,6 +71,7 @@ public class DifyAgentProvider {
         out.put("reachable", difyClient.reachable());
         out.put("allowedTools", READ_ONLY_TOOLS);
         out.put("writeToolExcluded", "draftIntervention");
+        out.put("toolTokenPresent", props.getDifyToolToken() != null && !props.getDifyToolToken().isBlank());
         return out;
     }
 

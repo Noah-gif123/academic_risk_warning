@@ -20,7 +20,9 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/**")
                 .excludePathPatterns("/api/auth/login", "/api/auth/captcha", "/api/auth/captcha/debug", "/api/health",
                         // 部署体检用：不登录也能看到 Dify 是否可达、AI 是否开启（不返回任何业务数据）
-                        "/api/ai/health");
+                        "/api/ai/health",
+                        // P3 Dify 自定义工具回调：由 X-Dify-Token 在 Controller 内校验，不走用户 JWT
+                        "/api/agent/dify/tool/**");
     }
 
     @Override

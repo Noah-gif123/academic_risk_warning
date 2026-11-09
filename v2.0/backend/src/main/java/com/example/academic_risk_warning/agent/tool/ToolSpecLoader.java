@@ -124,6 +124,11 @@ public class ToolSpecLoader {
         root.put("info", info);
         // Dify 容器内访问宿主机后端；本地直连工具时可替换为实际地址。
         root.put("servers", List.of(Map.of("url", "http://host.docker.internal:8080")));
+        if (dify) {
+            root.put("components", Map.of("securitySchemes", Map.of(
+                    "difyToken", Map.of("type", "apiKey", "in", "header", "name", "X-Dify-Token"))));
+            root.put("security", List.of(Map.of("difyToken", List.of())));
+        }
         Map<String, Object> paths = new LinkedHashMap<>();
         for (ToolSpec spec : specs.values()) {
             if (dify && "draftIntervention".equals(spec.getName())) {
@@ -152,7 +157,7 @@ public class ToolSpecLoader {
             requestBody.put("content", Map.of("application/json", Map.of("schema", bodySchema)));
             op.put("requestBody", requestBody);
             op.put("responses", Map.of("200", Map.of("description", "ToolResult")));
-            paths.put("/api/agent/tools/" + spec.getName(), Map.of("post", op));
+            paths.put((dify ? "/api/agent/dify/tool/" : "/api/agent/tools/") + spec.getName(), Map.of("post", op));
         }
         root.put("paths", paths);
         return root;

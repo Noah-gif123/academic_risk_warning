@@ -4,8 +4,27 @@
     "title": "v3.0 Agent Tools",
     "version": "1.0.0"
   },
+  "servers": [
+    {
+      "url": "http://host.docker.internal:8080"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "difyToken": {
+        "in": "header",
+        "type": "apiKey",
+        "name": "X-Dify-Token"
+      }
+    }
+  },
+  "security": [
+    {
+      "difyToken": []
+    }
+  ],
   "paths": {
-    "/api/agent/tools/getClassRiskStats": {
+    "/api/agent/dify/tool/getClassRiskStats": {
       "post": {
         "operationId": "getClassRiskStats",
         "summary": "班级/教学班当前风险统计（人数、红橙黄绿、红黄占比、预警数）",
@@ -40,7 +59,7 @@
         }
       }
     },
-    "/api/agent/tools/getRiskTrend": {
+    "/api/agent/dify/tool/getRiskTrend": {
       "post": {
         "operationId": "getRiskTrend",
         "summary": "风险面与预警/干预的周趋势（默认最近 8 周，可指定 termId）",
@@ -72,7 +91,7 @@
         }
       }
     },
-    "/api/agent/tools/getCourseCompare": {
+    "/api/agent/dify/tool/getCourseCompare": {
       "post": {
         "operationId": "getCourseCompare",
         "summary": "课程/教学班风险对比（当前快照，按班级聚合）",
@@ -104,7 +123,7 @@
         }
       }
     },
-    "/api/agent/tools/getStudentRisk": {
+    "/api/agent/dify/tool/getStudentRisk": {
       "post": {
         "operationId": "getStudentRisk",
         "summary": "单个学生的风险分、等级、班级与关键指标",
@@ -138,7 +157,7 @@
         }
       }
     },
-    "/api/agent/tools/getInterventions": {
+    "/api/agent/dify/tool/getInterventions": {
       "post": {
         "operationId": "getInterventions",
         "summary": "单个学生的干预记录与 T+7 复评结果",
@@ -177,7 +196,7 @@
         }
       }
     },
-    "/api/agent/tools/retrieveCourseDocs": {
+    "/api/agent/dify/tool/retrieveCourseDocs": {
       "post": {
         "operationId": "retrieveCourseDocs",
         "summary": "在课程知识库中检索资料片段（带 chunkId，供引用）",
@@ -224,7 +243,7 @@
         }
       }
     },
-    "/api/agent/tools/getAlertExplain": {
+    "/api/agent/dify/tool/getAlertExplain": {
       "post": {
         "operationId": "getAlertExplain",
         "summary": "读取某条预警的解释卡（若未生成则返回 found=false）",
@@ -254,7 +273,7 @@
         }
       }
     },
-    "/api/agent/tools/getStudentMemory": {
+    "/api/agent/dify/tool/getStudentMemory": {
       "post": {
         "operationId": "getStudentMemory",
         "summary": "读取学生画像摘要（P2-11 建表后生效；当前返回空 + 说明）",
@@ -284,11 +303,5 @@
         }
       }
     }
-  },
-  "servers": [
-    {
-      "url": "http://host.docker.internal:8080",
-      "description": "Dify 容器访问宿主机后端；本地直连可替换"
-    }
-  ]
+  }
 }

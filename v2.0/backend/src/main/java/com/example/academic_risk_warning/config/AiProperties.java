@@ -43,6 +43,9 @@ public class AiProperties {
     /** P3 Dify Diagnostician Agent App Key；未配置时 P3 parity 自动跳过 */
     private String diagnosticianAppKey = "";
 
+    /** P3 Dify 自定义工具回调自研后端的服务令牌（header: X-Dify-Token） */
+    private String difyToolToken = "";
+
     /** 单次调用超时（秒） */
     private int timeoutSeconds = 120;
 
