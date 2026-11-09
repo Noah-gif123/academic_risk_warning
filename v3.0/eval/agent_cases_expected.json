@@ -8,19 +8,19 @@
                           ],
         "expectedNumbers":  [
                                 {
-                                    "value":  1927,
+                                    "value":  280,
                                     "metric":  "total"
                                 },
                                 {
-                                    "value":  141,
+                                    "value":  29,
                                     "metric":  "red"
                                 },
                                 {
-                                    "value":  383,
+                                    "value":  79,
                                     "metric":  "yellow"
                                 },
                                 {
-                                    "value":  34.35,
+                                    "value":  44.64,
                                     "metric":  "riskRatio"
                                 }
                             ]

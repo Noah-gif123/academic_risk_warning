@@ -310,7 +310,7 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 |---|---|---|
 | **P3 Dify 契约** | `v3.0/p3/tools.openapi.json`（8 只读工具、排除 `draftIntervention`，含 servers）；`diagnostician_openapi.yaml`（`/v1/run`）；共享 `diagnostician-system-prompt.md`；`dify-app-manifest.json`；`p3/README.md` | 动态 `/api/agent/tools?format=openapi&dify=true` 返回 8 paths |
 | **P3 Provider** | `DifyAgentProvider`：Dify `/v1/chat-messages`、强制 JSON、复用证据台账/工具白名单/拒答校验、`provider=DIFY` 轨迹、失败降级；`AiProperties.diagnosticianAppKey` + `application.yml` | 未配置时 `/api/agent/diagnose?provider=DIFY` 安全降级本地并返回 `fallbackReason` |
-| **P3 接口/测试** | `/api/agent/diagnose` 支持 `provider/strictDify`；`/api/agent/dify/health`；`verify_p3.ps1` 30 题 parity + 故障注入 + `skip-if-offline` | Dify 1.18 可达但无 App Key：parity **0 passed / 0 failed / 30 skipped**；CI **6/6**；P2-1~3 22/22、P2-7~10 10/10 |
+| **P3 接口/测试** | `/api/agent/diagnose` 支持 `provider/strictDify`；`/api/agent/dify/health`；`verify_p3.ps1` 30 题 parity + `skip-if-offline`；Dify 工具回调 `X-Dify-Token` | Dify 应用已配置：8 工具、共享 prompt、API Key；工具调用可用；**parity FAIL：11/30，数字 36.7%、方向 26.7%**；CI **6/6（38.6s）**；P2-13 本地 30/30、数字 100%、P95 117ms |
 
-> **P3 未给 parity 通过结论**：Dify 控制台已可达（1.18.0），但 Diagnostician Agent 应用与 `AI_DIAGNOSTICIAN_APP_KEY` 尚未配置；按 P3 规则记录为 SKIPPED，不伪造通过。配置应用后运行 `powershell -File v3.0/tool/verify_p3.ps1` 即可产出真实 parity。
+> **P3 parity 未通过**：Dify 工具链路已打通，但模型不能稳定复述工具证据（如工具返回 6 条干预、Dify 写成 5），并出现 `DIFY_LEDGER_MISS`；19/30 失败。未放宽校验、未伪造通过。需要更强约束/模型或确定性 Dify 实现后重跑。
 > 另修：`verify_stats.ps1` 趋势用例取“最后一个有 riskRatio 的点”，避免跨日空点误报（本次 CI 曾因日期滚动 21/22，修后 22/22）。

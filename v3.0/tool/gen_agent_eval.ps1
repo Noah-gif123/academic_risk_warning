@@ -17,6 +17,11 @@ function One([string]$sql) { return @(Invoke-DbQuery -Ctx $ctx -Sql $sql -Databa
 function Cols([string]$sql) { $arr = @((One $sql) -split "`t"); return ,$arr }
 
 $class = Cols "select count(*), sum(risk_level='RED'), sum(risk_level='YELLOW'), round(sum(risk_level in ('RED','ORANGE','YELLOW'))*100.0/count(*),2) from risk_state where term_id=5 and is_void=0"
+function ClassStats([string]$className) {
+    if ([string]::IsNullOrWhiteSpace($className)) { return $class }
+    $id = [int](@(One "select id from administrative_class where class_name='$className' limit 1")[0])
+    return Cols "select count(*), sum(rs.risk_level='RED'), sum(rs.risk_level='YELLOW'), round(sum(rs.risk_level in ('RED','ORANGE','YELLOW'))*100.0/count(*),2) from risk_state rs join student s on s.id=rs.student_id where rs.term_id=5 and rs.is_void=0 and s.admin_class_id=$id"
+}
 $trend = Cols "select count(distinct stat_date), round(sum(red+orange+yellow)*100.0/sum(student_count),2) from stat_daily_class where term_id=5 and stat_date=(select max(stat_date) from stat_daily_class where term_id=5)"
 $student = Cols "select risk_level, risk_score from risk_state where student_id=1001 and term_id=5 and is_void=0 limit 1"
 $inter = Cols "select count(*) from intervention_record where student_id=1001 and term_id=5 and is_void=0"
@@ -29,11 +34,13 @@ foreach ($c in $caseList) {
     $numbers = @()
     switch ($c.intent) {
         'CLASS_STATS' {
+            $cn = [regex]::Match($c.question, '[\u4e00-\u9fa5A-Za-z]{1,12}[0-9]+班').Value
+            $cs = ClassStats $cn
             $numbers = @(
-                @{ metric = 'total'; value = [int]$class[0] },
-                @{ metric = 'red'; value = [int]$class[1] },
-                @{ metric = 'yellow'; value = [int]$class[2] },
-                @{ metric = 'riskRatio'; value = [double]$class[3] }
+                @{ metric = 'total'; value = [int]$cs[0] },
+                @{ metric = 'red'; value = [int]$cs[1] },
+                @{ metric = 'yellow'; value = [int]$cs[2] },
+                @{ metric = 'riskRatio'; value = [double]$cs[3] }
             )
         }
         'TREND' {

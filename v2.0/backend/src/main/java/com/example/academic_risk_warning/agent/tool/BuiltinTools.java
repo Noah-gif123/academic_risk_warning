@@ -54,6 +54,21 @@ public class BuiltinTools {
         StatsScopeResolver.Scope scope = scopeResolver.resolve(ctx.user(), q);
         Long teachingClassId = asLong(args.get("teachingClassId"));
         Long adminClassId = asLong(args.get("adminClassId"));
+        String className = args.get("className") == null ? null : String.valueOf(args.get("className")).trim();
+        if (teachingClassId == null && adminClassId == null && className != null && !className.isBlank()) {
+            List<Long> admin = jdbc.queryForList(
+                    "select id from administrative_class where class_name=? limit 1", Long.class, className);
+            if (!admin.isEmpty()) {
+                adminClassId = admin.get(0);
+            } else {
+                List<Long> teach = jdbc.queryForList(
+                        "select id from teaching_class where class_name=? or class_name like ? order by id limit 1",
+                        Long.class, className, "%" + className + "%");
+                if (!teach.isEmpty()) {
+                    teachingClassId = teach.get(0);
+                }
+            }
+        }
         Map<String, Object> data = new LinkedHashMap<>();
         Map<String, Object> evidence = new LinkedHashMap<>();
         if (teachingClassId != null) {

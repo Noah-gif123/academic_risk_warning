@@ -7,6 +7,9 @@ services:
   api:
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    environment:
+      SSRF_PROXY_ALLOW_PRIVATE_IPS: "192.168.0.0/16"
+      SSRF_PROXY_ALLOW_PRIVATE_DOMAINS: "host.docker.internal"
   worker:
     extra_hosts:
       - "host.docker.internal:host-gateway"

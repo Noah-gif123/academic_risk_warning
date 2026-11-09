@@ -171,7 +171,11 @@ public class AgentOrchestrator {
     private List<Plan> plan(String question, IntentRouter.Intent intent, ToolContext ctx) {
         List<Plan> plans = new ArrayList<>();
         switch (intent) {
-            case CLASS_STATS -> plans.add(new Plan("getClassRiskStats", Map.of()));
+            case CLASS_STATS -> {
+                String className = className(question);
+                plans.add(new Plan("getClassRiskStats",
+                        className == null ? Map.of() : Map.of("className", className)));
+            }
             case TREND -> plans.add(new Plan("getRiskTrend", Map.of()));
             case COURSE_COMPARE -> plans.add(new Plan("getCourseCompare", Map.of("topN", 10)));
             case STUDENT_RISK -> plans.add(new Plan("getStudentRisk", Map.of("studentId", studentId(question))));
@@ -184,6 +188,13 @@ public class AgentOrchestrator {
             default -> plans.add(new Plan("getClassRiskStats", Map.of()));
         }
         return plans;
+    }
+
+    /** 从问题中提取“计算机1班”等班级名；没有则返回 null（保持全局口径）。 */
+    private String className(String q) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("([\\u4e00-\\u9fa5A-Za-z]{1,12}[0-9]+班)").matcher(q == null ? "" : q);
+        return m.find() ? m.group(1) : null;
     }
 
     private List<CriticRules.ToolRun> toolRuns(List<Step> steps) {

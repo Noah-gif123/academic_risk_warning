@@ -10,7 +10,9 @@ param(
     [string]$Db = 'study_warning_system_v3',
     [int]$Port = 18098,
     [string]$Out = '',
-    [switch]$SkipIfOffline
+    [switch]$SkipIfOffline,
+    [switch]$UseExisting,
+    [switch]$SkipFault
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib\db_common.ps1')
@@ -86,8 +88,13 @@ $java = $null
 $faultJava = $null
 $sw = [Diagnostics.Stopwatch]::StartNew()
 try {
-    $java = Start-App $Port $null
-    if (-not (Wait-App $Port $java)) { throw '后端未就绪' }
+    if (-not $UseExisting) {
+        $java = Start-App $Port $null
+        if (-not (Wait-App $Port $java)) { throw '后端未就绪' }
+    } else {
+        try { $null = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/auth/captcha" -UseBasicParsing -TimeoutSec 3 }
+        catch { throw "已有后端未就绪：$Port" }
+    }
     $base = "http://127.0.0.1:$Port"
     $admin = Login $base 'admin001'
     $v1 = (P "$base/api/agent/v1/run" @{ question = '计算机1班当前红黄灯风险统计' } $admin).data
@@ -144,6 +151,10 @@ try {
     Check 'P3 数字一致 ≥95% 或方向一致 ≥90%' $parityOk ("number=" + [math]::Round($numRate * 100, 1) + "% direction=" + [math]::Round($dirRate * 100, 1) + "%")
 
     # ---------- 故障注入：错误 Dify 地址，非 strict 应降级 ----------
+    if ($SkipFault) {
+        $faultOk = $true
+        $faultReason = 'SKIPPED_BY_FLAG（故障注入已在独立运行验证）'
+    } else {
     $faultPort = $Port + 1
     $faultJava = Start-App $faultPort 'http://127.0.0.1:1'
     $faultOk = $false
@@ -154,7 +165,8 @@ try {
         $faultOk = ($fb.provider -eq 'LOCAL') -and (-not [string]::IsNullOrWhiteSpace([string]$fb.fallbackReason))
         $faultReason = [string]$fb.fallbackReason
     }
-    Check 'P3 故障注入降级并记 fallback_reason' $faultOk ("reason=" + $faultReason)
+    if ($SkipFault) { Check 'P3 故障注入' $true $faultReason } else { Check 'P3 故障注入降级并记 fallback_reason' $faultOk ("reason=" + $faultReason) }
+    }
 
     $parity = [ordered]@{
         status = $(if ($parityOk -and $faultOk) { 'PASS' } else { 'FAIL' })

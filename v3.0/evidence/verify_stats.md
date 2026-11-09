@@ -1,9 +1,9 @@
 # v3.0 P1-8 统计对账报告
 
-- 时间：2026-11-09T20:27:23+08:00
+- 时间：2026-11-09T22:16:45+08:00
 - 数据库：`study_warning_system_v3`；termId=5
 - 结果：**PASS**（22/22）
-- 耗时：12.8s
+- 耗时：11.5s
 
 | # | 检查 | 结果 | 证据 |
 |---|---|---|---|
@@ -15,7 +15,7 @@
 | 6 | effect T+7/对照组 | PASS | API due=510 improved=214 TREAT=54.18% CONTROL=24.64% diff=29.54pp；SQL due=510 improved=214 |
 | 7 | trend 最新周风险面 | PASS | points=8 last=2026-11-02 ratio=34.35；SQL=34.35 |
 | 8 | export CSV 与接口一致 | PASS | CSV 首行=指标,数值 |
-| 9 | export XLSX 可下载 | PASS | bytes=3940（PK 头） |
+| 9 | export XLSX 可下载 | PASS | bytes=3941（PK 头） |
 | 10 | 权限 401/403 | PASS | 无 token=401；学生=403 |
 | 11 | 辅导员范围裁剪 | PASS | C001=1222；SQL=1222 |
 | 12 | stat.term_id 已回填 | PASS | null term rows=0 |
@@ -27,7 +27,7 @@
 | 18 | 辅助口径 逾期/未复评 | PASS | overdue=0 notReviewed=20 |
 | 19 | export 全类型 CSV | PASS | 5 类均含表头 |
 | 20 | export XLSX 内容 | PASS | bytes=3829 contains TREAT/CONTROL=True |
-| 21 | 接口时延 <2s | PASS | overview=61ms trend=56ms distribution=69ms compare=55ms funnel=35ms effect=35ms |
+| 21 | 接口时延 <2s | PASS | overview=45ms trend=39ms distribution=36ms compare=101ms funnel=24ms effect=26ms |
 | 22 | 性能索引存在 | PASS | alert_record indexes=6 |
 
 > 复现：`powershell -NoProfile -ExecutionPolicy Bypass -File v3.0/tool/verify_stats.ps1`

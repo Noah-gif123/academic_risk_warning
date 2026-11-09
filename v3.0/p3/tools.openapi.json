@@ -46,6 +46,9 @@
                   "adminClassId": {
                     "type": "integer",
                     "minimum": 1
+                  },
+                  "className": {
+                    "type": "string"
                   }
                 }
               }

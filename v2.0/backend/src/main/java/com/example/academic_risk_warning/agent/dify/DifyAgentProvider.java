@@ -15,6 +15,10 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -96,7 +100,7 @@ public class DifyAgentProvider {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("inputs", inputs);
             body.put("query", question);
-            body.put("response_mode", "blocking");
+            body.put("response_mode", "streaming");
             body.put("conversation_id", "");
             body.put("user", "diagnostician-p3-" + (ctx.user() == null ? "anon" : ctx.user().getAccountId()));
 
@@ -108,16 +112,13 @@ public class DifyAgentProvider {
                     .header("Authorization", "Bearer " + props.getDiagnosticianAppKey())
                     .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body)))
                     .build();
-            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<InputStream> resp = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
             long ms = System.currentTimeMillis() - t0;
             if (resp.statusCode() != 200) {
-                throw new DifyContractException("DIFY_HTTP_" + resp.statusCode() + ": " + truncate(resp.body(), 200));
+                String err = new String(resp.body().readAllBytes(), StandardCharsets.UTF_8);
+                throw new DifyContractException("DIFY_HTTP_" + resp.statusCode() + ": " + truncate(err, 200));
             }
-            JsonNode root = MAPPER.readTree(resp.body());
-            String raw = root.path("answer").asText("");
-            if (raw.isBlank()) {
-                raw = root.path("data").path("outputs").path("answer").asText("");
-            }
+            String raw = readStreamingAnswer(resp.body());
             if (raw.isBlank()) {
                 throw new DifyContractException("DIFY_EMPTY_ANSWER");
             }
@@ -143,6 +144,40 @@ public class DifyAgentProvider {
             }
             throw new DifyContractException("DIFY_FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+    }
+
+    /** Agent Chat 只支持 streaming：拼接 agent_message 的 answer，遇 error 立即失败。 */
+    private String readStreamingAnswer(InputStream in) throws Exception {
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (!line.startsWith("data:")) {
+                    continue;
+                }
+                String payload = line.substring(5).trim();
+                if (payload.isEmpty() || "[DONE]".equals(payload)) {
+                    continue;
+                }
+                JsonNode e;
+                try {
+                    e = MAPPER.readTree(payload);
+                } catch (Exception ignored) {
+                    continue;
+                }
+                String event = e.path("event").asText("");
+                if ("error".equals(event)) {
+                    throw new DifyContractException("DIFY_STREAM_ERROR: " + e.path("message").asText(""));
+                }
+                if ("agent_message".equals(event)) {
+                    sb.append(e.path("answer").asText(""));
+                }
+                if ("message_end".equals(event)) {
+                    break;
+                }
+            }
+        }
+        return sb.toString();
     }
 
     /** Dify 返回的 answer 必须是 JSON（允许 ```json 围栏/前后解释文字）。 */

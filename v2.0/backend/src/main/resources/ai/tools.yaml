@@ -10,6 +10,7 @@ tools:
       termId: { type: integer, required: false, min: 1 }
       teachingClassId: { type: integer, required: false, min: 1 }
       adminClassId: { type: integer, required: false, min: 1 }
+      className: { type: string, required: false, minLength: 1, maxLength: 50 }
 
   - name: getRiskTrend
     description: 风险面与预警/干预的周趋势（默认最近 8 周，可指定 termId）
