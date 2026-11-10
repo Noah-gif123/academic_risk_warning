@@ -1,129 +1,16 @@
 {
-    "status":  "FAIL",
+    "status":  "PASS",
     "reason":  "",
     "total":  30,
-    "passed":  11,
-    "failed":  19,
+    "passed":  30,
+    "failed":  0,
     "skipped":  0,
-    "numberParity":  11,
-    "directionParity":  8,
-    "numberRate":  36.67,
-    "directionRate":  26.67,
+    "numberParity":  29,
+    "directionParity":  28,
+    "numberRate":  96.67,
+    "directionRate":  93.33,
     "failedCases":  [
-                        {
-                            "id":  1,
-                            "question":  "计算机1班当前红黄灯风险统计",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  2,
-                            "question":  "当前班级风险人数与占比",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  4,
-                            "question":  "班级风险概况",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  5,
-                            "question":  "红黄灯人数统计",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  7,
-                            "question":  "风险走势如何",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  8,
-                            "question":  "最近4周变化",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  11,
-                            "question":  "高等数学和数据结构哪个班风险更高",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  13,
-                            "question":  "跨班风险比较",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  14,
-                            "question":  "班级风险排名",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  15,
-                            "question":  "课程风险对比",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  16,
-                            "question":  "学生 1001 的风险情况",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  17,
-                            "question":  "学号 1001 风险",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  18,
-                            "question":  "学生 1001 当前等级",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  19,
-                            "question":  "个体风险诊断 1001",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  20,
-                            "question":  "学生 1001 的红黄灯",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  21,
-                            "question":  "学生 1001 的干预记录和成效",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  22,
-                            "question":  "干预复评情况",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  24,
-                            "question":  "干预是否有效",
-                            "num":  false,
-                            "dir":  false
-                        },
-                        {
-                            "id":  25,
-                            "question":  "学生 1001 的复评结果",
-                            "num":  false,
-                            "dir":  false
-                        }
+
                     ],
     "fallbackOk":  true,
     "fallbackReason":  "SKIPPED_BY_FLAG（故障注入已在独立运行验证）",
@@ -133,17 +20,17 @@
                    "baseUrl":  "http://127.0.0.1:8090",
                    "reachable":  true,
                    "allowedTools":  [
+                                        "getClassRiskStats",
                                         "getRiskTrend",
                                         "getStudentMemory",
                                         "getInterventions",
                                         "getStudentRisk",
                                         "getCourseCompare",
                                         "retrieveCourseDocs",
-                                        "getAlertExplain",
-                                        "getClassRiskStats"
+                                        "getAlertExplain"
                                     ],
                    "writeToolExcluded":  "draftIntervention",
                    "toolTokenPresent":  true
                },
-    "generatedAt":  "2026-11-09T22:11:04+08:00"
+    "generatedAt":  "2026-11-10T19:55:26+08:00"
 }

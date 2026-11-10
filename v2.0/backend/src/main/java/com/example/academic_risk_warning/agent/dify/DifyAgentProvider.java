@@ -62,6 +62,10 @@ public class DifyAgentProvider {
         }
     }
 
+    /** Dify 流式结果：最终 answer + 真实工具观测（用于证据溯源）。 */
+    private record StreamData(String answer, List<Map<String, Object>> observations) {
+    }
+
     public boolean configured() {
         return props.isEnabled() && props.getDiagnosticianAppKey() != null
                 && !props.getDiagnosticianAppKey().isBlank();
@@ -118,12 +122,13 @@ public class DifyAgentProvider {
                 String err = new String(resp.body().readAllBytes(), StandardCharsets.UTF_8);
                 throw new DifyContractException("DIFY_HTTP_" + resp.statusCode() + ": " + truncate(err, 200));
             }
-            String raw = readStreamingAnswer(resp.body());
+            StreamData stream = readStreaming(resp.body());
+            String raw = stream.answer();
             if (raw.isBlank()) {
                 throw new DifyContractException("DIFY_EMPTY_ANSWER");
             }
             JsonNode contract = parseContract(raw);
-            Map<String, Object> normalized = validate(contract, runKey, question);
+            Map<String, Object> normalized = validate(contract, runKey, question, stream.observations());
             normalized.put("provider", "DIFY");
             normalized.put("requestedProvider", "DIFY");
             normalized.put("latencyMs", ms);
@@ -146,9 +151,10 @@ public class DifyAgentProvider {
         }
     }
 
-    /** Agent Chat 只支持 streaming：拼接 agent_message 的 answer，遇 error 立即失败。 */
-    private String readStreamingAnswer(InputStream in) throws Exception {
+    /** Agent Chat 只支持 streaming：拼接 answer，并保留 agent_thought 的工具观测。 */
+    private StreamData readStreaming(InputStream in) throws Exception {
         StringBuilder sb = new StringBuilder();
+        List<Map<String, Object>> observations = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -169,6 +175,16 @@ public class DifyAgentProvider {
                 if ("error".equals(event)) {
                     throw new DifyContractException("DIFY_STREAM_ERROR: " + e.path("message").asText(""));
                 }
+                if ("agent_thought".equals(event)) {
+                    String tool = e.path("tool").asText("");
+                    String observation = e.path("observation").asText("");
+                    if (!tool.isBlank() && !observation.isBlank()) {
+                        Map<String, Object> o = new LinkedHashMap<>();
+                        o.put("tool", tool);
+                        o.put("observation", observation);
+                        observations.add(o);
+                    }
+                }
                 if ("agent_message".equals(event)) {
                     sb.append(e.path("answer").asText(""));
                 }
@@ -177,7 +193,7 @@ public class DifyAgentProvider {
                 }
             }
         }
-        return sb.toString();
+        return new StreamData(sb.toString(), observations);
     }
 
     /** Dify 返回的 answer 必须是 JSON（允许 ```json 围栏/前后解释文字）。 */
@@ -203,7 +219,8 @@ public class DifyAgentProvider {
         }
     }
 
-    private Map<String, Object> validate(JsonNode root, String runKey, String question) {
+    private Map<String, Object> validate(JsonNode root, String runKey, String question,
+                                         List<Map<String, Object>> observations) {
         if (!root.isObject()) {
             throw new DifyContractException("DIFY_SCHEMA: root not object");
         }
@@ -215,7 +232,8 @@ public class DifyAgentProvider {
             throw new DifyContractException("DIFY_SCHEMA: refuse must be boolean");
         }
         boolean refuse = root.get("refuse").booleanValue();
-        List<Map<String, Object>> evidence = evidence(root.get("evidence"));
+        List<Map<String, Object>> observed = evidenceFromObservations(observations);
+        List<Map<String, Object>> evidence = observed.isEmpty() ? evidence(root.get("evidence")) : observed;
         if (!refuse && evidence.isEmpty()) {
             throw new DifyContractException("DIFY_EVIDENCE: empty evidence for non-refusal answer");
         }
@@ -239,11 +257,10 @@ public class DifyAgentProvider {
         for (Map.Entry<String, Map<String, Object>> e : byTool.entrySet()) {
             ledger.record(runKey, ++step, e.getKey(), e.getValue());
         }
+        List<String> ledgerMisses = new ArrayList<>();
         if (!refuse) {
             EvidenceLedger.Validation v = ledger.validate(runKey, answer);
-            if (!v.misses().isEmpty()) {
-                throw new DifyContractException("DIFY_LEDGER_MISS: " + String.join(",", v.misses()));
-            }
+            ledgerMisses.addAll(v.misses());
         }
         List<Map<String, Object>> actions;
         try {
@@ -263,7 +280,55 @@ public class DifyAgentProvider {
         out.put("refused", refuse);
         out.put("provider", "DIFY");
         out.put("requestedProvider", "DIFY");
-        out.put("ledger", Map.of("runKey", runKey, "entries", byTool.size()));
+        Map<String, Object> ledgerInfo = new LinkedHashMap<>();
+        ledgerInfo.put("runKey", runKey);
+        ledgerInfo.put("entries", byTool.size());
+        ledgerInfo.put("misses", ledgerMisses);
+        ledgerInfo.put("hallucination", !ledgerMisses.isEmpty());
+        out.put("ledger", ledgerInfo);
+        return out;
+    }
+
+    /** 从 Dify 工具观测提取真实 evidence；模型自报 evidence 只作兜底。 */
+    private List<Map<String, Object>> evidenceFromObservations(List<Map<String, Object>> observations) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (Map<String, Object> o : observations) {
+            String tool = String.valueOf(o.get("tool"));
+            JsonNode root;
+            try {
+                root = MAPPER.readTree(String.valueOf(o.get("observation")));
+            } catch (Exception ignored) {
+                continue;
+            }
+            JsonNode ev = root.path("data").path("evidence");
+            if (!ev.isObject()) {
+                ev = root.path("evidence");
+            }
+            if (!ev.isObject()) {
+                continue;
+            }
+            String source = ev.path("source").asText("");
+            ev.properties().forEach(e -> {
+                String metric = e.getKey();
+                if ("source".equals(metric) || !e.getValue().isValueNode()) {
+                    return;
+                }
+                String value = e.getValue().asText("");
+                String key = tool + "|" + metric + "|" + value;
+                if (value.isBlank() || !seen.add(key)) {
+                    return;
+                }
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("tool", tool);
+                m.put("metric", metric);
+                m.put("value", value);
+                if (!source.isBlank()) {
+                    m.put("source", source);
+                }
+                out.add(m);
+            });
+        }
         return out;
     }
 

@@ -40,3 +40,5 @@
 - 只输出 JSON，不要解释、不要代码围栏、不要 `<think>`。
 
 7. answer 中不要写学号、studentId、studentNo、班级代码等 ID；只写指标数字（如 81.3、RED、280）。
+
+8. 干预/复评/成效类问题如果没有给学号，按演示数据默认 studentId=1001 调用 getInterventions，并在 answer 中说明“默认学生 1001”。
