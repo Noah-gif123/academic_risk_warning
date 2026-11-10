@@ -313,4 +313,5 @@ v3.0 共 **56 项 / 49.5 人日**，任何单个会话都做不完。建议按�
 | **P3 接口/测试** | `/api/agent/diagnose` 支持 `provider/strictDify`；`/api/agent/dify/health`；`verify_p3.ps1` 30 题 parity + 故障注入 + `skip-if-offline`；Dify 工具回调 `X-Dify-Token` | Dify 应用已配置：8 工具、共享 prompt、API Key；工具调用可用；**parity PASS：30/30，数字 29/30（96.7%）、方向 28/30（93.3%）**；故障注入降级 PASS；CI **6/6** |
 
 > **P3 parity 已通过**：Dify 流式 `agent_thought` 的真实工具观测优先于模型自报 evidence；答案中无台账来源的数字记录为 hallucination，不阻断 evidence-based parity。Dify 未配置/离线时仍按 `skip-if-offline` 输出 SKIPPED。
+> **P3 演示收口**：三段截图 + 口播脚本在 `v3.0/p3/demo/`；启动/验收命令在 `v3.0/p3/ENVIRONMENT.md`；Dify 工具/应用配置已固化到本机数据卷（密钥不入库）。
 > 另修：`verify_stats.ps1` 趋势用例取“最后一个有 riskRatio 的点”，避免跨日空点误报（本次 CI 曾因日期滚动 21/22，修后 22/22）。

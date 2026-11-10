@@ -1,6 +1,7 @@
 # P3：Dify Diagnostician 第二实现
 
 > **最终状态（2026-11-10）**：PASS。Dify 应用已配置 8 工具/共享 prompt/API Key；30 题 parity 30/30，数字 96.7%、方向 93.3%；故障注入降级通过。详见 `v3.0/evidence/P3.md`。
+> 演示材料：`v3.0/p3/demo/`（三段截图 + 口播脚本）；启动方式：`v3.0/p3/ENVIRONMENT.md`。
 
 > 范围：只做 Diagnostician 的 Dify 版本；8 个只读工具，`draftIntervention` 不进入 Dify。
 > 当前状态（2026-11-09）：Dify 1.18 本机可达（8090），但未配置 `AI_DIAGNOSTICIAN_APP_KEY`；

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>P3 Parity — LOCAL vs DIFY</title>
+<style>
+  :root { --navy:#1f3a5f; --blue:#1f4e79; --line:#d9e2ec; --bg:#f6f8fb; --green:#1e7e34; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Microsoft YaHei","Segoe UI",sans-serif; background:var(--bg); color:#1f2933; }
+  .page { width:1180px; margin:36px auto; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 28px rgba(31,58,95,.08); overflow:hidden; }
+  header { padding:28px 34px 22px; background:linear-gradient(135deg,#1f3a5f,#2f5d8a); color:#fff; }
+  header h1 { margin:0; font-size:26px; letter-spacing:.5px; }
+  header p { margin:8px 0 0; color:#d6e4f0; font-size:13px; }
+  main { padding:26px 34px 30px; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
+  .card { border:1px solid var(--line); border-radius:10px; padding:16px; background:#fbfdff; }
+  .card .k { font-size:12px; color:#6b7785; }
+  .card .v { margin-top:8px; font-size:26px; font-weight:700; color:var(--blue); }
+  .card .s { margin-top:5px; font-size:11px; color:#6b7785; }
+  .badge { display:inline-block; padding:4px 10px; border-radius:999px; background:#e8f3e8; color:var(--green); font-size:12px; font-weight:700; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:#eef4fa; color:#334e68; text-align:left; padding:10px 12px; border:1px solid var(--line); }
+  td { padding:10px 12px; border:1px solid var(--line); }
+  tr:nth-child(even) td { background:#fbfdff; }
+  .pass { color:var(--green); font-weight:700; }
+  .note { margin-top:16px; font-size:12px; color:#6b7785; line-height:1.7; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>P3 parity：自研 Diagnostician vs Dify 第二实现</h1>
+    <p>30 题双跑 · 2026-11-10 · 证据来自 v3.0/eval/p3_parity.json</p>
+  </header>
+  <main>
+    <div class="grid">
+      <div class="card"><div class="k">通过 / 总数</div><div class="v">30 / 30</div><div class="s">失败 0 · 跳过 0</div></div>
+      <div class="card"><div class="k">数字一致</div><div class="v">96.7%</div><div class="s">29 / 30（目标 ≥95%）</div></div>
+      <div class="card"><div class="k">方向一致</div><div class="v">93.3%</div><div class="s">28 / 30（目标 ≥90%）</div></div>
+      <div class="card"><div class="k">故障注入</div><div class="v">PASS</div><div class="s">Dify 不可达 → 降级 LOCAL</div></div>
+    </div>
+    <table>
+      <thead><tr><th>检查项</th><th>结果</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>8 个只读工具</td><td class="pass">PASS</td><td>draftIntervention 排除</td></tr>
+        <tr><td>X-Dify-Token 回调</td><td class="pass">PASS</td><td>无 token 401，写工具 403</td></tr>
+        <tr><td>30 题 parity</td><td class="pass">PASS</td><td>数字 ≥95% 或方向 ≥90%</td></tr>
+        <tr><td>故障降级</td><td class="pass">PASS</td><td>fallbackReason 有留痕，用户无 500</td></tr>
+        <tr><td>CI 门禁</td><td class="pass">PASS</td><td>6/6（40.6s）</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      口径说明：Dify 流式 <code>agent_thought</code> 的真实工具观测优先于模型自报 evidence；
+      答案中无台账来源的数字记录为 hallucination，不阻断 evidence-based parity。
+    </div>
+  </main>
+</div>
+</body>
+</html>
