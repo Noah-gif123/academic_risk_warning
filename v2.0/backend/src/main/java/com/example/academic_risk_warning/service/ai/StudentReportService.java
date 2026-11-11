@@ -43,7 +43,8 @@ public class StudentReportService {
     private static final String LIST_SQL = """
             select r.id, r.enrollment_id, r.teaching_class_id, r.offering_id, r.course_id, r.term_id,
                    r.report_type, r.scope, r.risk_level, r.total_score, r.summary,
-                   r.content_json, r.source, r.read_time, r.create_time,
+                   r.content_json, r.metrics_json, r.source, r.read_time, r.create_time,
+                   r.run_id, r.report_version, r.stale, r.stale_reason,
                    c.course_name, tc.class_name, t.term_name, te.teacher_name
             from ai_report r
                      join course c on c.id = r.course_id
@@ -470,8 +471,26 @@ public class StudentReportService {
         vo.setSource(asString(r.get("source")));
         vo.setRead(r.get("read_time") != null);
         vo.setCreateTime(r.get("create_time") == null ? null : String.valueOf(r.get("create_time")));
+        vo.setRunId(asLong(r.get("run_id")));
+        vo.setReportVersion(r.get("report_version") == null ? null : ((Number) r.get("report_version")).intValue());
+        vo.setStale(r.get("stale") != null && ((Number) r.get("stale")).intValue() == 1);
+        vo.setStaleReason(asString(r.get("stale_reason")));
+        vo.setMetrics(parseMetrics(asString(r.get("metrics_json"))));
         parseContent(asString(r.get("content_json")), vo);
         return vo;
+    }
+
+    private Map<String, Object> parseMetrics(String json) {
+        if (json == null || json.isBlank()) {
+            return new LinkedHashMap<>();
+        }
+        try {
+            return MAPPER.readValue(json, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (Exception e) {
+            log.warn("[Report] metrics_json 解析失败: {}", e.getMessage());
+            return new LinkedHashMap<>();
+        }
     }
 
     private void parseContent(String json, StudentReportVO vo) {

@@ -31,6 +31,12 @@ public class StudentReportVO {
     private Boolean read;
     private Boolean useful;
     private String createTime;
+    /** 六维指标快照（学生值 / 班级均值 / 口径） */
+    private Map<String, Object> metrics = new java.util.LinkedHashMap<>();
+    private Long runId;
+    private Integer reportVersion;
+    private Boolean stale;
+    private String staleReason;
 
     @Data
     public static class Section {
