@@ -6,8 +6,12 @@ import com.example.academic_risk_warning.security.LoginUser;
 import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
 import com.example.academic_risk_warning.service.ai.StudentReportService;
+import com.example.academic_risk_warning.service.ai.ReportPdfService;
 import com.example.academic_risk_warning.vo.ai.StudentReportVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +30,7 @@ import java.util.List;
 public class StudentCourseReportController {
 
     private final StudentReportService reportService;
+    private final ReportPdfService pdfService;
     private final JdbcTemplate jdbc;
 
     @GetMapping("/{studentId}")
@@ -57,6 +62,21 @@ public class StudentCourseReportController {
                                             @RequestParam Long teachingClassId) {
         checkStudent(studentId, teachingClassId);
         return Result.ok(reportService.generateByClass(studentId, teachingClassId, "COURSE"));
+    }
+
+    @GetMapping("/{studentId}/{reportId}/pdf")
+    public ResponseEntity<byte[]> pdf(@PathVariable Long studentId, @PathVariable Long reportId) {
+        StudentReportVO vo = reportService.detail(studentId, reportId);
+        LoginUser user = UserContext.require();
+        if ("TEACHER".equals(user.getRole()) && !ownsTeachingClass(user.getRefId(), vo.getTeachingClassId())) {
+            throw new BizException(403, "只能导出自己任教课程的学生报告");
+        }
+        checkStudent(studentId, vo.getTeachingClassId());
+        byte[] bytes = pdfService.render(vo);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report-" + reportId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(bytes);
     }
 
     /** 列表只要求：教师名下任一课程有该生，或辅导员名下行政班有该生 */
