@@ -37,6 +37,7 @@ public class StudentReportService {
     private final DifyClient difyClient;
     private final DashScopeClient dashScopeClient;
     private final AiRunService runService;
+    private final StudentCourseMetricsService metricsService;
     private final AiProperties props;
     private final JdbcTemplate jdbc;
 
@@ -57,6 +58,7 @@ public class StudentReportService {
     public StudentReportVO generate(Long studentId, Long enrollmentId, String reportType) {
         String type = (reportType == null || reportType.isBlank()) ? "STAGE" : reportType.toUpperCase();
         ReportFact fact = factPackBuilder.build(studentId, enrollmentId);
+        Map<String, Object> metrics = metricsService.compute(fact);
         // R1：检索本课程资料，报告末尾附「参考依据」，让学生知道依据哪份资料的哪一段
         List<RetrievalService.Hit> evidence = retrieveEvidence(fact);
         String evidenceBlock = evidenceBlock(evidence);
@@ -209,7 +211,7 @@ public class StudentReportService {
                 channelNote = "主通道降级说明：" + n;
             }
         }
-        Long reportId = persist(fact, type, content, source, runId, tokens);
+        Long reportId = persist(fact, type, content, source, runId, tokens, metrics);
         runService.usage(runId, "REPORT", tokens, studentId);
         runService.finish(runId, status, source, tokens, error != null ? error : channelNote);
         return detail(studentId, reportId);
@@ -231,17 +233,18 @@ public class StudentReportService {
     }
 
     private Long persist(ReportFact fact, String type, ReportComposer.Content content,
-                         String source, Long runId, int tokens) {
+                         String source, Long runId, int tokens, Map<String, Object> metrics) {
         KeyHolder kh = new GeneratedKeyHolder();
         String factJson = toJson(fact);
         String contentJson = composer.toJson(content);
+        String metricsJson = toJson(metrics);
         BigDecimal cost = BigDecimal.valueOf(props.costOf(tokens));
         jdbc.update(con -> {
             PreparedStatement ps = con.prepareStatement("""
                     insert into ai_report(student_id, enrollment_id, teaching_class_id, offering_id, course_id, term_id,
-                                          report_type, scope, risk_level, total_score, fact_json, content_json, summary,
-                                          status, source, model, app_id, prompt_version, run_id, tokens, cost, publish_time)
-                    values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                          report_type, scope, risk_level, total_score, fact_json, metrics_json, content_json, summary,
+                                          status, source, model, app_id, prompt_version, run_id, tokens, cost, snapshot_at, publish_time)
+                    values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """, Statement.RETURN_GENERATED_KEYS);
             int i = 1;
             ps.setLong(i++, fact.getStudentId());
@@ -259,6 +262,7 @@ public class StudentReportService {
                 ps.setBigDecimal(i++, fact.getTotalScore());
             }
             ps.setString(i++, factJson);
+            ps.setString(i++, metricsJson);
             ps.setString(i++, contentJson);
             ps.setString(i++, content.getSummary());
             ps.setString(i++, "PUBLISHED");
@@ -273,6 +277,7 @@ public class StudentReportService {
             }
             ps.setInt(i++, tokens);
             ps.setBigDecimal(i++, cost);
+            ps.setObject(i++, LocalDateTime.now());
             ps.setObject(i, LocalDateTime.now());
             return ps;
         }, kh);
@@ -473,7 +478,8 @@ public class StudentReportService {
         vo.setCreateTime(r.get("create_time") == null ? null : String.valueOf(r.get("create_time")));
         vo.setRunId(asLong(r.get("run_id")));
         vo.setReportVersion(r.get("report_version") == null ? null : ((Number) r.get("report_version")).intValue());
-        vo.setStale(r.get("stale") != null && ((Number) r.get("stale")).intValue() == 1);
+        Object stale = r.get("stale");
+        vo.setStale(stale instanceof Boolean b ? b : (stale instanceof Number n && n.intValue() != 0));
         vo.setStaleReason(asString(r.get("stale_reason")));
         vo.setMetrics(parseMetrics(asString(r.get("metrics_json"))));
         parseContent(asString(r.get("content_json")), vo);
