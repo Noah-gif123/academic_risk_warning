@@ -372,7 +372,7 @@ public class GroupReportService {
     public GroupReportVO detail(Long id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "select g.id, g.scope, g.target_id, g.teaching_class_id, g.admin_class_id, g.title, g.summary, "
-                        + "g.content_json, g.source, g.create_time, "
+                        + "g.content_json, g.source, g.create_time, g.run_id, g.status, "
                         + "(select max(rs.last_eval_time) from risk_state rs "
                         + "   where (g.teaching_class_id is not null and rs.teaching_class_id = g.teaching_class_id) "
                         + "      or (g.scope = 'OFFERING' and g.offering_id is not null "
@@ -393,6 +393,30 @@ public class GroupReportService {
         vo.setSummary(r.get("summary") == null ? null : String.valueOf(r.get("summary")));
         vo.setSource(String.valueOf(r.get("source")));
         vo.setCreateTime(r.get("create_time") == null ? null : String.valueOf(r.get("create_time")));
+        vo.setRunStatus(r.get("status") == null ? null : String.valueOf(r.get("status")));
+        Long runId = r.get("run_id") == null ? null : ((Number) r.get("run_id")).longValue();
+        vo.setRunId(runId);
+        if (runId != null) {
+            List<Map<String, Object>> steps = jdbc.queryForList(
+                    "select step_no, name, step_role, tool_name, validation_status, gate_status, "
+                            + "duration_ms, error, create_time from ai_run_step where run_id = ? order by step_no",
+                    runId);
+            List<GroupReportVO.RunStep> runSteps = new ArrayList<>();
+            for (Map<String, Object> s : steps) {
+                GroupReportVO.RunStep step = new GroupReportVO.RunStep();
+                step.setStepNo(s.get("step_no") == null ? null : ((Number) s.get("step_no")).intValue());
+                step.setName(s.get("name") == null ? null : String.valueOf(s.get("name")));
+                step.setStepRole(s.get("step_role") == null ? null : String.valueOf(s.get("step_role")));
+                step.setToolName(s.get("tool_name") == null ? null : String.valueOf(s.get("tool_name")));
+                step.setValidationStatus(s.get("validation_status") == null ? null : String.valueOf(s.get("validation_status")));
+                step.setGateStatus(s.get("gate_status") == null ? null : String.valueOf(s.get("gate_status")));
+                step.setDurationMs(s.get("duration_ms") == null ? null : ((Number) s.get("duration_ms")).intValue());
+                step.setError(s.get("error") == null ? null : String.valueOf(s.get("error")));
+                step.setCreateTime(s.get("create_time") == null ? null : String.valueOf(s.get("create_time")));
+                runSteps.add(step);
+            }
+            vo.setRunSteps(runSteps);
+        }
         // Q2：班级数据重判过就标记过期，避免"旧报告 + 新判定"同时展示
         java.time.LocalDateTime created = toLdt(r.get("create_time"));
         java.time.LocalDateTime lastEval = toLdt(r.get("last_eval_time"));

@@ -67,6 +67,26 @@
               </div>
             </div>
 
+            <div v-if="report.runId" class="rounded-xl border border-slate-200 px-4 py-3">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-xs font-medium text-slate-700">生成链路</p>
+                <span class="text-[10px] text-slate-400">run #{{ report.runId }} · {{ report.runStatus || '—' }}</span>
+              </div>
+              <div v-if="report.runSteps && report.runSteps.length" class="space-y-1.5">
+                <div v-for="s in report.runSteps" :key="s.stepNo"
+                     class="flex items-center gap-2 text-[11px] text-slate-600">
+                  <span class="w-5 h-5 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center shrink-0">{{ s.stepNo }}</span>
+                  <span class="font-medium text-slate-700">{{ s.name }}</span>
+                  <span class="text-slate-400">{{ s.stepRole || s.toolName || '—' }}</span>
+                  <span class="ml-auto text-slate-400">{{ s.durationMs == null ? '—' : s.durationMs + 'ms' }}</span>
+                  <span class="tag" :class="s.validationStatus === 'PASS' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
+                    {{ s.validationStatus || s.gateStatus || '—' }}
+                  </span>
+                </div>
+              </div>
+              <p v-else class="text-[10px] text-slate-400">运行记录已关联，但该报告没有步骤明细。</p>
+            </div>
+
             <div v-if="report.persons && report.persons.length" class="rounded-xl border border-slate-200 px-4 py-3">
               <p class="text-xs text-slate-400 mb-2">报告涉及的学生（点击查看详情）</p>
               <div class="flex flex-wrap gap-1.5">

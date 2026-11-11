@@ -36,6 +36,24 @@ public class GroupReportVO {
     /** 报告点名的学生（前端做成可点人员条，跳学生详情） */
     private List<Map<String, Object>> persons = new ArrayList<>();
 
+    /** 生成该报告的 Agent 运行记录；历史报告可能为空 */
+    private Long runId;
+    private String runStatus;
+    private List<RunStep> runSteps = new ArrayList<>();
+
+    @Data
+    public static class RunStep {
+        private Integer stepNo;
+        private String name;
+        private String stepRole;
+        private String toolName;
+        private String validationStatus;
+        private String gateStatus;
+        private Integer durationMs;
+        private String error;
+        private String createTime;
+    }
+
     @Data
     public static class Section {
         private String title;
