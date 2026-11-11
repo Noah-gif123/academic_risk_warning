@@ -64,6 +64,8 @@ tasks.named('test') {
     useJUnitPlatform()
     // RunTest 是本机无 Gradle 时的 main() 替代跑法，不是 JUnit 测试类
     exclude '**/RunTest*'
+    // 本机页面文件紧张，测试 JVM 用小堆，避免 mmap 失败
+    maxHeapSize = '128m'
 }
 
 tasks.withType(JavaCompile).configureEach {
