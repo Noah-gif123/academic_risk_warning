@@ -28,7 +28,7 @@ public class StudentCourseMetricsService {
         dims.add(dim("homework", "作业完成率", homework(fact), classHomework(fact.getTeachingClassId()), "%"));
         dims.add(dim("riskControl", "风险控制", riskControl(fact.getEnrollmentId()), classRiskControl(fact.getTeachingClassId()), "分"));
         dims.add(dim("balance", "成绩均衡度", balance(fact), classBalance(fact.getTeachingClassId()), "分"));
-        dims.add(dim("stability", "学习稳定性", stability(fact), null, "分"));
+        dims.add(dim("stability", "学习稳定性", stability(fact), classStability(fact.getTeachingClassId()), "分"));
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("dimensions", dims);
@@ -70,10 +70,19 @@ public class StudentCourseMetricsService {
     }
 
     private BigDecimal homework(ReportFact f) {
-        List<ReportFact.Item> items = f.getItems() == null ? List.of() : f.getItems();
-        if (items.isEmpty()) return null;
-        long recorded = items.stream().filter(i -> !Boolean.TRUE.equals(i.getMissing())).count();
-        return clamp(recorded * 100.0 / items.size());
+        try {
+            Integer papers = jdbc.queryForObject(
+                    "select count(*) from paper where teaching_class_id = ? and status <> 'DRAFT'",
+                    Integer.class, f.getTeachingClassId());
+            Integer submitted = jdbc.queryForObject("""
+                    select count(distinct s.paper_id) from submission s
+                    where s.enrollment_id = ? and s.submit_status in ('SUBMITTED','MARKED','GRADED')
+                    """, Integer.class, f.getEnrollmentId());
+            if (papers == null || papers == 0) return null;
+            return clamp((submitted == null ? 0 : submitted) * 100.0 / papers);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private BigDecimal classHomework(Long teachingClassId) {
@@ -136,7 +145,7 @@ public class StudentCourseMetricsService {
                         group by student_id
                     ) t
                     """, Double.class, teachingClassId);
-            return cv == null ? null : clamp(100 - Math.min(100, cv * 100));
+            return cv == null ? classItemStability(teachingClassId) : clamp(100 - Math.min(100, cv * 100));
         } catch (Exception e) {
             return null;
         }
@@ -145,7 +154,76 @@ public class StudentCourseMetricsService {
     private BigDecimal stability(ReportFact f) {
         List<BigDecimal> rates = f.getWeeks() == null ? List.of() : f.getWeeks().stream()
                 .map(ReportFact.Trend::getMyRate).filter(Objects::nonNull).toList();
-        return stabilityOf(rates);
+        BigDecimal weekStability = stabilityOf(rates);
+        if (weekStability != null) return weekStability;
+        try {
+            List<BigDecimal> scores = jdbc.queryForList(
+                    "select total_score from submission where enrollment_id = ? and total_score is not null order by submit_time, id",
+                    BigDecimal.class, f.getEnrollmentId());
+            BigDecimal submissionStability = stabilityOf(scores);
+            if (submissionStability != null) return submissionStability;
+            // 没有多次提交时，用现有测验/作业的 score_item 明细补算
+            List<BigDecimal> items = jdbc.queryForList(
+                    "select score from score_item where enrollment_id = ? and is_void = 0 and score is not null",
+                    BigDecimal.class, f.getEnrollmentId());
+            return stabilityOf(items);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 班级稳定性：按学生已有测验/作业成绩波动，取学生均值 */
+    private BigDecimal classStability(Long teachingClassId) {
+        try {
+            List<Map<String, Object>> rows = jdbc.queryForList("""
+                    select student_id, total_score from submission
+                    where teaching_class_id = ? and total_score is not null
+                    order by student_id, submit_time, id
+                    """, teachingClassId);
+            Map<Long, List<BigDecimal>> byStudent = new LinkedHashMap<>();
+            for (Map<String, Object> r : rows) {
+                Long sid = ((Number) r.get("student_id")).longValue();
+                byStudent.computeIfAbsent(sid, k -> new ArrayList<>())
+                        .add(new BigDecimal(String.valueOf(r.get("total_score"))));
+            }
+            List<BigDecimal> values = new ArrayList<>();
+            for (List<BigDecimal> scores : byStudent.values()) {
+                BigDecimal v = stabilityOf(scores);
+                if (v != null) values.add(v);
+            }
+            if (values.isEmpty()) return classItemStability(teachingClassId);
+            return values.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .divide(BigDecimal.valueOf(values.size()), 1, RoundingMode.HALF_UP);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private BigDecimal classItemStability(Long teachingClassId) {
+        try {
+            List<Map<String, Object>> rows = jdbc.queryForList("""
+                    select e.student_id, si.score
+                    from score_item si join enrollment e on e.id = si.enrollment_id
+                    where e.teaching_class_id = ? and si.is_void = 0 and si.score is not null
+                    order by e.student_id
+                    """, teachingClassId);
+            Map<Long, List<BigDecimal>> byStudent = new LinkedHashMap<>();
+            for (Map<String, Object> r : rows) {
+                Long sid = ((Number) r.get("student_id")).longValue();
+                byStudent.computeIfAbsent(sid, k -> new ArrayList<>())
+                        .add(new BigDecimal(String.valueOf(r.get("score"))));
+            }
+            List<BigDecimal> values = new ArrayList<>();
+            for (List<BigDecimal> scores : byStudent.values()) {
+                BigDecimal v = stabilityOf(scores);
+                if (v != null) values.add(v);
+            }
+            if (values.isEmpty()) return null;
+            return values.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .divide(BigDecimal.valueOf(values.size()), 1, RoundingMode.HALF_UP);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** 100−变异系数；样本不足返回 null */
