@@ -18,6 +18,7 @@
         </div>
 
         <div class="p-5 space-y-4 overflow-y-auto print:p-0 print:overflow-visible">
+          <p v-if="reportMessage" class="text-xs text-amber-600 print:hidden">{{ reportMessage }}</p>
           <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 flex items-center gap-5">
             <div>
               <p class="text-3xl font-semibold" :class="riskColor">{{ num(student?.riskScore) }}</p>
@@ -57,9 +58,30 @@
                 <div><p class="text-[10px] text-slate-400">加权</p><b class="text-slate-700">{{ c.weightedScore ?? '—' }}</b></div>
               </div>
               <div class="flex justify-end gap-2 mt-2 print:hidden">
-                <button class="text-xs text-brand-600 hover:underline" @click="selected = selected === c ? null : c">
-                  {{ selected === c ? '收起' : '查看课程详情' }}
+                <span v-if="courseReport(c)" class="text-[10px] text-slate-400 self-center">
+                  报告 #{{ courseReport(c).id }} · run #{{ courseReport(c).runId || '—' }}
+                </span>
+                <button class="text-xs text-brand-600 hover:underline" @click="toggleReport(c)">
+                  {{ courseReport(c) ? '查看六维' : '生成报告' }}
                 </button>
+                <button v-if="courseReport(c)" class="text-xs text-brand-600 hover:underline" @click="downloadCourse(c)">导出 PDF</button>
+              </div>
+              <div v-if="activeReport && activeReport.teachingClassId === c.teachingClassId" class="mt-2 rounded-lg bg-slate-50 px-3 py-2">
+                <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                  <span>六维画像 · 学生 / 班级均值</span>
+                  <span v-if="activeReport.stale" class="text-amber-600">报告已过期，建议重新生成</span>
+                </div>
+                <div v-if="activeReport.metrics?.dimensions?.length" class="space-y-1">
+                  <div v-for="d in activeReport.metrics.dimensions" :key="d.key" class="grid grid-cols-[64px_1fr_72px] gap-2 items-center text-[10px]">
+                    <span class="text-slate-500">{{ d.label }}</span>
+                    <div class="h-1.5 rounded-full bg-slate-200 overflow-hidden flex gap-0.5">
+                      <div class="h-full bg-brand-500" :style="{ width: (d.student ?? 0) + '%' }"></div>
+                      <div class="h-full bg-slate-400" :style="{ width: (d.classAvg ?? 0) + '%' }"></div>
+                    </div>
+                    <span class="text-right text-slate-600">{{ d.student ?? '—' }} / {{ d.classAvg ?? '—' }}</span>
+                  </div>
+                </div>
+                <p v-else class="text-[10px] text-slate-400">该报告没有六维指标，重新生成后可获得。</p>
               </div>
               <div v-if="selected === c" class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 leading-6">
                 <p><b class="text-slate-700">风险结论：</b>{{ c.riskHint || '暂无' }}</p>
@@ -71,7 +93,8 @@
           </div>
 
           <p class="text-[10px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-5">
-            当前入口复用现有学生详情接口；PDF 使用浏览器打印。报告数字可回溯到 risk_state / 成绩 / 考勤。
+            {{ mode === 'student' ? '当前入口使用本学期课程数据；PDF 使用浏览器打印。' : '教师/辅导员读取 ai_report 独立快照；PDF 由服务端 OpenPDF 生成，可选择保存目录。' }}
+            报告数字可回溯到 risk_state / 成绩 / 考勤。
           </p>
         </div>
       </div>
@@ -80,7 +103,8 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { staffReportApi } from '../api/ai'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -88,9 +112,13 @@ const props = defineProps({
   courses: { type: Array, default: () => [] },
   mode: { type: String, default: 'counselor' }
 })
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 
 const selected = ref(null)
+const reports = ref([])
+const activeReport = ref(null)
+const reportMessage = ref('')
+const loadingReports = ref(false)
 const riskCourses = computed(() => props.courses.filter((c) => courseLevel(c) !== '正常'))
 const riskLevelText = computed(() => {
   const v = Number(props.student?.riskScore || 0)
@@ -116,7 +144,74 @@ function courseTag(c) {
   if (lv === '低风险') return 'bg-yellow-50 text-yellow-700'
   return 'bg-emerald-50 text-emerald-600'
 }
-function exportPdf() {
-  window.print()
+function courseReport(c) {
+  if (!c.teachingClassId) return null
+  return reports.value.find((r) => r.teachingClassId === c.teachingClassId)
 }
+
+async function loadReports() {
+  if (props.mode === 'student' || !props.student?.studentId) return
+  loadingReports.value = true
+  reportMessage.value = ''
+  try {
+    reports.value = await staffReportApi.list(props.student.studentId)
+  } catch (e) {
+    reportMessage.value = e?.message || '报告读取失败'
+  } finally {
+    loadingReports.value = false
+  }
+}
+
+async function toggleReport(c) {
+  const r = courseReport(c)
+  if (r) {
+    activeReport.value = activeReport.value?.id === r.id ? null : r
+    return
+  }
+  try {
+    const created = await staffReportApi.generate(props.student.studentId, c.teachingClassId)
+    reports.value = [created, ...reports.value]
+    activeReport.value = created
+  } catch (e) {
+    reportMessage.value = e?.message || '报告生成失败'
+  }
+}
+
+async function downloadCourse(c) {
+  const r = courseReport(c)
+  if (!r) return
+  try {
+    await staffReportApi.pdf(props.student.studentId, r.id)
+  } catch (e) {
+    reportMessage.value = e?.message || 'PDF 导出失败'
+  }
+}
+
+async function exportPdf() {
+  if (props.mode === 'student') {
+    window.print()
+    return
+  }
+  const r = activeReport.value || reports.value[0]
+  if (!r) {
+    reportMessage.value = '暂无独立报告，请先点击课程「生成报告」'
+    return
+  }
+  try {
+    await staffReportApi.pdf(props.student.studentId, r.id)
+  } catch (e) {
+    reportMessage.value = e?.message || 'PDF 导出失败'
+  }
+}
+
+watch(
+  () => props.open,
+  (v) => {
+    if (!v) return
+    activeReport.value = null
+    reports.value = []
+    loadReports()
+  }
+)
+
 </script>

@@ -1,5 +1,15 @@
 import { http } from './http'
 
+/** 教师/辅导员查看学生课程报告（独立 ai_report 快照） */
+export const staffReportApi = {
+  list: (studentId) => http.get(`/reports/student/${studentId}`),
+  detail: (studentId, reportId) => http.get(`/reports/student/${studentId}/${reportId}`),
+  generate: (studentId, teachingClassId) =>
+    http.post(`/reports/student/${studentId}/generate?teachingClassId=${teachingClassId}`, {}),
+  pdf: (studentId, reportId) =>
+    http.downloadWithPicker(`/reports/student/${studentId}/${reportId}/pdf`, `report-${reportId}.pdf`)
+}
+
 /**
  * 学生端 · 学习评价报告（AI）
  *
@@ -10,7 +20,7 @@ export const reportApi = {
   list: () => http.get('/student/reports'),
   detail: (id) => http.get(`/student/reports/${id}`),
   generate: (body) => http.post('/student/reports/generate', body || {}),
-  pdf: (id) => http.download(`/student/reports/${id}/pdf`, `report-${id}.pdf`),
+  pdf: (id) => http.downloadWithPicker(`/student/reports/${id}/pdf`, `report-${id}.pdf`),
   feedback: (id, useful, reason) =>
     http.post(`/student/reports/${id}/feedback`, { useful, reason: reason || '' })
 }

@@ -68,10 +68,49 @@ async function download(url, fallbackName = 'download') {
   setTimeout(() => URL.revokeObjectURL(a.href), 3000)
 }
 
+/** 下载并允许 Chrome/Edge 选择保存目录 */
+async function downloadWithPicker(url, fallbackName = 'download') {
+  const headers = {}
+  const token = getToken()
+  if (token) headers.Authorization = 'Bearer ' + token
+
+  let handle = null
+  if (typeof window !== 'undefined' && window.showSaveFilePicker) {
+    try {
+      handle = await window.showSaveFilePicker({
+        suggestedName: fallbackName,
+        types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }]
+      })
+    } catch (e) {
+      if (e && e.name === 'AbortError') return
+      handle = null
+    }
+  }
+
+  const res = await fetch(BASE + url, { headers })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ message: '下载失败' }))
+    throw new Error(data.message || '下载失败')
+  }
+  const blob = await res.blob()
+  if (handle) {
+    const writable = await handle.createWritable()
+    await writable.write(blob)
+    await writable.close()
+    return
+  }
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = fallbackName
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000)
+}
+
 export const http = {
   get: (url, options) => request('GET', url, undefined, options),
   post: (url, body, options) => request('POST', url, body, options),
   delete: (url, options) => request('DELETE', url, undefined, options),
   upload,
-  download
+  download,
+  downloadWithPicker
 }

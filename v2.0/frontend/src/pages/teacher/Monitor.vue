@@ -574,6 +574,7 @@ function openStudentReport() {
   const a = detail.value?.alert
   if (!a) return
   studentReportStudent.value = {
+    studentId: a.studentId,
     studentName: a.studentName,
     studentNo: a.studentNo,
     adminClassName: a.classCode,
