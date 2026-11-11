@@ -156,3 +156,5 @@ v3.0/tool/placebo/classes/
 ### P1 硬化：误生成的编译产物兜底 ###
 v3.0/tool/classes/
 v3.0/tool/**/classes/
+
+v3.0/word/*.docx

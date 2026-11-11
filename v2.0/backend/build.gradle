@@ -49,15 +49,21 @@ dependencies {
     // 显式锁定 9.2.0（Boot 4.0.6 的 BOM 会约束到 9.7.0，用 strictly 保号）
     implementation('com.mysql:mysql-connector-j:9.2.0') { version { strictly '9.2.0' } }
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
+    // 服务端报告 PDF（不依赖浏览器子进程）
+    implementation 'com.github.librepdf:openpdf:1.3.30'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    // RunTest 是本机无 Gradle 时的 main() 替代跑法，不是 JUnit 测试类
+    exclude '**/RunTest*'
 }
 
 tasks.withType(JavaCompile).configureEach {

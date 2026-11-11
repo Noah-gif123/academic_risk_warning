@@ -10,6 +10,7 @@ export const reportApi = {
   list: () => http.get('/student/reports'),
   detail: (id) => http.get(`/student/reports/${id}`),
   generate: (body) => http.post('/student/reports/generate', body || {}),
+  pdf: (id) => http.download(`/student/reports/${id}/pdf`, `report-${id}.pdf`),
   feedback: (id, useful, reason) =>
     http.post(`/student/reports/${id}/feedback`, { useful, reason: reason || '' })
 }

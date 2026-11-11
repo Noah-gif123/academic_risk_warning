@@ -6,8 +6,12 @@ import com.example.academic_risk_warning.security.LoginUser;
 import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
 import com.example.academic_risk_warning.service.ai.StudentReportService;
+import com.example.academic_risk_warning.service.ai.ReportPdfService;
 import com.example.academic_risk_warning.vo.ai.StudentReportVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +30,7 @@ import java.util.Map;
 public class StudentReportController {
 
     private final StudentReportService reportService;
+    private final ReportPdfService pdfService;
 
     private Long me() {
         LoginUser user = UserContext.require();
@@ -60,6 +65,17 @@ public class StudentReportController {
             return Result.ok(reportService.generateByClass(me(), Long.parseLong(String.valueOf(tc)), type));
         }
         throw new BizException("缺少 enrollmentId 或 teachingClassId");
+    }
+
+    /** 学生课程报告 PDF */
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> pdf(@PathVariable Long id) {
+        StudentReportVO vo = reportService.detail(me(), id);
+        byte[] bytes = pdfService.render(vo);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report-" + id + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(bytes);
     }
 
     /** 有用 / 没用反馈 */

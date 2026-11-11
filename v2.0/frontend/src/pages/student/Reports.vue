@@ -13,7 +13,7 @@
           <option v-for="t in terms" :key="t.id" :value="String(t.id)">{{ t.termName }}</option>
         </select>
         <button class="btn-ghost text-sm" :disabled="loading" @click="load">{{ loading ? '刷新中…' : '刷新' }}</button>
-        <button class="btn-primary text-sm" @click="exportPdf">导出 PDF</button>
+        <button class="btn-primary text-sm" :disabled="!active" @click="exportPdf">导出 PDF</button>
       </div>
     </div>
 
@@ -116,6 +116,25 @@
               <button class="btn-primary text-sm" :disabled="generating" @click="generate">
                 {{ generating ? '生成中…' : '重新生成' }}
               </button>
+            </div>
+          </div>
+
+          <div v-if="active.metrics?.dimensions?.length" class="rounded-lg border border-slate-200 px-4 py-3">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-medium text-slate-700">六维画像</p>
+              <span class="text-[10px] text-slate-400">学生 / 班级均值 · 数据不足显示 —</span>
+            </div>
+            <div class="space-y-2">
+              <div v-for="d in active.metrics.dimensions" :key="d.key" class="grid grid-cols-[64px_1fr_78px] gap-2 items-center text-xs">
+                <span class="text-slate-500">{{ d.label }}</span>
+                <div class="h-2 rounded-full bg-slate-100 overflow-hidden flex gap-0.5">
+                  <div class="h-full rounded-full bg-brand-500" :style="{ width: (d.student ?? 0) + '%' }"></div>
+                  <div class="h-full rounded-full bg-slate-300" :style="{ width: (d.classAvg ?? 0) + '%' }"></div>
+                </div>
+                <span class="text-right text-slate-600">
+                  {{ d.student ?? '—' }}<span class="text-slate-400"> / {{ d.classAvg ?? '—' }}</span>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -308,7 +327,19 @@ function doAction(a) {
   }
 }
 
-function exportPdf() { window.print() }
+async function exportPdf() {
+  if (!active.value) {
+    message.value = '先选择一份报告再导出'
+    ok.value = false
+    return
+  }
+  try {
+    await reportApi.pdf(active.value.id)
+  } catch (e) {
+    message.value = e?.message || 'PDF 导出失败'
+    ok.value = false
+  }
+}
 
 onMounted(load)
 </script>
