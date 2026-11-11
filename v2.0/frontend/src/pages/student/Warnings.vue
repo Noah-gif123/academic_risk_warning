@@ -77,6 +77,7 @@
 
         <div class="flex items-center gap-2 pt-0.5">
           <button class="text-sm text-brand-600 hover:underline" @click="openDetail(it)">查看详情</button>
+          <button class="text-sm text-brand-600 hover:underline" @click="openReport(it)">课程报告</button>
           <button v-if="canAppeal(it)" class="text-sm text-amber-600 hover:underline" @click="openDetail(it, true)">
             申诉
           </button>
@@ -252,12 +253,16 @@
         </div>
       </div>
     </div>
+
+    <StudentReportModal :open="reportOpen" :student="reportStudent" :courses="reportCourses"
+                        mode="student" @close="reportOpen = false" />
   </div>
 </template>
 
 <script setup>
 import AlertExplainCard from '../../components/AlertExplainCard.vue'
 import CourseQaBox from '../../components/CourseQaBox.vue'
+import StudentReportModal from '../../components/StudentReportModal.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { studentWarningApi } from '../../api/alert'
 import { outputModeLabel, riskLevelBadge, riskLevelLabel } from '../../labels'
@@ -270,6 +275,9 @@ const ok = ref(true)
 const data = reactive({ studentNo: '', studentName: '', termName: '', engineVersion: '', lastEvalTime: null, summary: {}, items: [], advice: [], guidelines: [] })
 const detail = ref(null)
 const appealReason = ref('')
+const reportOpen = ref(false)
+const reportStudent = ref(null)
+const reportCourses = ref([])
 
 const tiles = computed(() => {
   const s = data.summary || {}
@@ -353,6 +361,30 @@ async function openDetail(it, focusAppeal = false) {
   } catch (e) {
     flash(e.message, false)
   }
+}
+
+function openReport(it) {
+  reportStudent.value = {
+    studentName: data.studentName,
+    studentNo: data.studentNo,
+    adminClassName: it.classCode,
+    riskScore: it.riskScore
+  }
+  reportCourses.value = [{
+    teachingClassId: it.teachingClassId,
+    courseName: it.courseName,
+    teacherName: it.teacherName,
+    riskLevel: it.level,
+    riskHint: it.reason,
+    absentCount: it.absentCount,
+    allowedAbsent: it.allowedAbsent,
+    hardFail: it.hardFail,
+    fail: it.finalUnreachable,
+    totalScore: it.totalScore,
+    deductPoints: null,
+    weightedScore: it.processScore
+  }]
+  reportOpen.value = true
 }
 
 async function submitAppeal() {

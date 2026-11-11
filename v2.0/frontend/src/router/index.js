@@ -21,6 +21,7 @@ const routes = [
     { path: 'scores', component: () => import('../pages/student/Scores.vue'), meta: { title: '我的成绩' } },
     { path: 'questionnaires', component: () => import('../pages/student/Questionnaires.vue'), meta: { title: '问卷调查' } },
     { path: 'warnings', component: () => import('../pages/student/Warnings.vue'), meta: { title: '学情预警' } },
+    { path: 'plan', component: () => import('../pages/student/LearningPlan.vue'), meta: { title: '学习计划' } },
     { path: 'reports', component: () => import('../pages/student/Reports.vue'), meta: { title: '学习评价' } }
   ] },
 

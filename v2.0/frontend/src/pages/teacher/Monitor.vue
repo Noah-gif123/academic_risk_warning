@@ -32,6 +32,9 @@
       @open-student="focusStudentFromReport"
       @close="reportOpen = false" />
 
+    <StudentReportModal :open="studentReportOpen" :student="studentReportStudent" :courses="studentReportCourses"
+                        mode="teacher" @close="studentReportOpen = false" />
+
     <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
 
     <p class="text-xs text-slate-400">
@@ -176,6 +179,7 @@
             </span>
             <span class="tag" :class="statusBadge(detail.alert.status)">{{ alertStatusLabel(detail.alert.status) }}</span>
           </div>
+          <button class="text-brand-600 text-sm" @click="openStudentReport">学生报告</button>
           <button class="text-slate-400 hover:text-slate-600" @click="closeDetail">✕</button>
         </div>
 
@@ -343,6 +347,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import GroupReportModal from '../../components/GroupReportModal.vue'
 import AlertExplainCard from '../../components/AlertExplainCard.vue'
+import StudentReportModal from '../../components/StudentReportModal.vue'
 import { teacherAlertApi, riskEngineApi } from '../../api/alert'
 import { teacherPortalApi } from '../../api/teacherPortal'
 import {
@@ -407,6 +412,9 @@ const pageSize = ref(10)
 const selectedIds = ref([])
 
 const detail = ref(null)
+const studentReportOpen = ref(false)
+const studentReportStudent = ref(null)
+const studentReportCourses = ref([])
 const closing = ref(null)
 const replyText = ref('')
 const form = reactive({ actionType: 'TALK', content: '', result: '' })
@@ -560,6 +568,32 @@ async function reevaluate() {
   } finally {
     evaluating.value = false
   }
+}
+
+function openStudentReport() {
+  const a = detail.value?.alert
+  if (!a) return
+  studentReportStudent.value = {
+    studentName: a.studentName,
+    studentNo: a.studentNo,
+    adminClassName: a.classCode,
+    riskScore: a.riskScore
+  }
+  studentReportCourses.value = [{
+    teachingClassId: a.teachingClassId,
+    courseName: a.courseName,
+    teacherName: '',
+    riskLevel: a.alertLevel,
+    riskHint: a.alertReason,
+    absentCount: a.absentCount,
+    allowedAbsent: a.allowedAbsent,
+    hardFail: a.hardFail,
+    fail: a.fail,
+    totalScore: a.totalScore,
+    deductPoints: a.deductPoints,
+    weightedScore: a.weightedScore
+  }]
+  studentReportOpen.value = true
 }
 
 async function openDetail(r) {

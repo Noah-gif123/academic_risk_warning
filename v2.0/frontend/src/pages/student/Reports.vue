@@ -13,6 +13,7 @@
           <option v-for="t in terms" :key="t.id" :value="String(t.id)">{{ t.termName }}</option>
         </select>
         <button class="btn-ghost text-sm" :disabled="loading" @click="load">{{ loading ? '刷新中…' : '刷新' }}</button>
+        <button class="btn-primary text-sm" @click="exportPdf">导出 PDF</button>
       </div>
     </div>
 
@@ -306,6 +307,8 @@ function doAction(a) {
     ok.value = true
   }
 }
+
+function exportPdf() { window.print() }
 
 onMounted(load)
 </script>

@@ -65,8 +65,8 @@
 
     <!-- 作答 / 看结果：独立弹窗（不再跳转页面） -->
     <Teleport to="body">
-      <div v-if="takingId" class="fixed inset-0 z-50 bg-slate-900/45 overflow-y-auto p-4" @click.self="closeTake">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-auto my-6 relative">
+      <div v-if="takingId" class="fixed inset-0 z-50 bg-slate-900/45 overflow-hidden flex items-center justify-center p-4" @click.self="closeTake">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-auto my-0 relative">
           <button class="absolute right-4 top-4 z-10 text-slate-400 hover:text-slate-600 text-xl leading-none"
                   title="关闭（Esc）" @click="closeTake">✕</button>
           <div class="p-5">
