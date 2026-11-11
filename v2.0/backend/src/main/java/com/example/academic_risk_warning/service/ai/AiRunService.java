@@ -109,6 +109,22 @@ public class AiRunService {
         }
     }
 
+    /** 记录一步（带角色/工具，报告流水线用） */
+    public void stepWithRole(Long runId, int stepNo, String name, String stepRole, String toolName,
+                             String input, String output, String validationStatus, String validationDetail, long durationMs) {
+        if (runId == null) {
+            return;
+        }
+        try {
+            jdbc.update("insert into ai_run_step(run_id, step_no, name, step_role, tool_name, input_digest, output_digest, "
+                            + "validation_status, validation_detail, duration_ms) values (?,?,?,?,?,?,?,?,?,?)",
+                    runId, stepNo, name, stepRole, toolName, truncate(input, 480), truncate(output, 480),
+                    validationStatus, truncate(validationDetail, 480), (int) durationMs);
+        } catch (Exception e) {
+            log.debug("[ai_run_step] 写入失败: {}", e.getMessage());
+        }
+    }
+
     /** 计费明细 */
     public void usage(Long runId, String scene, Integer tokens, Long operatorId) {
         try {

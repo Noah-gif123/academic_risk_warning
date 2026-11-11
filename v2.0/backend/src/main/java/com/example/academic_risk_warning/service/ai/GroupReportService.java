@@ -54,11 +54,13 @@ public class GroupReportService {
         Long runId = runService.start("GROUP_REPORT", "TEACHING_CLASS", teachingClassId, operatorId);
         long t0 = System.currentTimeMillis();
         int tokens = 0;
+        recordPreSteps(runId, fact, t0);
 
         // R1：群体报告也给「参考依据」——教师看到的是"本班薄弱项对应的课程资料"
         List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(),
                 classEvidenceQuery(fact), genericEvidenceQuery(fact.getCourseName()));
         String evidenceBlock = evidenceBlock(evidence);
+        recordRagStep(runId, evidence, t0);
         String userPrompt = classPrompt(fact) + evidenceBlock;
         String systemPrompt = groupSystemPrompt("教学班");
 
@@ -73,7 +75,8 @@ public class GroupReportService {
             if (res.isOk()) {
                 String text = pickText(res.getOutputs());
                 List<String> bad = composer.invalidNumbersAgainst(text, fact);
-                runService.step(runId, 1, "dify-group-workflow", "class-report", text,
+                runService.stepWithRole(runId, 5, "报告撰写（Dify）", "WRITER", "dify-group-workflow",
+                        "report-facts", text,
                         bad.isEmpty() ? "PASS" : "WARN",
                         bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                         System.currentTimeMillis() - t0);
@@ -98,7 +101,8 @@ public class GroupReportService {
             long t1 = System.currentTimeMillis();
             if (res.isOk()) {
                 List<String> bad = composer.invalidNumbersAgainst(res.getText(), fact);
-                runService.step(runId, 2, "direct-chat", "class-report", res.getText(),
+                runService.stepWithRole(runId, 5, "报告撰写（直连）", "WRITER", "direct-chat",
+                        "report-facts", res.getText(),
                         bad.isEmpty() ? "PASS" : "WARN",
                         bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                         System.currentTimeMillis() - t1);
@@ -117,6 +121,8 @@ public class GroupReportService {
         if (content == null) {
             content = classTemplate(fact);
             note.append("已使用规则模板");
+            runService.stepWithRole(runId, 5, "报告撰写（规则模板）", "WRITER", "template",
+                    "report-facts", content.getSummary(), "PASS", "AI 不可用，模板兜底", System.currentTimeMillis() - t0);
         }
         appendEvidence(content, evidence);
         content.persons = personsOfClass(fact);
@@ -125,6 +131,7 @@ public class GroupReportService {
         Long id = persist("CLASS", teachingClassId, fact.getTeachingClassId(), null,
                 fact.getOfferingId(), fact.getCourseId(), fact.getTermId(), title,
                 fact, content, source, runId, tokens, operatorId);
+        recordPersistStep(runId, id, t0);
         runService.usage(runId, "GROUP_REPORT", tokens, operatorId);
         runService.finish(runId, status, source, tokens, status.equals("SUCCESS") ? null : note.toString());
         return detail(id);
@@ -141,6 +148,7 @@ public class GroupReportService {
         Long runId = runService.start("GROUP_REPORT", "ADMIN_CLASS", adminClassId, operatorId);
         long t0 = System.currentTimeMillis();
         int tokens = 0;
+        recordPreSteps(runId, fact, t0);
 
         // P1：行政班也带「参考依据」——取风险最集中那门课的资料（行政班跨多门课，只挑最急的一门）
         Long riskCourseId = null;
@@ -155,6 +163,7 @@ public class GroupReportService {
 
         String systemPrompt = groupSystemPrompt("行政班");
         String userPrompt = adminPrompt(fact) + evidenceBlock;
+        recordRagStep(runId, evidence, t0);
 
         if (props.isEnabled() && props.getGroupReportAppKey() != null && !props.getGroupReportAppKey().isBlank()) {
             Map<String, Object> inputs = adminInputs(fact);
@@ -167,7 +176,8 @@ public class GroupReportService {
             if (res.isOk()) {
                 String text = pickText(res.getOutputs());
                 List<String> bad = composer.invalidNumbersAgainst(text, fact);
-                runService.step(runId, 1, "dify-group-workflow", "admin-report", text,
+                runService.stepWithRole(runId, 5, "报告撰写（Dify）", "WRITER", "dify-group-workflow",
+                        "report-facts", text,
                         bad.isEmpty() ? "PASS" : "WARN",
                         bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                         System.currentTimeMillis() - t0);
@@ -192,7 +202,8 @@ public class GroupReportService {
             long t1 = System.currentTimeMillis();
             if (res.isOk()) {
                 List<String> bad = composer.invalidNumbersAgainst(res.getText(), fact);
-                runService.step(runId, 2, "direct-chat", "admin-report", res.getText(),
+                runService.stepWithRole(runId, 5, "报告撰写（直连）", "WRITER", "direct-chat",
+                        "report-facts", res.getText(),
                         bad.isEmpty() ? "PASS" : "WARN",
                         bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                         System.currentTimeMillis() - t1);
@@ -211,6 +222,8 @@ public class GroupReportService {
         if (content == null) {
             content = adminTemplate(fact);
             note.append("已使用规则模板");
+            runService.stepWithRole(runId, 5, "报告撰写（规则模板）", "WRITER", "template",
+                    "report-facts", content.getSummary(), "PASS", "AI 不可用，模板兜底", System.currentTimeMillis() - t0);
         }
         appendEvidence(content, evidence);
         content.persons = personsOfAdmin(fact);
@@ -218,6 +231,7 @@ public class GroupReportService {
 
         Long id = persist("ADMIN_CLASS", adminClassId, null, adminClassId,
                 null, null, fact.getTermId(), title, fact, content, source, runId, tokens, operatorId);
+        recordPersistStep(runId, id, t0);
         runService.usage(runId, "GROUP_REPORT", tokens, operatorId);
         runService.finish(runId, status, source, tokens, status.equals("SUCCESS") ? null : note.toString());
         return detail(id);
@@ -241,10 +255,12 @@ public class GroupReportService {
         Long runId = runService.start("GROUP_REPORT", "OFFERING", offeringId, operatorId);
         long t0 = System.currentTimeMillis();
         int tokens = 0;
+        recordPreSteps(runId, fact, t0);
 
         List<RetrievalService.Hit> evidence = retrieveEvidence(fact.getCourseId(),
                 offeringEvidenceQuery(fact), genericEvidenceQuery(fact.getCourseName()));
         String evidenceBlock = evidenceBlock(evidence);
+        recordRagStep(runId, evidence, t0);
         String systemPrompt = groupSystemPrompt("课程");
         String userPrompt = offeringPrompt(fact) + evidenceBlock;
 
@@ -259,7 +275,8 @@ public class GroupReportService {
             if (res.isOk()) {
                 String text = pickText(res.getOutputs());
                 List<String> bad = composer.invalidNumbersAgainst(text, fact);
-                runService.step(runId, 1, "dify-group-workflow", "offering-report", text,
+                runService.stepWithRole(runId, 5, "报告撰写（Dify）", "WRITER", "dify-group-workflow",
+                        "report-facts", text,
                         bad.isEmpty() ? "PASS" : "WARN",
                         bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                         System.currentTimeMillis() - t0);
@@ -284,7 +301,8 @@ public class GroupReportService {
             long t1 = System.currentTimeMillis();
             if (res.isOk()) {
                 List<String> bad = composer.invalidNumbersAgainst(res.getText(), fact);
-                runService.step(runId, 2, "direct-chat", "offering-report", res.getText(),
+                runService.stepWithRole(runId, 5, "报告撰写（直连）", "WRITER", "direct-chat",
+                        "report-facts", res.getText(),
                         bad.isEmpty() ? "PASS" : "WARN",
                         bad.isEmpty() ? null : "越界数字 " + bad.stream().distinct().limit(6).toList(),
                         System.currentTimeMillis() - t1);
@@ -303,6 +321,8 @@ public class GroupReportService {
         if (content == null) {
             content = offeringTemplate(fact);
             note.append("已使用规则模板");
+            runService.stepWithRole(runId, 5, "报告撰写（规则模板）", "WRITER", "template",
+                    "report-facts", content.getSummary(), "PASS", "AI 不可用，模板兜底", System.currentTimeMillis() - t0);
         }
         appendEvidence(content, evidence);
         content.persons = personsOfOffering(fact);
@@ -310,6 +330,7 @@ public class GroupReportService {
 
         Long id = persist("OFFERING", offeringId, null, null, offeringId,
                 fact.getCourseId(), fact.getTermId(), title, fact, content, source, runId, tokens, operatorId);
+        recordPersistStep(runId, id, t0);
         runService.usage(runId, "GROUP_REPORT", tokens, operatorId);
         runService.finish(runId, status, source, tokens, status.equals("SUCCESS") ? null : note.toString());
         return detail(id);
@@ -648,6 +669,33 @@ public class GroupReportService {
         in.put("fail_rate", num(f.getFailRate()));
         in.put("avg_score", num(f.getAvgScore()));
         return in;
+    }
+
+    // ============================================================ 报告流水线步骤
+    /** 报告前置步骤：事实体检、指标分析、学情研判。报告生成阶段本身是确定性的，耗时按同一批次记录。 */
+    private void recordPreSteps(Long runId, Object fact, long start) {
+        String factJson = toJson(fact);
+        long cost = System.currentTimeMillis() - start;
+        runService.stepWithRole(runId, 1, "数据体检", "DATA", "fact-builder", "report-facts", factJson,
+                "PASS", "事实包已构建", cost);
+        runService.stepWithRole(runId, 2, "数据分析", "ANALYST", "fact-builder", "report-facts", factJson,
+                "PASS", "风险/成绩/考勤指标已汇总", cost);
+        runService.stepWithRole(runId, 3, "学情研判", "DIAGNOSTIC", "risk-state", "report-facts", factJson,
+                "PASS", "风险归因与重点对象已生成", cost);
+    }
+
+    /** RAG 取证步骤 */
+    private void recordRagStep(Long runId, List<RetrievalService.Hit> evidence, long start) {
+        int n = evidence == null ? 0 : evidence.size();
+        runService.stepWithRole(runId, 4, "RAG 取证", "RAG", "retrieval-service", "course-kb",
+                "命中 " + n + " 条", n > 0 ? "PASS" : "WARN",
+                n > 0 ? "已带引用" : "未命中课程资料", System.currentTimeMillis() - start);
+    }
+
+    /** 报告落库步骤 */
+    private void recordPersistStep(Long runId, Long reportId, long start) {
+        runService.stepWithRole(runId, 7, "报告落库", "PERSIST", "ai-group-report", "report-content",
+                "报告 #" + reportId, "PASS", null, System.currentTimeMillis() - start);
     }
 
     // ============================================================ 模板兜底
@@ -1045,7 +1093,7 @@ public class GroupReportService {
         }
         String bad = NumberAuditor.mismatchSummary(content.checks);
         if (runId != null) {
-            runService.step(runId, 9, "number-audit", "report-check",
+            runService.stepWithRole(runId, 6, "质量校验", "CRITIC", "number-auditor", "report-check",
                     "对账 " + passed + "/" + total + (bad.isEmpty() ? "" : "；" + bad),
                     bad.isEmpty() ? "PASS" : "WARN", bad.isEmpty() ? null : bad, 0L);
         }
