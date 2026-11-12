@@ -40,6 +40,12 @@ public class StudentQaService {
     // 因为 RAG 评测要复用同一套判据；这里不再重复定义，避免两把尺子。
 
     public Map<String, Object> ask(Long studentId, Long courseId, Long teachingClassId, String question) {
+        return ask(studentId, courseId, teachingClassId, question, List.of());
+    }
+
+    /** 带最近对话的多轮版本；history 只作为提示词上下文，不落库成会话表。 */
+    public Map<String, Object> ask(Long studentId, Long courseId, Long teachingClassId, String question,
+                                   List<Map<String, Object>> history) {
         String q = question == null ? "" : question.trim();
         if (q.isEmpty()) {
             throw new BizException("问题不能为空");
@@ -56,6 +62,7 @@ public class StudentQaService {
         if (courseId == null) {
             throw new BizException("缺少 courseId 或 teachingClassId");
         }
+        checkEnrollment(studentId, courseId, teachingClassId);
         String courseName = courseName(courseId);
 
         Long runId = runService.start("QA", "COURSE", courseId, studentId);
@@ -100,7 +107,7 @@ public class StudentQaService {
         }
 
         // ---- G：生成（带引用要求）
-        String prompt = buildPrompt(courseName, q, hits);
+        String prompt = buildPrompt(courseName, q, history, hits);
         String systemPrompt = """
                 你是课程答疑助手，只回答与给定课程资料相关的问题。
                 规则：
@@ -233,10 +240,45 @@ public class StudentQaService {
         return out;
     }
 
+    /** 学生只能问自己已选课程；教学班优先，否则按课程校验。 */
+    private void checkEnrollment(Long studentId, Long courseId, Long teachingClassId) {
+        Integer n;
+        if (teachingClassId != null) {
+            n = jdbc.queryForObject("""
+                    select count(*) from enrollment
+                    where student_id = ? and teaching_class_id = ? and status in ('ACTIVE','ENROLLED')
+                    """, Integer.class, studentId, teachingClassId);
+        } else {
+            n = jdbc.queryForObject("""
+                    select count(*) from enrollment e
+                    join teaching_class tc on tc.id = e.teaching_class_id
+                    join course_offering o on o.id = tc.offering_id
+                    where e.student_id = ? and o.course_id = ? and e.status in ('ACTIVE','ENROLLED')
+                    """, Integer.class, studentId, courseId);
+        }
+        if (n == null || n == 0) {
+            throw new BizException(403, "只能提问自己已选的课程");
+        }
+    }
+
     // ============================================================ 提示词与模板
-    private String buildPrompt(String courseName, String question, List<Map<String, Object>> hits) {
+    private String buildPrompt(String courseName, String question, List<Map<String, Object>> history,
+                               List<Map<String, Object>> hits) {
         StringBuilder sb = new StringBuilder();
-        sb.append("课程：").append(courseName).append("\n学生问题：").append(question).append("\n\n【材料片段】\n");
+        sb.append("课程：").append(courseName).append("\n");
+        if (history != null && !history.isEmpty()) {
+            sb.append("【最近对话】\n");
+            int n = Math.max(0, history.size() - 5);
+            for (int j = n; j < history.size(); j++) {
+                Map<String, Object> h = history.get(j);
+                String role = "user".equals(String.valueOf(h.get("role"))) ? "学生" : "助手";
+                String text = String.valueOf(h.get("content") == null ? "" : h.get("content"));
+                if (text.length() > 300) text = text.substring(0, 300);
+                sb.append(role).append("：").append(text).append("\n");
+            }
+            sb.append("\n");
+        }
+        sb.append("学生问题：").append(question).append("\n\n【材料片段】\n");
         int i = 1;
         for (Map<String, Object> h : hits) {
             sb.append(i++).append("）").append(h.get("docName")).append(" 第").append(h.get("sectionNo")).append("段")

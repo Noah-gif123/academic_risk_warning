@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -47,7 +48,18 @@ public class StudentQaController {
         if (q == null || String.valueOf(q).isBlank()) {
             throw new BizException("缺少 question");
         }
-        return Result.ok(qaService.ask(me(), courseId, tc, String.valueOf(q)));
+        List<Map<String, Object>> history = List.of();
+        if (body.get("history") instanceof List<?> list) {
+            history = list.stream()
+                    .filter(Map.class::isInstance)
+                    .map(o -> {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> m = (Map<String, Object>) o;
+                        return m;
+                    })
+                    .toList();
+        }
+        return Result.ok(qaService.ask(me(), courseId, tc, String.valueOf(q), history));
     }
 
     private static Long lng(Object v) {
