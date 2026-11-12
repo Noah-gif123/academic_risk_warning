@@ -30,6 +30,7 @@ import java.util.*;
 public class KbService {
 
     private final JdbcTemplate jdbc;
+    private final KbSyncOutbox syncOutbox;
 
     /** 上传资料落盘目录（与 app.file.store-dir 一致） */
     @Value("${app.file.store-dir:./file-store}")
@@ -129,6 +130,7 @@ public class KbService {
             }
             jdbc.update("delete from ai_kb_chunk where course_id = ? and source_type = ? and source_id = ?",
                     courseId, type, d.get("source_id"));
+            syncOutbox.enqueue(courseId, lng(d.get("id")), "DELETE");
             jdbc.update("delete from ai_kb_doc where id = ?", lng(d.get("id")));
             log.info("[KB] 下线过期来源：{}（{}:{}）", d.get("doc_name"), type, d.get("source_id"));
             removed++;
@@ -214,6 +216,7 @@ public class KbService {
                     values (?,?,?,?,?,?,?,?,?)
                     """, courseId, offeringId, teachingClassId, type, sourceId, docName, no++, part, part.length());
         }
+        syncOutbox.enqueue(courseId, docId, "UPSERT");
         return parts.size();
     }
 
