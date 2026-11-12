@@ -1,4 +1,4 @@
-import { http } from './http'
+import { http, getToken } from './http'
 
 /** 教师/辅导员查看学生课程报告（独立 ai_report 快照） */
 export const staffReportApi = {
@@ -64,6 +64,37 @@ export const interventionMetricsApi = {
 /** 课程答疑（RAG，M11）：只能由学生端调用，回答带引用、无依据拒答 */
 export const qaApi = {
   ask: (body) => http.post('/student/ai/qa', body || {}),
+  stream: async (body, onEvent) => {
+    const res = await fetch('/api/student/ai/qa/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(getToken() ? { Authorization: 'Bearer ' + getToken() } : {})
+      },
+      body: JSON.stringify(body || {})
+    })
+    if (!res.ok || !res.body) throw new Error('流式回答失败')
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      let idx
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, idx)
+        buf = buf.slice(idx + 2)
+        let name = 'message'
+        let data = ''
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event:')) name = line.slice(6).trim()
+          else if (line.startsWith('data:')) data += line.slice(5).trim()
+        }
+        onEvent(name, data)
+      }
+    }
+  },
   feedback: (runId, useful, reason) =>
     http.post('/student/ai/qa/feedback', { runId, useful, reason: reason || '' })
 }

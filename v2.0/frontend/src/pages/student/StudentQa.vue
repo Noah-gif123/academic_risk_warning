@@ -133,22 +133,30 @@ async function ask() {
   busy.value = true
   error.value = ''
   try {
-    const r = await qaApi.ask({
+    const streamMsg = { role: 'assistant', content: '', citations: [], hits: [], refused: false }
+    list.push(streamMsg)
+    const r = await qaApi.stream({
       courseId: c.courseId,
       teachingClassId: c.teachingClassId,
       question: q,
       history: historyOf(c)
+    }, (name, data) => {
+      if (name === 'meta') {
+        try {
+          const meta = JSON.parse(data)
+          streamMsg.runId = meta.runId
+          streamMsg.refused = !!meta.refused
+          streamMsg.citations = meta.citations || []
+          streamMsg.hits = meta.hits || []
+        } catch (e) { /* ignore */ }
+      } else if (name === 'delta') {
+        streamMsg.content += data
+      } else if (name === 'error') {
+        throw new Error(data || '回答失败')
+      }
     })
-    list.push({
-      role: 'assistant',
-      content: r.answer || '',
-      citations: r.citations || [],
-      hits: r.hits || [],
-      refused: !!r.refused,
-      runId: r.runId,
-      source: r.source
-    })
-    if (r.citations?.length) showSource(list[list.length - 1], r.citations[0])
+    const last = list[list.length - 1]
+    if (last?.citations?.length) showSource(last, last.citations[0])
   } catch (e) {
     error.value = e?.message || '回答失败'
   } finally {

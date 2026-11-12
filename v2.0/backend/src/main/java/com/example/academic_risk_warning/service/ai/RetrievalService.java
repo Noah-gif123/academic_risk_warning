@@ -135,6 +135,7 @@ public class RetrievalService {
         } else {
             result = topOf(ft, k);
         }
+        result = lightweightRerank(result, q, k);
 
         double ftTop = ft.isEmpty() || ft.get(0).ftScore() == null ? 0d : ft.get(0).ftScore();
         double vecTop = vec.isEmpty() ? 0d : vec.get(0).vecScore() == null ? 0d : vec.get(0).vecScore();
@@ -233,6 +234,26 @@ public class RetrievalService {
     }
 
     // ================================================================== 融合
+
+    /** 轻量 rerank：在 RRF 名次基础上，用查询词面覆盖度做二次排序（不引入外部模型）。 */
+    private List<Hit> lightweightRerank(List<Hit> in, String query, int topK) {
+        if (in.size() <= 1) return in;
+        String q = query == null ? "" : query;
+        List<Hit> scored = new ArrayList<>();
+        for (Hit h : in) {
+            String content = h.content() == null ? "" : h.content();
+            int hit = 0;
+            for (int i = 0; i + 2 <= q.length(); i++) {
+                if (content.contains(q.substring(i, i + 2))) hit++;
+            }
+            double lex = q.length() < 2 ? 0 : Math.min(1.0, hit / (double) Math.max(1, q.length() - 1));
+            double fused = h.fused() + lex * 0.02;
+            scored.add(new Hit(h.chunkId(), h.docName(), h.sectionNo(), h.sourceType(), h.content(),
+                    h.ftScore(), h.ftRank(), h.vecScore(), h.vecRank(), fused, h.rank()));
+        }
+        scored.sort((a, b) -> Double.compare(b.fused(), a.fused()));
+        return scored.stream().limit(topK).toList();
+    }
 
     /** RRF：fused = Σ 1/(K + rank)，两路都命中的条目自然排前 */
     private List<Hit> rrf(List<Hit> ft, List<Hit> vec, int topK) {
