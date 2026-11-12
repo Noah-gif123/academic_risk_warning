@@ -63,7 +63,9 @@ export const interventionMetricsApi = {
 }
 /** 课程答疑（RAG，M11）：只能由学生端调用，回答带引用、无依据拒答 */
 export const qaApi = {
-  ask: (body) => http.post('/student/ai/qa', body || {})
+  ask: (body) => http.post('/student/ai/qa', body || {}),
+  feedback: (runId, useful, reason) =>
+    http.post('/student/ai/qa/feedback', { runId, useful, reason: reason || '' })
 }
 
 /**

@@ -43,6 +43,11 @@
               </button>
             </div>
             <div v-if="m.refused" class="text-[10px] mt-2 text-amber-600">未检索到可靠依据，已拒答</div>
+            <div v-if="m.role === 'assistant' && m.runId" class="flex gap-2 mt-2 text-[10px] text-slate-400">
+              <button class="hover:text-brand-600" @click="feedback(m, true)">有用</button>
+              <button class="hover:text-brand-600" @click="feedback(m, false)">没用</button>
+              <span v-if="m.feedbackText">{{ m.feedbackText }}</span>
+            </div>
           </div>
         </div>
         <div v-if="busy" class="text-xs text-slate-400">正在检索课程资料…</div>
@@ -129,6 +134,7 @@ async function ask() {
       citations: r.citations || [],
       hits: r.hits || [],
       refused: !!r.refused,
+      runId: r.runId,
       source: r.source
     })
     if (r.citations?.length) showSource(list[list.length - 1], r.citations[0])
@@ -144,6 +150,16 @@ function showSource(message, citation) {
   activeSource.value = (message.hits || []).find((h) =>
     h.docName === citation.docName && Number(h.sectionNo) === Number(citation.sectionNo)
   ) || { ...citation, content: '未找到完整片段' }
+}
+
+async function feedback(message, useful) {
+  if (!message.runId) return
+  try {
+    await qaApi.feedback(message.runId, useful, '')
+    message.feedbackText = useful ? '已标记有用' : '已记录，会继续改进'
+  } catch (e) {
+    error.value = e?.message || '反馈失败'
+  }
 }
 
 onMounted(async () => {

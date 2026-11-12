@@ -71,6 +71,7 @@ public class StudentQaService {
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("question", q);
+        out.put("runId", runId);
         out.put("courseId", courseId);
         out.put("courseName", courseName);
 

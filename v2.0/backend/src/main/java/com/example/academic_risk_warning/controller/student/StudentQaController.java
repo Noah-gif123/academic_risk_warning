@@ -7,6 +7,7 @@ import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
 import com.example.academic_risk_warning.service.ai.StudentQaService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,6 +29,7 @@ import java.util.Map;
 public class StudentQaController {
 
     private final StudentQaService qaService;
+    private final JdbcTemplate jdbc;
 
     private Long me() {
         LoginUser user = UserContext.require();
@@ -60,6 +62,20 @@ public class StudentQaController {
                     .toList();
         }
         return Result.ok(qaService.ask(me(), courseId, tc, String.valueOf(q), history));
+    }
+
+    @PostMapping("/qa/feedback")
+    public Result<Void> feedback(@RequestBody Map<String, Object> body) {
+        Long runId = lng(body.get("runId"));
+        if (runId == null) throw new BizException("缺少 runId");
+        boolean useful = Boolean.parseBoolean(String.valueOf(body.get("useful")));
+        String reason = body.get("reason") == null ? null : String.valueOf(body.get("reason"));
+        if (reason != null && reason.length() > 300) reason = reason.substring(0, 300);
+        jdbc.update("""
+                insert into ai_qa_feedback(run_id, student_id, useful, reason) values(?,?,?,?)
+                on duplicate key update useful=values(useful), reason=values(reason)
+                """, runId, me(), useful, reason);
+        return Result.ok(null);
     }
 
     private static Long lng(Object v) {
