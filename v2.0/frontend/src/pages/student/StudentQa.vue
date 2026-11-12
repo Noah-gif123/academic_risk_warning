@@ -14,6 +14,11 @@
         <p class="text-[10px] text-slate-400 truncate">{{ c.classCode || '' }} {{ c.teacherName || '' }}</p>
       </button>
       <p v-if="!courses.length" class="text-xs text-slate-400 px-2 py-6">暂时没有可选课程</p>
+      <div class="mt-3 pt-3 border-t border-slate-100 text-[10px] text-slate-400 space-y-1">
+        <p class="text-slate-500 font-medium">我的答疑</p>
+        <p>提问 {{ stats.total || 0 }} · 拒答 {{ stats.refused || 0 }}</p>
+        <p>反馈 {{ stats.feedback || 0 }} · 有用 {{ stats.useful || 0 }}</p>
+      </div>
     </aside>
 
     <!-- 对话 -->
@@ -96,6 +101,7 @@ const question = ref('')
 const busy = ref(false)
 const error = ref('')
 const activeSource = ref(null)
+const stats = ref({})
 const scrollRef = ref(null)
 const STORAGE = 'student-qa-sessions-v1'
 
@@ -161,6 +167,7 @@ async function ask() {
     error.value = e?.message || '回答失败'
   } finally {
     busy.value = false
+    loadStats()
     nextTick(() => scrollRef.value && (scrollRef.value.scrollTop = scrollRef.value.scrollHeight))
   }
 }
@@ -176,12 +183,18 @@ async function feedback(message, useful) {
   try {
     await qaApi.feedback(message.runId, useful, '')
     message.feedbackText = useful ? '已标记有用' : '已记录，会继续改进'
+    loadStats()
   } catch (e) {
     error.value = e?.message || '反馈失败'
   }
 }
 
+async function loadStats() {
+  try { stats.value = await qaApi.stats() } catch (e) { /* stats optional */ }
+}
+
 onMounted(async () => {
+  loadStats()
   try {
     const r = await portalApi.cards({ size: 50 })
     courses.value = r?.items || r || []

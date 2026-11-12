@@ -64,6 +64,7 @@ export const interventionMetricsApi = {
 /** 课程答疑（RAG，M11）：只能由学生端调用，回答带引用、无依据拒答 */
 export const qaApi = {
   ask: (body) => http.post('/student/ai/qa', body || {}),
+  stats: () => http.get('/student/ai/qa/stats'),
   stream: async (body, onEvent) => {
     const res = await fetch('/api/student/ai/qa/stream', {
       method: 'POST',

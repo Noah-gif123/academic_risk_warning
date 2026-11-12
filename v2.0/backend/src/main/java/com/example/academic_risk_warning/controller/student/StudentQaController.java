@@ -9,6 +9,7 @@ import com.example.academic_risk_warning.service.ai.StudentQaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -67,6 +68,26 @@ public class StudentQaController {
                     .toList();
         }
         return Result.ok(qaService.ask(me(), courseId, tc, String.valueOf(q), history));
+    }
+
+    @GetMapping("/qa/stats")
+    public Result<Map<String, Object>> stats() {
+        Long studentId = me();
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        Map<String, Object> qa = jdbc.queryForMap("""
+                select count(*) total,
+                       coalesce(sum(case when refused=1 then 1 else 0 end),0) refused
+                from ai_qa_log where student_id=?
+                """, studentId);
+        out.put("total", qa.get("total"));
+        out.put("refused", qa.get("refused"));
+        Integer useful = jdbc.queryForObject(
+                "select count(*) from ai_qa_feedback where student_id=? and useful=1", Integer.class, studentId);
+        Integer feedback = jdbc.queryForObject(
+                "select count(*) from ai_qa_feedback where student_id=?", Integer.class, studentId);
+        out.put("feedback", feedback == null ? 0 : feedback);
+        out.put("useful", useful == null ? 0 : useful);
+        return Result.ok(out);
     }
 
     @PostMapping(value = "/qa/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
