@@ -72,10 +72,72 @@ public class DifyVectorClient {
         return "向量通道未配置：缺 AI_RAG_DATASET_KEY（Dify 知识库 API Key）";
     }
 
+    /** 将本地文档文本推送到 Dify 知识库，返回 Dify document id。 */
+    public String createDocument(Long courseId, String name, String text) {
+        if (!configured()) throw new IllegalStateException(notConfiguredReason());
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("name", name);
+        body.put("text", text);
+        body.put("indexing_technique", "high_quality");
+        body.put("process_rule", Map.of("mode", "automatic"));
+        body.put("doc_form", "text_model");
+        body.put("doc_language", "Chinese");
+        // 让 Dify 检索层能按课程过滤；不同 Dify 版本字段兼容性有限，失败会由 worker 记录
+        body.put("doc_metadata", List.of(Map.of("name", "course_id", "type", "string",
+                "value", String.valueOf(courseId))));
+        String json;
+        try {
+            json = MAPPER.writeValueAsString(body);
+        } catch (Exception e) {
+            throw new IllegalStateException("构造知识库文档请求失败", e);
+        }
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/v1/datasets/" + datasetId + "/document/create-by-text"))
+                .timeout(Duration.ofSeconds(Math.max(10, Math.min(timeoutSeconds, 90))))
+                .header("Authorization", "Bearer " + datasetKey)
+                .header("Content-Type", "application/json; charset=utf-8")
+                .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                .build();
+        try {
+            HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (res.statusCode() / 100 != 2) {
+                throw new IllegalStateException("知识库写入 HTTP " + res.statusCode() + "：" + brief(res.body()));
+            }
+            tools.jackson.databind.JsonNode root = MAPPER.readTree(res.body());
+            String id = root.path("document").path("id").asText("");
+            if (id.isBlank()) throw new IllegalStateException("知识库写入未返回 document id");
+            return id;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("知识库写入被中断", e);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("知识库写入失败：" + e.getMessage(), e);
+        }
+    }
+
+    public void deleteDocument(String documentId) {
+        if (!configured() || documentId == null || documentId.isBlank()) return;
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/v1/datasets/" + datasetId + "/documents/" + documentId))
+                .timeout(Duration.ofSeconds(Math.max(5, Math.min(timeoutSeconds, 60))))
+                .header("Authorization", "Bearer " + datasetKey)
+                .DELETE()
+                .build();
+        try {
+            HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (res.statusCode() / 100 != 2 && res.statusCode() != 404) {
+                throw new IllegalStateException("知识库删除 HTTP " + res.statusCode() + "：" + brief(res.body()));
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("知识库删除被中断", e);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("知识库删除失败：" + e.getMessage(), e);
+        }
+    }
+
     /**
      * 向量召回。失败抛异常，由调用方决定降级（保持"向量路挂了全文路照常"）。
-     *
-     * @param courseId 课程 ID；开启 filterByCourse 时按 metadata.course_id 过滤
      */
     public List<VecHit> search(Long courseId, String query) {
         if (!configured()) {
