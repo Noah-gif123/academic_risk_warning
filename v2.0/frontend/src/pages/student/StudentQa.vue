@@ -85,7 +85,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { portalApi } from '../../api/portal'
 import { qaApi } from '../../api/ai'
 
@@ -97,6 +97,17 @@ const busy = ref(false)
 const error = ref('')
 const activeSource = ref(null)
 const scrollRef = ref(null)
+const STORAGE = 'student-qa-sessions-v1'
+
+try {
+  sessions.value = JSON.parse(localStorage.getItem(STORAGE) || '{}')
+} catch (e) {
+  sessions.value = {}
+}
+
+watch(sessions, (v) => {
+  try { localStorage.setItem(STORAGE, JSON.stringify(v)) } catch (e) { /* ignore quota */ }
+}, { deep: true })
 
 const messages = computed(() => selected.value ? (sessions.value[selected.value.teachingClassId] || []) : [])
 
