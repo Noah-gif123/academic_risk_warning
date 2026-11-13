@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="h-[calc(100vh-8.5rem)] min-h-[560px] grid grid-cols-1 xl:grid-cols-[230px_1fr_300px] gap-3">
     <!-- 课程 -->
     <aside class="card p-3 overflow-y-auto">
@@ -92,7 +92,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { portalApi } from '../../api/portal'
-import { qaApi } from '../../api/ai'
+import { qaApi, qaSessionApi } from '../../api/ai'
 
 const courses = ref([])
 const selected = ref(null)
@@ -104,6 +104,7 @@ const activeSource = ref(null)
 const stats = ref({})
 const scrollRef = ref(null)
 const STORAGE = 'student-qa-sessions-v1'
+const serverIds = ref({})
 
 try {
   sessions.value = JSON.parse(localStorage.getItem(STORAGE) || '{}')
@@ -117,13 +118,29 @@ watch(sessions, (v) => {
 
 const messages = computed(() => selected.value ? (sessions.value[selected.value.teachingClassId] || []) : [])
 
-function switchCourse(c) {
+async function switchCourse(c) {
   selected.value = c
   if (!sessions.value[c.teachingClassId]) sessions.value[c.teachingClassId] = []
   activeSource.value = null
   error.value = ''
+  try {
+    const list = await qaSessionApi.list(c.courseId)
+    if (list && list.length) {
+      serverIds.value[c.teachingClassId] = list[0].id
+      const msgs = await qaSessionApi.messages(list[0].id)
+      sessions.value[c.teachingClassId] = (msgs || []).map((m) => ({
+        role: m.role, content: m.content,
+        citations: parseJson(m.citationsJson), hits: [], runId: m.runId
+      }))
+    } else {
+      const s = await qaSessionApi.create({ courseId: c.courseId, teachingClassId: c.teachingClassId, title: c.courseName })
+      serverIds.value[c.teachingClassId] = s.id
+    }
+  } catch (e) { /* 服务端会话失败不影响本地聊天 */ }
   nextTick(() => scrollRef.value && (scrollRef.value.scrollTop = scrollRef.value.scrollHeight))
 }
+
+function parseJson(s) { try { return JSON.parse(s || '[]') } catch (e) { return [] } }
 
 function historyOf(c) {
   return (sessions.value[c.teachingClassId] || []).slice(-8).map((m) => ({ role: m.role, content: m.content }))
@@ -145,6 +162,7 @@ async function ask() {
       courseId: c.courseId,
       teachingClassId: c.teachingClassId,
       question: q,
+      sessionId: serverIds.value[c.teachingClassId],
       history: historyOf(c)
     }, (name, data) => {
       if (name === 'meta') {
@@ -154,6 +172,7 @@ async function ask() {
           streamMsg.refused = !!meta.refused
           streamMsg.citations = meta.citations || []
           streamMsg.hits = meta.hits || []
+          if (meta.sessionId) serverIds.value[c.teachingClassId] = meta.sessionId
         } catch (e) { /* ignore */ }
       } else if (name === 'delta') {
         streamMsg.content += data
@@ -204,3 +223,4 @@ onMounted(async () => {
   }
 })
 </script>
+

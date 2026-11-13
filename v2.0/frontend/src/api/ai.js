@@ -131,3 +131,11 @@ export const ragEvalApi = {
   run: (mode = 'HYBRID', k = 4) => http.post(`/admin/ai/rag-eval?mode=${mode}&k=${k}`, {})
 }
 
+
+/** 服务端课程答疑会话 */
+export const qaSessionApi = {
+  list: (courseId) => http.get(`/student/ai/sessions?courseId=${courseId}`),
+  create: (body) => http.post('/student/ai/sessions', body || {}),
+  messages: (id) => http.get(`/student/ai/sessions/${id}/messages`),
+  remove: (id) => http.delete(`/student/ai/sessions/${id}`)
+}
