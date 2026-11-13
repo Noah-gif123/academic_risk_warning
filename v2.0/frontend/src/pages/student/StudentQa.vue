@@ -22,7 +22,7 @@
         <div v-for="s in (sessionLists[selected.teachingClassId] || [])" :key="s.id"
              class="group flex items-center gap-1 px-2 py-1 rounded text-[11px]"
              :class="currentSessionId === s.id ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50'">
-          <button class="flex-1 text-left truncate" @click="openSession(s)">{{ s.title || '课程答疑' }}</button>
+          <button class="flex-1 text-left truncate" :title="s.title || '课程答疑'" @click="openSession(s)">{{ s.title || '课程答疑' }}</button>
           <button class="opacity-0 group-hover:opacity-100 text-slate-400" @click="renameSession(s)">✎</button>
           <button class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" @click="deleteSession(s)">×</button>
         </div>
@@ -137,6 +137,8 @@ const messages = computed(() => selected.value ? (sessions.value[selected.value.
 
 async function switchCourse(c) {
   selected.value = c
+  sessionPage.value = 1
+  sessionTotal.value = 0
   if (!sessions.value[c.teachingClassId]) sessions.value[c.teachingClassId] = []
   activeSource.value = null
   error.value = ''
