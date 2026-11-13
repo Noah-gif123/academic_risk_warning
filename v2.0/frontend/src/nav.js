@@ -33,6 +33,7 @@ export const NAV = {
   ADMIN: [
     { text: '首页', path: '/admin/home' },
     { text: '统计看板', path: '/admin/stats' },
+    { text: 'RAG评测', path: '/admin/rag-eval' },
     { text: '运行轨迹', path: '/admin/trace' },
     { text: '基础数据', path: '/admin/base' },
     { text: '排课与教学班', path: '/admin/offerings' },

@@ -1,13 +1,9 @@
 package com.example.academic_risk_warning.agent.biz;
 
-import com.example.academic_risk_warning.agent.rag.CitationBinder;
-import com.example.academic_risk_warning.agent.tool.ToolContext;
-import com.example.academic_risk_warning.agent.tool.ToolRegistry;
-import com.example.academic_risk_warning.agent.tool.ToolResult;
 import com.example.academic_risk_warning.common.BizException;
 import com.example.academic_risk_warning.security.LoginUser;
+import com.example.academic_risk_warning.service.ai.StudentQaService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -16,72 +12,69 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * P2-10 / P2R-2 Tutor：带引用的课程答疑契约。
+ * P2-10 Tutor：课程答疑的唯一入口适配器。
  *
- * <p>检索走统一工具 `retrieveCourseDocs`（与 Diagnostician 同一 ToolSpec/门控/返回结构），
- * 命中经 CitationBinder 绑定到 chunk 原文；每条引用带 chunkId/docId/docName/sectionNo/score。</p>
+ * <p>不再维护第二套检索/回答逻辑：直接调用 {@link StudentQaService}，
+ * 由它统一完成课程权限、检索、门控、拒答与引用校验；本类只补 agent 字段与 chunkId 映射。</p>
  */
 @Component
 @RequiredArgsConstructor
 public class TutorAgent {
 
-    private final ToolRegistry registry;
-    private final CitationBinder binder;
-    private final JdbcTemplate jdbc;
+    private final StudentQaService qaService;
 
     public Map<String, Object> tutor(long courseId, String question, LoginUser user) {
+        if (user == null || user.getRefId() == null) {
+            throw new BizException(403, "当前账号没有学生档案");
+        }
         String q = question == null ? "" : question.trim();
         if (q.isEmpty()) {
             throw new BizException(400, "问题不能为空");
         }
-        List<String> names = jdbc.queryForList("select course_name from course where id=?", String.class, courseId);
-        String courseName = names.isEmpty() ? ("课程" + courseId) : names.get(0);
-        ToolResult result = registry.execute("retrieveCourseDocs",
-                Map.of("courseId", courseId, "query", q, "topK", 4, "mode", "FULLTEXT"), new ToolContext(user, null));
-        if (!result.isOk()) {
-            throw new BizException(500, "检索工具失败：" + result.getErrorCode());
-        }
-        Map<String, Object> data = result.getData();
+        Map<String, Object> r = qaService.ask(user.getRefId(), courseId, null, q, List.of());
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> hits = (List<Map<String, Object>>) data.getOrDefault("hits", List.of());
-        boolean refused = Boolean.TRUE.equals(data.get("refused"));
-        CitationBinder.BindResult bound = binder.bind(hits);
+        List<Map<String, Object>> hits = (List<Map<String, Object>>) r.getOrDefault("hits", List.of());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rawCitations = (List<Map<String, Object>>) r.getOrDefault("citations", List.of());
         List<Map<String, Object>> citations = new ArrayList<>();
-        for (CitationBinder.Citation c : bound.citations()) {
-            citations.add(binder.citationMap(c));
+        boolean valid = true;
+        for (Map<String, Object> c : rawCitations) {
+            Map<String, Object> item = new LinkedHashMap<>(c);
+            Map<String, Object> hit = findHit(hits, c);
+            if (hit == null) {
+                valid = false;
+            } else {
+                item.put("chunkId", hit.get("chunkId"));
+                item.put("docId", hit.get("docId"));
+                item.put("score", hit.get("score"));
+                item.put("rrfRank", hit.get("rrfRank"));
+                item.put("content", hit.get("content"));
+            }
+            citations.add(item);
         }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("agent", "tutor");
         out.put("courseId", courseId);
-        out.put("courseName", courseName);
+        out.put("courseName", r.get("courseName"));
         out.put("question", q);
-        out.put("refused", refused);
-        out.put("gateReason", data.get("gateReason"));
+        out.put("answer", r.get("answer"));
+        out.put("refused", r.get("refused"));
+        out.put("gateReason", r.get("gateReason"));
         out.put("citations", citations);
         out.put("citationCount", citations.size());
-        out.put("citationsValid", bound.valid());
-        out.put("toolDigest", result.getDigest());
-        out.put("answer", refused
-                ? "这个问题在《" + courseName + "》的课程资料中没有足够可靠的依据，暂不给出结论。建议换一个更具体的问法，或到课堂向老师确认。"
-                : answer(courseName, bound.citations()));
+        out.put("citationsValid", valid);
+        out.put("runId", r.get("runId"));
+        out.put("toolDigest", "STUDENT_QA_SERVICE");
         return out;
     }
 
-    private String answer(String courseName, List<CitationBinder.Citation> citations) {
-        StringBuilder sb = new StringBuilder("根据《").append(courseName).append("》的课程资料：");
-        int used = 0;
-        for (CitationBinder.Citation c : citations) {
-            if (used >= 3 || c.content() == null || c.content().isBlank()) {
-                continue;
+    private Map<String, Object> findHit(List<Map<String, Object>> hits, Map<String, Object> citation) {
+        for (Map<String, Object> h : hits) {
+            if (String.valueOf(h.get("docName")).equals(String.valueOf(citation.get("docName")))
+                    && String.valueOf(h.get("sectionNo")).equals(String.valueOf(citation.get("sectionNo")))) {
+                return h;
             }
-            if (used > 0) {
-                sb.append("；");
-            }
-            String text = c.content().trim();
-            sb.append(text.length() <= 160 ? text : text.substring(0, 159) + "…");
-            used++;
         }
-        sb.append("。以上内容仅来自上述资料片段，具体以教师讲解为准。");
-        return sb.toString();
+        return null;
     }
 }

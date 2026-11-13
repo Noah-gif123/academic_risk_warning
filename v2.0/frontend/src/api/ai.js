@@ -124,3 +124,9 @@ export const gradingAssistApi = {
   apply: (id, body) => http.post(`/teacher/ai/grading/suggestions/${id}/apply`, body || {})
 }
 
+
+/** RAG 检索评测：管理员一键跑全文/向量/混合三组 */
+export const ragEvalApi = {
+  compare: (k = 4) => http.get(`/admin/ai/rag-eval/compare?k=${k}`),
+  run: (mode = 'HYBRID', k = 4) => http.post(`/admin/ai/rag-eval?mode=${mode}&k=${k}`, {})
+}
