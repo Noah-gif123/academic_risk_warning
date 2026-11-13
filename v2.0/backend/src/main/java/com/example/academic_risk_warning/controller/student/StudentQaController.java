@@ -6,6 +6,7 @@ import com.example.academic_risk_warning.security.LoginUser;
 import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
 import com.example.academic_risk_warning.service.ai.StudentQaService;
+import com.example.academic_risk_warning.service.ai.QaSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
@@ -34,6 +35,7 @@ import java.util.concurrent.Executors;
 public class StudentQaController {
 
     private final StudentQaService qaService;
+    private final QaSessionService sessionService;
     private final JdbcTemplate jdbc;
     private final ExecutorService streamExecutor = Executors.newCachedThreadPool();
 
@@ -67,7 +69,13 @@ public class StudentQaController {
                     })
                     .toList();
         }
-        return Result.ok(qaService.ask(me(), courseId, tc, String.valueOf(q), history));
+        Map<String, Object> r = qaService.ask(me(), courseId, tc, String.valueOf(q), history);
+        Long sessionId = lng(body.get("sessionId"));
+        Long saved = sessionService.saveExchange(me(), sessionId, courseId, tc, String.valueOf(q),
+                String.valueOf(r.getOrDefault("answer", "")), r.get("citations"),
+                r.get("runId") == null ? null : ((Number) r.get("runId")).longValue());
+        r.put("sessionId", saved);
+        return Result.ok(r);
     }
 
     @GetMapping("/qa/stats")
@@ -98,6 +106,7 @@ public class StudentQaController {
         if (q.isBlank()) throw new BizException("缺少 question");
         Long studentId = me();
         List<Map<String, Object>> history = history(body);
+        Long sid0 = lng(body.get("sessionId"));
         SseEmitter emitter = new SseEmitter(180_000L);
         streamExecutor.execute(() -> {
             try {
@@ -108,8 +117,13 @@ public class StudentQaController {
                         throw new RuntimeException(e);
                     }
                 });
+                Long saved = sessionService.saveExchange(studentId, sid0, courseId, tc, q,
+                        String.valueOf(r.getOrDefault("answer", "")), r.get("citations"),
+                        r.get("runId") == null ? null : ((Number) r.get("runId")).longValue());
+                r.put("sessionId", saved);
                 emitter.send(SseEmitter.event().name("meta").data(Map.of(
                         "runId", r.get("runId") == null ? "" : r.get("runId"),
+                        "sessionId", saved,
                         "citations", r.get("citations") == null ? List.of() : r.get("citations"),
                         "hits", r.get("hits") == null ? List.of() : r.get("hits"),
                         "refused", Boolean.TRUE.equals(r.get("refused"))
@@ -171,3 +185,4 @@ public class StudentQaController {
         }
     }
 }
+
