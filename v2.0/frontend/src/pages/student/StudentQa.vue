@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="h-[calc(100vh-8.5rem)] min-h-[560px] grid grid-cols-1 xl:grid-cols-[230px_1fr_300px] gap-3">
     <!-- 课程 -->
     <aside class="card p-3 overflow-y-auto">
@@ -14,6 +14,18 @@
         <p class="text-[10px] text-slate-400 truncate">{{ c.classCode || '' }} {{ c.teacherName || '' }}</p>
       </button>
       <p v-if="!courses.length" class="text-xs text-slate-400 px-2 py-6">暂时没有可选课程</p>
+      <div v-if="selected" class="mt-3 pt-3 border-t border-slate-100">
+        <div class="flex items-center justify-between px-1 mb-1">
+          <span class="text-[11px] font-medium text-slate-500">本课会话</span>
+          <button class="text-[10px] text-brand-600" @click="newSession">+ 新建</button>
+        </div>
+        <div v-for="s in (sessionLists[selected.teachingClassId] || [])" :key="s.id"
+             class="group flex items-center gap-1 px-2 py-1 rounded text-[11px]"
+             :class="currentSessionId === s.id ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50'">
+          <button class="flex-1 text-left truncate" @click="openSession(s)">{{ s.title || '课程答疑' }}</button>
+          <button class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" @click="deleteSession(s)">×</button>
+        </div>
+      </div>
       <div class="mt-3 pt-3 border-t border-slate-100 text-[10px] text-slate-400 space-y-1">
         <p class="text-slate-500 font-medium">我的答疑</p>
         <p>提问 {{ stats.total || 0 }} · 拒答 {{ stats.refused || 0 }}</p>
@@ -105,6 +117,8 @@ const stats = ref({})
 const scrollRef = ref(null)
 const STORAGE = 'student-qa-sessions-v1'
 const serverIds = ref({})
+const sessionLists = ref({})
+const currentSessionId = ref(null)
 
 try {
   sessions.value = JSON.parse(localStorage.getItem(STORAGE) || '{}')
@@ -123,21 +137,59 @@ async function switchCourse(c) {
   if (!sessions.value[c.teachingClassId]) sessions.value[c.teachingClassId] = []
   activeSource.value = null
   error.value = ''
+  currentSessionId.value = null
   try {
-    const list = await qaSessionApi.list(c.courseId)
-    if (list && list.length) {
-      serverIds.value[c.teachingClassId] = list[0].id
-      const msgs = await qaSessionApi.messages(list[0].id)
-      sessions.value[c.teachingClassId] = (msgs || []).map((m) => ({
-        role: m.role, content: m.content,
-        citations: parseJson(m.citationsJson), hits: [], runId: m.runId
-      }))
-    } else {
+    let list = await qaSessionApi.list(c.courseId)
+    if (!list || !list.length) {
       const s = await qaSessionApi.create({ courseId: c.courseId, teachingClassId: c.teachingClassId, title: c.courseName })
-      serverIds.value[c.teachingClassId] = s.id
+      list = [s]
     }
-  } catch (e) { /* 服务端会话失败不影响本地聊天 */ }
+    sessionLists.value[c.teachingClassId] = list
+    await openSession(list[0], c)
+  } catch (e) { /* 服务端会话失败时保留本地回退 */ }
   nextTick(() => scrollRef.value && (scrollRef.value.scrollTop = scrollRef.value.scrollHeight))
+}
+
+async function openSession(s, course) {
+  const c = course || selected.value
+  currentSessionId.value = s.id
+  serverIds.value[c.teachingClassId] = s.id
+  try {
+    const msgs = await qaSessionApi.messages(s.id)
+    sessions.value[c.teachingClassId] = (msgs || []).map((m) => ({
+      role: m.role, content: m.content,
+      citations: parseJson(m.citationsJson), hits: [], runId: m.runId
+    }))
+  } catch (e) {
+    sessions.value[c.teachingClassId] = []
+  }
+  activeSource.value = null
+  nextTick(() => scrollRef.value && (scrollRef.value.scrollTop = scrollRef.value.scrollHeight))
+}
+
+async function newSession() {
+  if (!selected.value) return
+  const c = selected.value
+  try {
+    const s = await qaSessionApi.create({ courseId: c.courseId, teachingClassId: c.teachingClassId, title: c.courseName })
+    sessionLists.value[c.teachingClassId] = [s, ...(sessionLists.value[c.teachingClassId] || [])]
+    sessions.value[c.teachingClassId] = []
+    currentSessionId.value = s.id
+    serverIds.value[c.teachingClassId] = s.id
+  } catch (e) { error.value = e?.message || '新建会话失败' }
+}
+
+async function deleteSession(s) {
+  try {
+    await qaSessionApi.remove(s.id)
+    const c = selected.value
+    sessionLists.value[c.teachingClassId] = (sessionLists.value[c.teachingClassId] || []).filter(x => x.id !== s.id)
+    if (currentSessionId.value === s.id) {
+      const next = sessionLists.value[c.teachingClassId][0]
+      if (next) await openSession(next, c)
+      else await newSession()
+    }
+  } catch (e) { error.value = e?.message || '删除会话失败' }
 }
 
 function parseJson(s) { try { return JSON.parse(s || '[]') } catch (e) { return [] } }
@@ -162,7 +214,7 @@ async function ask() {
       courseId: c.courseId,
       teachingClassId: c.teachingClassId,
       question: q,
-      sessionId: serverIds.value[c.teachingClassId],
+      sessionId: currentSessionId.value,
       history: historyOf(c)
     }, (name, data) => {
       if (name === 'meta') {
@@ -172,7 +224,7 @@ async function ask() {
           streamMsg.refused = !!meta.refused
           streamMsg.citations = meta.citations || []
           streamMsg.hits = meta.hits || []
-          if (meta.sessionId) serverIds.value[c.teachingClassId] = meta.sessionId
+          if (meta.sessionId) { currentSessionId.value = meta.sessionId; serverIds.value[c.teachingClassId] = meta.sessionId }
         } catch (e) { /* ignore */ }
       } else if (name === 'delta') {
         streamMsg.content += data
@@ -223,4 +275,5 @@ onMounted(async () => {
   }
 })
 </script>
+
 
