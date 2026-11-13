@@ -31,6 +31,7 @@ public class KbService {
 
     private final JdbcTemplate jdbc;
     private final KbSyncOutbox syncOutbox;
+    private final KbEmbeddingService embeddingService;
 
     /** 上传资料落盘目录（与 app.file.store-dir 一致） */
     @Value("${app.file.store-dir:./file-store}")
@@ -128,6 +129,7 @@ public class KbService {
             if ("QUESTION".equals(type)) {
                 continue; // 题库来源暂未接入，保留原状
             }
+            embeddingService.deleteSource(courseId, type, lng(d.get("source_id")));
             jdbc.update("delete from ai_kb_chunk where course_id = ? and source_type = ? and source_id = ?",
                     courseId, type, d.get("source_id"));
             syncOutbox.enqueue(courseId, lng(d.get("id")), "DELETE");
@@ -206,6 +208,7 @@ public class KbService {
                     where id = ?
                     """, docName, hash, text.length(), parts.size(), offeringId, docId);
         }
+        embeddingService.deleteSource(courseId, type, sourceId);
         jdbc.update("delete from ai_kb_chunk where course_id = ? and source_type = ? and source_id = ?",
                 courseId, type, sourceId);
         int no = 1;
@@ -217,6 +220,7 @@ public class KbService {
                     """, courseId, offeringId, teachingClassId, type, sourceId, docName, no++, part, part.length());
         }
         syncOutbox.enqueue(courseId, docId, "UPSERT");
+        embeddingService.embedSource(courseId, type, sourceId);
         return parts.size();
     }
 

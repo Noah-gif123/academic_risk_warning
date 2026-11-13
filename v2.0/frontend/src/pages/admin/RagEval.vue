@@ -20,6 +20,9 @@
             {{ m.key }}
           </span>
         </div>
+        <div v-if="data[m.key]" class="text-[10px] mt-1" :class="data[m.key].effective && data[m.key].effective !== m.key ? 'text-amber-600' : 'text-slate-400'">
+          effective={{ data[m.key].effective || '—' }}
+        </div>
         <div v-if="data[m.key]" class="grid grid-cols-2 gap-2 mt-3 text-xs">
           <div><p class="text-slate-400">Recall@K</p><b>{{ pct(data[m.key].recallAtK) }}</b></div>
           <div><p class="text-slate-400">MRR</p><b>{{ pct(data[m.key].mrr) }}</b></div>
@@ -30,6 +33,32 @@
         </div>
         <p v-else class="text-xs text-slate-400 mt-4">尚未运行</p>
       </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-sm font-medium text-slate-700">误拒 / 漏拒清单</h2>
+        <div class="flex gap-2">
+          <button v-for="m in modes" :key="m.key" class="text-[10px] px-2 py-0.5 rounded border border-slate-200"
+                  :class="detailMode === m.key ? 'bg-brand-50 text-brand-700' : 'text-slate-500'" @click="loadDetail(m.key)">
+            {{ m.label }}
+          </button>
+        </div>
+      </div>
+      <p v-if="!detail.length" class="text-xs text-slate-400">选择一种模式查看误拒/漏拒案例。</p>
+      <table v-else class="w-full text-[11px]">
+        <thead><tr class="text-slate-400"><th class="text-left py-1">case</th><th class="text-left">问题</th><th>可答</th><th>拒答</th><th>topScore</th><th>lex</th></tr></thead>
+        <tbody>
+          <tr v-for="c in detail" :key="c.caseId" class="border-t border-slate-100">
+            <td class="py-1 text-slate-400">{{ c.caseId }}</td>
+            <td class="py-1 text-slate-600 max-w-[360px] truncate">{{ c.question }}</td>
+            <td class="text-center">{{ c.answerable ? '是' : '否' }}</td>
+            <td class="text-center" :class="c.refused ? 'text-amber-600' : 'text-slate-500'">{{ c.refused ? '拒' : '答' }}</td>
+            <td class="text-center">{{ c.topScore }}</td>
+            <td class="text-center">{{ c.lexSupport }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="card p-4">
@@ -60,6 +89,20 @@ const modes = [
 const data = ref({})
 const loading = ref(false)
 const error = ref('')
+const detail = ref([])
+const detailMode = ref('')
+
+async function loadDetail(mode) {
+  detailMode.value = mode
+  try {
+    const r = await ragEvalApi.run(mode, 4)
+    detail.value = (r.detail || []).filter((c) =>
+      (c.answerable && c.refused) || (!c.answerable && !c.refused)
+    )
+  } catch (e) {
+    error.value = e?.message || '案例加载失败'
+  }
+}
 
 function pct(v) {
   return v == null ? '—' : (Number(v) * 100).toFixed(1) + '%'

@@ -120,6 +120,7 @@ public class RagEvalService {
             }
         }
 
+        String effective = mode.name();
         double recall = answerable == 0 ? 0 : (double) hitRight / answerable;
         double mrr = answerable == 0 ? 0 : mrrSum / answerable;
         double ndcg = answerable == 0 ? 0 : ndcgSum / answerable;
@@ -129,6 +130,7 @@ public class RagEvalService {
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("mode", mode.name());
+        out.put("effective", effective);
         out.put("noteFilter", note);
         out.put("k", topK);
         out.put("cases", cases.size());
@@ -187,7 +189,7 @@ public class RagEvalService {
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 select id, course_id, question, answerable, gold_doc, gold_section
                 from ai_rag_eval_case
-                where (? is null or note = ?)
+                where ((? is null and (note is null or note <> 'HOLDOUT')) or note = ?)
                 order by course_id, id
                 """, note, note);
         List<Case> out = new ArrayList<>();
@@ -256,3 +258,6 @@ public class RagEvalService {
         return Math.round(d * 10000d) / 10000d;
     }
 }
+
+
+

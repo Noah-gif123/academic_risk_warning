@@ -17,8 +17,7 @@ public class KbEmbeddingService {
     private final JdbcTemplate jdbc;
     private final EmbeddingClient embedding;
 
-    public Map<String, Object> backfill(boolean force) {
-        if (!embedding.configured()) throw new IllegalStateException("Embedding 未配置");
+    public Map<String, Object> backfill(boolean force) {        if (!embedding.configured()) throw new IllegalStateException("Embedding 未配置");
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "select id, course_id, content from ai_kb_chunk order by id");
         int embedded = 0, skipped = 0, failed = 0;
@@ -60,6 +59,39 @@ public class KbEmbeddingService {
         out.put("skipped", skipped);
         out.put("failed", failed);
         return out;
+    }
+
+    /** 上传/更新后立即向量化该来源的分块；失败不阻断上传。 */
+    public void embedSource(Long courseId, String sourceType, Long sourceId) {
+        if (!embedding.configured()) return;
+        try {
+            List<Map<String, Object>> rows = jdbc.queryForList("""
+                    select id, course_id, content from ai_kb_chunk
+                    where course_id=? and source_type=? and source_id=? order by id
+                    """, courseId, sourceType, sourceId);
+            for (int i = 0; i < rows.size(); i += 10) {
+                List<Map<String, Object>> batch = rows.subList(i, Math.min(rows.size(), i + 10));
+                List<double[]> vectors = embedding.embed(batch.stream().map(x -> String.valueOf(x.get("content"))).toList());
+                for (int j = 0; j < batch.size(); j++) {
+                    Map<String, Object> r = batch.get(j);
+                    jdbc.update("""
+                            insert into ai_kb_embedding(chunk_id,course_id,model,dim,vector,content_hash)
+                            values(?,?,?,?,?,?) on duplicate key update course_id=values(course_id),
+                              model=values(model), dim=values(dim), vector=values(vector), content_hash=values(content_hash)
+                            """, ((Number) r.get("id")).longValue(), courseId, embedding.model(), embedding.dim(),
+                            MAPPER.writeValueAsString(vectors.get(j)), hash(String.valueOf(r.get("content"))));
+                }
+            }
+        } catch (Exception e) {
+            // 上传主流程不因 embedding 失败回滚；管理员可手动回填
+        }
+    }
+
+    public void deleteSource(Long courseId, String sourceType, Long sourceId) {
+        jdbc.update("""
+                delete e from ai_kb_embedding e join ai_kb_chunk c on c.id=e.chunk_id
+                where c.course_id=? and c.source_type=? and c.source_id=?
+                """, courseId, sourceType, sourceId);
     }
 
     private static String hash(String s) {

@@ -85,6 +85,7 @@ ai:
     max-per-doc: 2
     # 词面支撑度下限：取 top-k 最大值后，HYBRID 下 0.25 是拐点（拒答 0.90 / 误拒 9.3%，见 ai/rag-eval.md）
     min-lex-support: ${AI_RAG_MIN_LEX:0.25}
+    embed-min-score: ${AI_EMBED_MIN_SCORE:0.49}
   # AI 出题工作流的 App API Key（M2 使用）
   question-app-key: ${AI_QUESTION_APP_KEY:}
   # 预警解释卡工作流 App Key（M9 使用）
@@ -120,4 +121,6 @@ logging:
   level:
     root: info
     com.example.academic_risk_warning: debug
+
+
 

@@ -49,6 +49,7 @@ public class RetrievalService {
     private final int maxPerDoc;
     /** 词面支撑度下限（全文路护栏；做成字段是为了能扫参做实验） */
     private final double minLexSupport;
+    private final double embedMinScore;
 
     public RetrievalService(JdbcTemplate jdbc,
                             DifyVectorClient vectorClient,
@@ -57,7 +58,8 @@ public class RetrievalService {
                             @Value("${ai.retrieval.mode:HYBRID}") String mode,
                             @Value("${ai.retrieval.pool-size:20}") int poolSize,
                             @Value("${ai.retrieval.max-per-doc:2}") int maxPerDoc,
-                            @Value("${ai.retrieval.min-lex-support:0.10}") double minLexSupport) {
+                            @Value("${ai.retrieval.min-lex-support:0.10}") double minLexSupport,
+                            @Value("${ai.retrieval.embed-min-score:0.49}") double embedMinScore) {
         this.jdbc = jdbc;
         this.vectorClient = vectorClient;
         this.localCosine = localCosine;
@@ -66,6 +68,7 @@ public class RetrievalService {
         this.poolSize = Math.max(4, Math.min(poolSize, 50));
         this.maxPerDoc = Math.max(1, Math.min(maxPerDoc, 10));
         this.minLexSupport = minLexSupport <= 0 ? 0.10 : minLexSupport;
+        this.embedMinScore = embedMinScore <= 0 ? 0.49 : embedMinScore;
         log.info("[RAG] 检索配置：mode={} poolSize={} maxPerDoc={} minLexSupport={} vectorConfigured={}",
                 this.mode, this.poolSize, this.maxPerDoc, this.minLexSupport, vectorClient.configured());
     }
@@ -74,7 +77,7 @@ public class RetrievalService {
     public RetrievalService copyWith(double minLexSupport, int maxPerDoc) {
         return new RetrievalService(jdbc, vectorClient, localCosine, embeddingCosine, mode, poolSize,
                 maxPerDoc > 0 ? maxPerDoc : this.maxPerDoc,
-                minLexSupport > 0 ? minLexSupport : this.minLexSupport);
+                minLexSupport > 0 ? minLexSupport : this.minLexSupport, this.embedMinScore);
     }
 
     public enum Mode { FULLTEXT, VECTOR, HYBRID, COSINE, EMBED_COSINE }
@@ -451,8 +454,8 @@ public class RetrievalService {
             if (lex < 0.05) {
                 return new Guard(true, "本地 embedding 词面支撑不足", topScore, lex);
             }
-            if (topScore < MIN_EMBED_SCORE) {
-                return new Guard(true, "本地 embedding 相似度低于阈值 " + MIN_EMBED_SCORE, topScore, lex);
+            if (topScore < embedMinScore) {
+                return new Guard(true, "本地 embedding 相似度低于阈值 " + embedMinScore, topScore, lex);
             }
             return new Guard(false, null, topScore, lex);
         }
@@ -557,4 +560,5 @@ public class RetrievalService {
         }
     }
 }
+
 
