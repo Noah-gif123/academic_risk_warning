@@ -1,4 +1,4 @@
-import { http, getToken } from './http'
+﻿import { http, getToken } from './http'
 
 /** 教师/辅导员查看学生课程报告（独立 ai_report 快照） */
 export const staffReportApi = {
@@ -130,3 +130,4 @@ export const ragEvalApi = {
   compare: (k = 4) => http.get(`/admin/ai/rag-eval/compare?k=${k}`),
   run: (mode = 'HYBRID', k = 4) => http.post(`/admin/ai/rag-eval?mode=${mode}&k=${k}`, {})
 }
+

@@ -1,11 +1,11 @@
-<template>
+﻿<template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-lg font-semibold text-slate-800">RAG 检索评测</h1>
         <p class="text-xs text-slate-400 mt-1">全文 / 向量 / 混合三组对比；指标来自检索评测，不消耗生成 token。</p>
       </div>
-      <button class="btn-primary text-sm" :disabled="loading" @click="run">
+      <select v-model="scope" class="input text-xs mr-2" @change="run"><option value="">训练集 44</option><option value="HOLDOUT">留出集 20</option><option value="INDEPENDENT_V2">独立集 20</option></select><button class="btn-primary text-sm" :disabled="loading" @click="run">
         {{ loading ? '评测中…' : '一键重跑' }}
       </button>
     </div>
@@ -89,6 +89,7 @@ const modes = [
 const data = ref({})
 const loading = ref(false)
 const error = ref('')
+const scope = ref('')
 const detail = ref([])
 const detailMode = ref('')
 
@@ -112,7 +113,7 @@ async function run() {
   loading.value = true
   error.value = ''
   try {
-    data.value = await ragEvalApi.compare(4)
+    data.value = await ragEvalApi.compare(4, scope.value)
   } catch (e) {
     error.value = e?.message || '评测失败'
   } finally {
@@ -122,3 +123,4 @@ async function run() {
 
 onMounted(run)
 </script>
+

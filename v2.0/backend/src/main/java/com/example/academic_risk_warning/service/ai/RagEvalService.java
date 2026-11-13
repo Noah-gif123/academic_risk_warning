@@ -189,7 +189,7 @@ public class RagEvalService {
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 select id, course_id, question, answerable, gold_doc, gold_section
                 from ai_rag_eval_case
-                where ((? is null and (note is null or note <> 'HOLDOUT')) or note = ?)
+                where ((? is null and (note is null or note not in ('HOLDOUT','INDEPENDENT_V2'))) or note = ?)
                 order by course_id, id
                 """, note, note);
         List<Case> out = new ArrayList<>();
@@ -258,6 +258,7 @@ public class RagEvalService {
         return Math.round(d * 10000d) / 10000d;
     }
 }
+
 
 
 
