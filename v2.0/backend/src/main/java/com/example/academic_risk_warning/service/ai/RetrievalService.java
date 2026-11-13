@@ -422,6 +422,11 @@ public class RetrievalService {
             }
             return new Guard(false, null, topScore, lex);
         }
+        // 纯向量路也要看最低词面支撑：只靠相似度会把“同领域但资料里没有答案”的问题判成可答。
+        // HYBRID 不套此条，保留全文/向量融合后的原判定，避免把语义问法误拒。
+        if (o.effective() == Mode.VECTOR && lex < minLexSupport) {
+            return new Guard(true, "向量词面支撑度低于阈值 " + minLexSupport, topScore, lex);
+        }
         if (topScore < MIN_VECTOR_SCORE) {
             return new Guard(true, "向量相似度低于阈值 " + MIN_VECTOR_SCORE, topScore, lex);
         }
