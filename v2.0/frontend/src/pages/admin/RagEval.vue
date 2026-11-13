@@ -52,7 +52,8 @@ import { ragEvalApi } from '../../api/ai'
 
 const modes = [
   { key: 'FULLTEXT', label: '全文检索' },
-  { key: 'COSINE', label: '本地余弦' },
+  { key: 'COSINE', label: '本地 TF-IDF 余弦' },
+  { key: 'EMBED_COSINE', label: '本地 Embedding 余弦' },
   { key: 'VECTOR', label: 'Dify 向量' },
   { key: 'HYBRID', label: '混合检索' }
 ]

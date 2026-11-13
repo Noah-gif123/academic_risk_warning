@@ -42,6 +42,7 @@ public class RetrievalService {
     private final JdbcTemplate jdbc;
     private final DifyVectorClient vectorClient;
     private final LocalCosineRetriever localCosine;
+    private final EmbeddingCosineRetriever embeddingCosine;
     private final String mode;
     private final int poolSize;
     /** 单次结果里同一份文档最多占几个名额（抑制同源分块占满 top-k） */
@@ -52,6 +53,7 @@ public class RetrievalService {
     public RetrievalService(JdbcTemplate jdbc,
                             DifyVectorClient vectorClient,
                             LocalCosineRetriever localCosine,
+                            EmbeddingCosineRetriever embeddingCosine,
                             @Value("${ai.retrieval.mode:HYBRID}") String mode,
                             @Value("${ai.retrieval.pool-size:20}") int poolSize,
                             @Value("${ai.retrieval.max-per-doc:2}") int maxPerDoc,
@@ -59,6 +61,7 @@ public class RetrievalService {
         this.jdbc = jdbc;
         this.vectorClient = vectorClient;
         this.localCosine = localCosine;
+        this.embeddingCosine = embeddingCosine;
         this.mode = mode == null ? "HYBRID" : mode.trim().toUpperCase();
         this.poolSize = Math.max(4, Math.min(poolSize, 50));
         this.maxPerDoc = Math.max(1, Math.min(maxPerDoc, 10));
@@ -69,12 +72,12 @@ public class RetrievalService {
 
     /** 用另一组参数克隆一份（评测扫参用，避免为一个参数重启服务） */
     public RetrievalService copyWith(double minLexSupport, int maxPerDoc) {
-        return new RetrievalService(jdbc, vectorClient, localCosine, mode, poolSize,
+        return new RetrievalService(jdbc, vectorClient, localCosine, embeddingCosine, mode, poolSize,
                 maxPerDoc > 0 ? maxPerDoc : this.maxPerDoc,
                 minLexSupport > 0 ? minLexSupport : this.minLexSupport);
     }
 
-    public enum Mode { FULLTEXT, VECTOR, HYBRID, COSINE }
+    public enum Mode { FULLTEXT, VECTOR, HYBRID, COSINE, EMBED_COSINE }
 
     /** 一条候选；两条路的原始名次都留着，方便做消融对比 */
     public record Hit(Long chunkId, String docName, Integer sectionNo, String sourceType, String content,
@@ -106,7 +109,8 @@ public class RetrievalService {
             return new Outcome(want, want, List.of(), 0, 0, 0, 0, 0, "查询为空");
         }
 
-        List<Hit> ft = (want == Mode.VECTOR || want == Mode.COSINE) ? List.of() : fulltext(courseId, q);
+        List<Hit> ft = (want == Mode.VECTOR || want == Mode.COSINE || want == Mode.EMBED_COSINE)
+                ? List.of() : fulltext(courseId, q);
         List<Hit> vec = List.of();
         String degraded = null;
         if (want == Mode.COSINE) {
@@ -114,6 +118,12 @@ public class RetrievalService {
                 vec = localCosine.search(courseId, q, k);
             } catch (Exception e) {
                 degraded = "本地余弦失败：" + e.getMessage();
+            }
+        } else if (want == Mode.EMBED_COSINE) {
+            try {
+                vec = embeddingCosine.search(courseId, q, k);
+            } catch (Exception e) {
+                degraded = "本地 embedding 失败：" + e.getMessage();
             }
         } else if (want != Mode.FULLTEXT) {
             if (!vectorClient.configured()) {
@@ -131,7 +141,8 @@ public class RetrievalService {
         Mode effective = want;
         if (want == Mode.HYBRID && vec.isEmpty()) {
             effective = Mode.FULLTEXT;
-        } else if ((want == Mode.VECTOR || want == Mode.COSINE) && vec.isEmpty()) {
+        } else if ((want == Mode.VECTOR || want == Mode.COSINE || want == Mode.EMBED_COSINE)
+                && vec.isEmpty()) {
             effective = Mode.FULLTEXT;   // 向量路没结果时兜底全文，避免"什么都没检索到"
             ft = fulltext(courseId, q);
         }
@@ -139,7 +150,7 @@ public class RetrievalService {
         List<Hit> result;
         if (effective == Mode.HYBRID) {
             result = rrf(ft, vec, k);
-        } else if (effective == Mode.VECTOR || effective == Mode.COSINE) {
+        } else if (effective == Mode.VECTOR || effective == Mode.COSINE || effective == Mode.EMBED_COSINE) {
             result = topOf(vec, k);
         } else {
             result = topOf(ft, k);
@@ -399,6 +410,8 @@ public class RetrievalService {
     private static final double MIN_VECTOR_SCORE = 0.35;
     /** 本地 TF-IDF 余弦分数量级与 Dify 归一化分不同 */
     private static final double MIN_COSINE_SCORE = 0.10;
+    /** 本地 embedding 余弦分数量级 */
+    private static final double MIN_EMBED_SCORE = 0.49;
 
     /** 拒答判定结果：给线上问答与评测脚本共用，保证"评测测的就是线上行为" */
     public record Guard(boolean refuse, String reason, double topScore, double lexSupport) {
@@ -430,6 +443,16 @@ public class RetrievalService {
             }
             if (lex < minLexSupport) {
                 return new Guard(true, "词面支撑度低于阈值 " + minLexSupport, topScore, lex);
+            }
+            return new Guard(false, null, topScore, lex);
+        }
+        // 本地 embedding 余弦：语义分与 Dify 不同量级，单独阈值
+        if (o.effective() == Mode.EMBED_COSINE) {
+            if (lex < 0.05) {
+                return new Guard(true, "本地 embedding 词面支撑不足", topScore, lex);
+            }
+            if (topScore < MIN_EMBED_SCORE) {
+                return new Guard(true, "本地 embedding 相似度低于阈值 " + MIN_EMBED_SCORE, topScore, lex);
             }
             return new Guard(false, null, topScore, lex);
         }
@@ -534,3 +557,4 @@ public class RetrievalService {
         }
     }
 }
+

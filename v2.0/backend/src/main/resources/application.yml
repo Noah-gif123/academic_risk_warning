@@ -1,4 +1,4 @@
-server:
+﻿server:
   port: 8080
   servlet:
     encoding:
@@ -72,7 +72,7 @@ ai:
   # ---- RAG 混合检索（R2）：全文(MySQL ngram) + 向量(Dify 知识库) + RRF 融合 ----
   retrieval:
     # FULLTEXT / VECTOR / HYBRID；知识库 key 没配时 HYBRID 会自动降级为 FULLTEXT
-    mode: ${AI_RAG_MODE:HYBRID}
+    mode: ${AI_RAG_MODE:EMBED_COSINE}
     # 每路召回池大小（融合前），最终给模型的条数由调用方决定
     pool-size: 20
     vector-top-k: 20
@@ -120,3 +120,4 @@ logging:
   level:
     root: info
     com.example.academic_risk_warning: debug
+
