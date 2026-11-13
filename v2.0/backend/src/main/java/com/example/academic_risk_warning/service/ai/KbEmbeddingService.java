@@ -61,6 +61,76 @@ public class KbEmbeddingService {
         return out;
     }
 
+    /** 上传/更新后只入队，不阻塞上传。 */
+    public void enqueueSource(Long courseId, String sourceType, Long sourceId) {
+        jdbc.update("""
+                insert into ai_kb_embedding_job(chunk_id,course_id,action,status)
+                select id,?, 'UPSERT', 'PENDING' from ai_kb_chunk
+                where course_id=? and source_type=? and source_id=?
+                on duplicate key update status='PENDING', error=null
+                """, courseId, courseId, sourceType, sourceId);
+    }
+
+    public Map<String, Object> processJobs(int limit) {
+        List<Map<String, Object>> jobs = jdbc.queryForList(
+                "select * from ai_kb_embedding_job where status='PENDING' order by id limit ?", Math.max(1, limit));
+        int ok = 0, failed = 0;
+        for (Map<String, Object> j : jobs) {
+            long id = ((Number) j.get("id")).longValue();
+            long chunkId = ((Number) j.get("chunk_id")).longValue();
+            long courseId = ((Number) j.get("course_id")).longValue();
+            String action = String.valueOf(j.get("action"));
+            try {
+                jdbc.update("update ai_kb_embedding_job set status='PROCESSING' where id=?", id);
+                if ("DELETE".equals(action)) {
+                    jdbc.update("delete from ai_kb_embedding where chunk_id=?", chunkId);
+                } else {
+                    List<Map<String, Object>> rows = jdbc.queryForList(
+                            "select content from ai_kb_chunk where id=?", chunkId);
+                    if (rows.isEmpty()) {
+                        jdbc.update("delete from ai_kb_embedding_job where id=?", id);
+                        continue;
+                    }
+                    String content = String.valueOf(rows.get(0).get("content"));
+                    double[] v = embedding.embedOne(content);
+                    jdbc.update("""
+                            insert into ai_kb_embedding(chunk_id,course_id,model,dim,vector,content_hash)
+                            values(?,?,?,?,?,?) on duplicate key update course_id=values(course_id),
+                              model=values(model), dim=values(dim), vector=values(vector), content_hash=values(content_hash)
+                            """, chunkId, courseId, embedding.model(), embedding.dim(),
+                            MAPPER.writeValueAsString(v), hash(content));
+                }
+                jdbc.update("update ai_kb_embedding_job set status='SUCCESS', error=null where id=?", id);
+                ok++;
+            } catch (Exception e) {
+                int attempts = ((Number) j.get("attempts")).intValue() + 1;
+                String status = attempts >= 3 ? "FAILED" : "PENDING";
+                String msg = e.getMessage() == null ? "unknown" : e.getMessage();
+                jdbc.update("update ai_kb_embedding_job set status=?, attempts=?, error=? where id=?",
+                        status, attempts, msg.substring(0, Math.min(480, msg.length())), id);
+                failed++;
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("picked", jobs.size());
+        out.put("success", ok);
+        out.put("failed", failed);
+        return out;
+    }
+
+    public Map<String, Object> jobStats() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (Map<String, Object> r : jdbc.queryForList(
+                "select status,count(*) n from ai_kb_embedding_job group by status")) {
+            out.put(String.valueOf(r.get("status")), r.get("n"));
+        }
+        return out;
+    }
+
+    public int retryFailed() {
+        return jdbc.update("update ai_kb_embedding_job set status='PENDING', attempts=0, error=null where status='FAILED'");
+    }
+
     /** 上传/更新后立即向量化该来源的分块；失败不阻断上传。 */
     public void embedSource(Long courseId, String sourceType, Long sourceId) {
         if (!embedding.configured()) return;

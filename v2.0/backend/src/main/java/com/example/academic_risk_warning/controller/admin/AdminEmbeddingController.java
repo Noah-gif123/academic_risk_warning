@@ -21,4 +21,14 @@ public class AdminEmbeddingController {
     public Result<Map<String, Object>> backfill(@RequestParam(defaultValue = "false") boolean force) {
         return Result.ok(service.backfill(force));
     }
+
+    @GetMapping("/jobs")
+    public Result<Map<String, Object>> jobs() {
+        return Result.ok(service.jobStats());
+    }
+
+    @PostMapping("/jobs/retry")
+    public Result<Map<String, Object>> retry() {
+        return Result.ok(Map.of("retried", service.retryFailed()));
+    }
 }

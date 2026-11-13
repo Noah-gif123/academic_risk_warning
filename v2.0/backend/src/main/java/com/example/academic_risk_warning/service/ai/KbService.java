@@ -220,7 +220,7 @@ public class KbService {
                     """, courseId, offeringId, teachingClassId, type, sourceId, docName, no++, part, part.length());
         }
         syncOutbox.enqueue(courseId, docId, "UPSERT");
-        embeddingService.embedSource(courseId, type, sourceId);
+        embeddingService.enqueueSource(courseId, type, sourceId);
         return parts.size();
     }
 
@@ -384,3 +384,4 @@ public class KbService {
         }
     }
 }
+
