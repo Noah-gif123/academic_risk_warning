@@ -26,12 +26,30 @@ public class QaSessionService {
         return out;
     }
 
-    public List<Map<String, Object>> list(Long studentId, Long courseId) {
-        return jdbc.queryForList("""
+    public Map<String, Object> list(Long studentId, Long courseId, int page, int size) {
+        int p = Math.max(1, page);
+        int n = Math.max(1, Math.min(size, 50));
+        int offset = (p - 1) * n;
+        List<Map<String, Object>> items = jdbc.queryForList("""
                 select id,course_id courseId,teaching_class_id teachingClassId,title,update_time updateTime
                 from ai_qa_session where student_id=? and (? is null or course_id=?)
-                order by update_time desc limit 30
-                """, studentId, courseId, courseId);
+                order by update_time desc limit ? offset ?
+                """, studentId, courseId, courseId, n, offset);
+        Integer total = jdbc.queryForObject("""
+                select count(*) from ai_qa_session where student_id=? and (? is null or course_id=?)
+                """, Integer.class, studentId, courseId, courseId);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("items", items);
+        out.put("total", total == null ? 0 : total);
+        out.put("page", p);
+        out.put("size", n);
+        return out;
+    }
+
+    public int rename(Long studentId, Long sessionId, String title) {
+        if (title == null || title.isBlank()) throw new IllegalArgumentException("标题不能为空");
+        return jdbc.update("update ai_qa_session set title=? where id=? and student_id=?",
+                title.substring(0, Math.min(120, title.length())), sessionId, studentId);
     }
 
     public List<Map<String, Object>> messages(Long studentId, Long sessionId) {
@@ -64,4 +82,5 @@ public class QaSessionService {
         return jdbc.update("delete from ai_qa_session where id=? and student_id=?", sessionId, studentId);
     }
 }
+
 

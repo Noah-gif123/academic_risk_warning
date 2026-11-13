@@ -139,3 +139,5 @@ export const qaSessionApi = {
   messages: (id) => http.get(`/student/ai/sessions/${id}/messages`),
   remove: (id) => http.delete(`/student/ai/sessions/${id}`)
 }
+
+

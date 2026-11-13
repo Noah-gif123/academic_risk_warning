@@ -27,8 +27,16 @@ public class StudentQaSessionController {
     }
 
     @GetMapping
-    public Result<List<Map<String, Object>>> list(@RequestParam(required = false) Long courseId) {
-        return Result.ok(service.list(me(), courseId));
+    public Result<Map<String, Object>> list(@RequestParam(required = false) Long courseId,
+                                              @RequestParam(defaultValue = "1") int page,
+                                              @RequestParam(defaultValue = "10") int size) {
+        return Result.ok(service.list(me(), courseId, page, size));
+    }
+
+    @PatchMapping("/{id}")
+    public Result<Map<String, Object>> rename(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        int n = service.rename(me(), id, body.get("title") == null ? null : String.valueOf(body.get("title")));
+        return Result.ok(Map.of("updated", n));
     }
 
     @PostMapping
@@ -56,3 +64,4 @@ public class StudentQaSessionController {
         try { return Long.parseLong(String.valueOf(v).trim()); } catch (Exception e) { return null; }
     }
 }
+

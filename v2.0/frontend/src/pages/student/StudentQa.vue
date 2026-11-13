@@ -23,6 +23,7 @@
              class="group flex items-center gap-1 px-2 py-1 rounded text-[11px]"
              :class="currentSessionId === s.id ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-50'">
           <button class="flex-1 text-left truncate" @click="openSession(s)">{{ s.title || '课程答疑' }}</button>
+          <button class="opacity-0 group-hover:opacity-100 text-slate-400" @click="renameSession(s)">✎</button>
           <button class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500" @click="deleteSession(s)">×</button>
         </div>
       </div>
@@ -119,6 +120,8 @@ const STORAGE = 'student-qa-sessions-v1'
 const serverIds = ref({})
 const sessionLists = ref({})
 const currentSessionId = ref(null)
+const sessionPage = ref(1)
+const sessionTotal = ref(0)
 
 try {
   sessions.value = JSON.parse(localStorage.getItem(STORAGE) || '{}')
@@ -139,7 +142,9 @@ async function switchCourse(c) {
   error.value = ''
   currentSessionId.value = null
   try {
-    let list = await qaSessionApi.list(c.courseId)
+    const pageData = await qaSessionApi.list(c.courseId, sessionPage.value, 10)
+    sessionTotal.value = pageData.total || 0
+    let list = pageData.items || []
     if (!list || !list.length) {
       const s = await qaSessionApi.create({ courseId: c.courseId, teachingClassId: c.teachingClassId, title: c.courseName })
       list = [s]
@@ -165,6 +170,20 @@ async function openSession(s, course) {
   }
   activeSource.value = null
   nextTick(() => scrollRef.value && (scrollRef.value.scrollTop = scrollRef.value.scrollHeight))
+}
+
+async function loadSessionPage(page) {
+  sessionPage.value = page
+  if (selected.value) await switchCourse(selected.value)
+}
+
+async function renameSession(s) {
+  const title = window.prompt('会话名称', s.title || '课程答疑')
+  if (!title) return
+  try {
+    await qaSessionApi.rename(s.id, title)
+    s.title = title
+  } catch (e) { error.value = e?.message || '重命名失败' }
 }
 
 async function newSession() {
@@ -275,5 +294,6 @@ onMounted(async () => {
   }
 })
 </script>
+
 
 

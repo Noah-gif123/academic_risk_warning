@@ -1,4 +1,4 @@
-const BASE = '/api'
+﻿const BASE = '/api'
 
 export function getToken() {
   return localStorage.getItem('token') || ''
@@ -109,8 +109,10 @@ async function downloadWithPicker(url, fallbackName = 'download') {
 export const http = {
   get: (url, options) => request('GET', url, undefined, options),
   post: (url, body, options) => request('POST', url, body, options),
+  patch: (url, body, options) => request('PATCH', url, body, options),
   delete: (url, options) => request('DELETE', url, undefined, options),
   upload,
   download,
   downloadWithPicker
 }
+
