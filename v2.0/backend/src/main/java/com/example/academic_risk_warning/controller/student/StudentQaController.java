@@ -101,7 +101,13 @@ public class StudentQaController {
         SseEmitter emitter = new SseEmitter(180_000L);
         streamExecutor.execute(() -> {
             try {
-                Map<String, Object> r = qaService.ask(studentId, courseId, tc, q, history);
+                Map<String, Object> r = qaService.ask(studentId, courseId, tc, q, history, delta -> {
+                    try {
+                        emitter.send(SseEmitter.event().name("delta").data(delta));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
                 emitter.send(SseEmitter.event().name("meta").data(Map.of(
                         "runId", r.get("runId") == null ? "" : r.get("runId"),
                         "citations", r.get("citations") == null ? List.of() : r.get("citations"),
@@ -109,9 +115,11 @@ public class StudentQaController {
                         "refused", Boolean.TRUE.equals(r.get("refused"))
                 )));
                 String answer = String.valueOf(r.getOrDefault("answer", ""));
-                for (int i = 0; i < answer.length(); i += 24) {
-                    emitter.send(SseEmitter.event().name("delta")
-                            .data(answer.substring(i, Math.min(answer.length(), i + 24))));
+                if (!Boolean.TRUE.equals(r.get("streamed"))) {
+                    for (int i = 0; i < answer.length(); i += 24) {
+                        emitter.send(SseEmitter.event().name("delta")
+                                .data(answer.substring(i, Math.min(answer.length(), i + 24))));
+                    }
                 }
                 emitter.send(SseEmitter.event().name("done").data("{}"));
                 emitter.complete();

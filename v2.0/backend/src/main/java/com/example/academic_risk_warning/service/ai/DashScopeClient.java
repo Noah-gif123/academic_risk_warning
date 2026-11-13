@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * 模型直连通道：DashScope 的 OpenAI 兼容接口。
@@ -84,6 +85,62 @@ public class DashScopeClient {
             return once(system, user, temperature, retryBudget);
         }
         return first;
+    }
+
+    /** 真 token 级流式：每收到一个 delta 回调一次，结束后返回完整文本。 */
+    public ChatResult streamChat(String system, String user, Consumer<String> onDelta) {
+        if (!props.directReady()) {
+            return new ChatResult(false, null, 0, "未配置 DashScope Key");
+        }
+        try {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("model", props.directModel());
+            body.put("messages", List.of(
+                    Map.of("role", "system", "content", system),
+                    Map.of("role", "user", "content", user)));
+            body.put("temperature", 0.5);
+            body.put("max_tokens", 2400);
+            body.put("stream", true);
+            body.put("stream_options", Map.of("include_usage", true));
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(trim(props.directBaseUrl()) + "/chat/completions"))
+                    .timeout(Duration.ofSeconds(Math.max(15, props.getTimeoutSeconds())))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + props.directApiKey())
+                    .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body)))
+                    .build();
+            HttpResponse<java.util.stream.Stream<String>> resp =
+                    http.send(req, HttpResponse.BodyHandlers.ofLines());
+            if (resp.statusCode() != 200) {
+                return new ChatResult(false, null, 0, "HTTP " + resp.statusCode());
+            }
+            StringBuilder full = new StringBuilder();
+            int[] tokens = {0};
+            resp.body().forEach(line -> {
+                String s = line == null ? "" : line.trim();
+                if (!s.startsWith("data:")) return;
+                String data = s.substring(5).trim();
+                if ("[DONE]".equals(data)) return;
+                try {
+                    JsonNode root = MAPPER.readTree(data);
+                    JsonNode choice = root.path("choices").path(0);
+                    String delta = choice.path("delta").path("content").asText("");
+                    if (!delta.isEmpty()) {
+                        full.append(delta);
+                        onDelta.accept(delta);
+                    }
+                    if (root.has("usage")) {
+                        tokens[0] = root.path("usage").path("total_tokens").asInt(tokens[0]);
+                    }
+                } catch (Exception ignored) { }
+            });
+            String text = full.toString();
+            if (text.isBlank()) return new ChatResult(false, null, tokens[0], "流式返回空内容");
+            return new ChatResult(true, text, tokens[0], null);
+        } catch (Exception e) {
+            log.warn("[DashScope] 流式调用失败: {}", e.getMessage());
+            return new ChatResult(false, null, 0, truncate(e.getClass().getSimpleName() + ": " + e.getMessage(), 300));
+        }
     }
 
     private ChatResult once(String system, String user, double temperature, int maxTokens) {

@@ -40,12 +40,18 @@ public class StudentQaService {
     // 因为 RAG 评测要复用同一套判据；这里不再重复定义，避免两把尺子。
 
     public Map<String, Object> ask(Long studentId, Long courseId, Long teachingClassId, String question) {
-        return ask(studentId, courseId, teachingClassId, question, List.of());
+        return ask(studentId, courseId, teachingClassId, question, List.of(), null);
     }
 
-    /** 带最近对话的多轮版本；history 只作为提示词上下文，不落库成会话表。 */
     public Map<String, Object> ask(Long studentId, Long courseId, Long teachingClassId, String question,
                                    List<Map<String, Object>> history) {
+        return ask(studentId, courseId, teachingClassId, question, history, null);
+    }
+
+    /** 带最近对话与流式回调；onDelta 为空时走原来的阻塞式生成。 */
+    public Map<String, Object> ask(Long studentId, Long courseId, Long teachingClassId, String question,
+                                   List<Map<String, Object>> history,
+                                   java.util.function.Consumer<String> onDelta) {
         String q = question == null ? "" : question.trim();
         if (q.isEmpty()) {
             throw new BizException("问题不能为空");
@@ -122,7 +128,9 @@ public class StudentQaService {
         String answer = null;
         String source = "TEMPLATE";
         if (props.directReady()) {
-            DashScopeClient.ChatResult res = dashScopeClient.chat(systemPrompt, prompt);
+            DashScopeClient.ChatResult res = onDelta == null
+                    ? dashScopeClient.chat(systemPrompt, prompt)
+                    : dashScopeClient.streamChat(systemPrompt, prompt, onDelta);
             tokens = res.getTotalTokens();
             if (res.isOk()) {
                 answer = res.getText();
@@ -159,6 +167,7 @@ public class StudentQaService {
             citations = autoCitations(hits);
         }
 
+        out.put("streamed", onDelta != null && "LLM".equals(source));
         Map<String, Object> res = finish(out, runId, studentId, courseId, teachingClassId, q, answer, citations,
                 hits.size(), topScore, false, "OK", source, tokens, t0,
                 retrieval.effective().name(), retrievalDiag);
@@ -389,3 +398,4 @@ public class StudentQaService {
         return names.isEmpty() ? "本课程" : names.get(0);
     }
 }
+
