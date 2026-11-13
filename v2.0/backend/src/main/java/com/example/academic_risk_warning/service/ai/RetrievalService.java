@@ -41,6 +41,7 @@ public class RetrievalService {
 
     private final JdbcTemplate jdbc;
     private final DifyVectorClient vectorClient;
+    private final LocalCosineRetriever localCosine;
     private final String mode;
     private final int poolSize;
     /** 单次结果里同一份文档最多占几个名额（抑制同源分块占满 top-k） */
@@ -50,12 +51,14 @@ public class RetrievalService {
 
     public RetrievalService(JdbcTemplate jdbc,
                             DifyVectorClient vectorClient,
+                            LocalCosineRetriever localCosine,
                             @Value("${ai.retrieval.mode:HYBRID}") String mode,
                             @Value("${ai.retrieval.pool-size:20}") int poolSize,
                             @Value("${ai.retrieval.max-per-doc:2}") int maxPerDoc,
                             @Value("${ai.retrieval.min-lex-support:0.10}") double minLexSupport) {
         this.jdbc = jdbc;
         this.vectorClient = vectorClient;
+        this.localCosine = localCosine;
         this.mode = mode == null ? "HYBRID" : mode.trim().toUpperCase();
         this.poolSize = Math.max(4, Math.min(poolSize, 50));
         this.maxPerDoc = Math.max(1, Math.min(maxPerDoc, 10));
@@ -66,12 +69,12 @@ public class RetrievalService {
 
     /** 用另一组参数克隆一份（评测扫参用，避免为一个参数重启服务） */
     public RetrievalService copyWith(double minLexSupport, int maxPerDoc) {
-        return new RetrievalService(jdbc, vectorClient, mode, poolSize,
+        return new RetrievalService(jdbc, vectorClient, localCosine, mode, poolSize,
                 maxPerDoc > 0 ? maxPerDoc : this.maxPerDoc,
                 minLexSupport > 0 ? minLexSupport : this.minLexSupport);
     }
 
-    public enum Mode { FULLTEXT, VECTOR, HYBRID }
+    public enum Mode { FULLTEXT, VECTOR, HYBRID, COSINE }
 
     /** 一条候选；两条路的原始名次都留着，方便做消融对比 */
     public record Hit(Long chunkId, String docName, Integer sectionNo, String sourceType, String content,
@@ -103,10 +106,16 @@ public class RetrievalService {
             return new Outcome(want, want, List.of(), 0, 0, 0, 0, 0, "查询为空");
         }
 
-        List<Hit> ft = want == Mode.VECTOR ? List.of() : fulltext(courseId, q);
+        List<Hit> ft = (want == Mode.VECTOR || want == Mode.COSINE) ? List.of() : fulltext(courseId, q);
         List<Hit> vec = List.of();
         String degraded = null;
-        if (want != Mode.FULLTEXT) {
+        if (want == Mode.COSINE) {
+            try {
+                vec = localCosine.search(courseId, q, k);
+            } catch (Exception e) {
+                degraded = "本地余弦失败：" + e.getMessage();
+            }
+        } else if (want != Mode.FULLTEXT) {
             if (!vectorClient.configured()) {
                 degraded = vectorClient.notConfiguredReason();
             } else {
@@ -122,7 +131,7 @@ public class RetrievalService {
         Mode effective = want;
         if (want == Mode.HYBRID && vec.isEmpty()) {
             effective = Mode.FULLTEXT;
-        } else if (want == Mode.VECTOR && vec.isEmpty()) {
+        } else if ((want == Mode.VECTOR || want == Mode.COSINE) && vec.isEmpty()) {
             effective = Mode.FULLTEXT;   // 向量路没结果时兜底全文，避免"什么都没检索到"
             ft = fulltext(courseId, q);
         }
@@ -130,7 +139,7 @@ public class RetrievalService {
         List<Hit> result;
         if (effective == Mode.HYBRID) {
             result = rrf(ft, vec, k);
-        } else if (effective == Mode.VECTOR) {
+        } else if (effective == Mode.VECTOR || effective == Mode.COSINE) {
             result = topOf(vec, k);
         } else {
             result = topOf(ft, k);
@@ -388,6 +397,8 @@ public class RetrievalService {
 
     /** 纯向量命中的相似度下限（Dify 召回分是归一化相似度，与 ngram 分值不同量级） */
     private static final double MIN_VECTOR_SCORE = 0.35;
+    /** 本地 TF-IDF 余弦分数量级与 Dify 归一化分不同 */
+    private static final double MIN_COSINE_SCORE = 0.10;
 
     /** 拒答判定结果：给线上问答与评测脚本共用，保证"评测测的就是线上行为" */
     public record Guard(boolean refuse, String reason, double topScore, double lexSupport) {
@@ -419,6 +430,16 @@ public class RetrievalService {
             }
             if (lex < minLexSupport) {
                 return new Guard(true, "词面支撑度低于阈值 " + minLexSupport, topScore, lex);
+            }
+            return new Guard(false, null, topScore, lex);
+        }
+        // 本地余弦：TF-IDF 分值量级更低，单独用 0.10 阈值 + 词面支撑
+        if (o.effective() == Mode.COSINE) {
+            if (lex < 0.05) {
+                return new Guard(true, "本地余弦词面支撑不足", topScore, lex);
+            }
+            if (topScore < MIN_COSINE_SCORE) {
+                return new Guard(true, "本地余弦相似度低于阈值 " + MIN_COSINE_SCORE, topScore, lex);
             }
             return new Guard(false, null, topScore, lex);
         }

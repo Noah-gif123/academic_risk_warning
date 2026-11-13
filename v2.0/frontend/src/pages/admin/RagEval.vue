@@ -52,7 +52,8 @@ import { ragEvalApi } from '../../api/ai'
 
 const modes = [
   { key: 'FULLTEXT', label: '全文检索' },
-  { key: 'VECTOR', label: '向量检索' },
+  { key: 'COSINE', label: '本地余弦' },
+  { key: 'VECTOR', label: 'Dify 向量' },
   { key: 'HYBRID', label: '混合检索' }
 ]
 const data = ref({})
