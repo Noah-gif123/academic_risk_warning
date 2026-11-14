@@ -66,7 +66,6 @@ const routes = [
     { path: 'schemes', component: () => import('../pages/admin/Schemes.vue'), meta: { title: '成绩构成' } },
     { path: 'attendance', component: () => import('../pages/admin/Attendance.vue'), meta: { title: '考勤归档' } },
     { path: 'coverage', component: () => import('../pages/admin/Coverage.vue'), meta: { title: '覆盖率督办' } },
-    { path: 'reports', component: Placeholder, meta: { title: '报表' } },
     { path: 'rag-eval', component: () => import('../pages/admin/RagEval.vue'), meta: { title: 'RAG评测' } },
     { path: 'rules', component: () => import('../pages/admin/Rules.vue'), meta: { title: '规则配置' } },
     { path: 'workflow', component: () => import('../pages/admin/Workflow.vue'), meta: { title: '流程与问卷' } },

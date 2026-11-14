@@ -82,6 +82,12 @@
                   </div>
                 </div>
                 <p v-else class="text-[10px] text-slate-400">该报告没有六维指标，重新生成后可获得。</p>
+                <div v-if="activeReport.sections?.length" class="mt-2 space-y-2 border-t border-slate-200 pt-2">
+                  <div v-for="(sec, si) in activeReport.sections" :key="si">
+                    <p class="text-[11px] font-medium text-slate-700">{{ sec.title }}</p>
+                    <p class="text-[11px] text-slate-500 whitespace-pre-line leading-5">{{ sec.text }}</p>
+                  </div>
+                </div>
               </div>
               <div v-if="selected === c" class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 leading-6">
                 <p><b class="text-slate-700">风险结论：</b>{{ c.riskHint || '暂无' }}</p>
@@ -93,7 +99,7 @@
           </div>
 
           <p class="text-[10px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-5">
-            {{ mode === 'student' ? '当前入口使用本学期课程数据；PDF 使用浏览器打印。' : '教师/辅导员读取 ai_report 独立快照；PDF 由服务端 OpenPDF 生成，可选择保存目录。' }}
+            学生 / 教师 / 辅导员均读取 ai_report 独立快照；PDF 由服务端 OpenPDF 生成，可选择保存目录。
             报告数字可回溯到 risk_state / 成绩 / 考勤。
           </p>
         </div>
@@ -104,7 +110,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { staffReportApi } from '../api/ai'
+import { staffReportApi, reportApi } from '../api/ai'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -150,7 +156,11 @@ function courseReport(c) {
 }
 
 async function loadReports() {
-  if (props.mode === 'student' || !props.student?.studentId) return
+  if (props.mode === 'student') {
+    try { reports.value = await reportApi.list() } catch (e) { reportMessage.value = e?.message || '报告读取失败' }
+    return
+  }
+  if (!props.student?.studentId) return
   loadingReports.value = true
   reportMessage.value = ''
   try {
@@ -169,7 +179,9 @@ async function toggleReport(c) {
     return
   }
   try {
-    const created = await staffReportApi.generate(props.student.studentId, c.teachingClassId)
+    const created = props.mode === 'student'
+      ? await reportApi.generate({ teachingClassId: c.teachingClassId, reportType: 'COURSE' })
+      : await staffReportApi.generate(props.student.studentId, c.teachingClassId)
     reports.value = [created, ...reports.value]
     activeReport.value = created
   } catch (e) {
@@ -181,15 +193,18 @@ async function downloadCourse(c) {
   const r = courseReport(c)
   if (!r) return
   try {
-    await staffReportApi.pdf(props.student.studentId, r.id)
+    if (props.mode === 'student') await reportApi.pdf(r.id)
+    else await staffReportApi.pdf(props.student.studentId, r.id)
   } catch (e) {
     reportMessage.value = e?.message || 'PDF 导出失败'
   }
 }
 
 async function exportPdf() {
+  const sr = activeReport.value || reports.value[0]
   if (props.mode === 'student') {
-    window.print()
+    if (sr) await reportApi.pdf(sr.id)
+    else window.print()
     return
   }
   const r = activeReport.value || reports.value[0]
@@ -198,7 +213,8 @@ async function exportPdf() {
     return
   }
   try {
-    await staffReportApi.pdf(props.student.studentId, r.id)
+    if (props.mode === 'student') await reportApi.pdf(r.id)
+    else await staffReportApi.pdf(props.student.studentId, r.id)
   } catch (e) {
     reportMessage.value = e?.message || 'PDF 导出失败'
   }
