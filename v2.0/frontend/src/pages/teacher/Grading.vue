@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="goBack">← 返回{{ backLabel }}</button>
-        <h1 class="text-lg font-semibold text-slate-800">交卷与批改</h1>
+        <h1 class="">交卷与批改</h1>
         <span v-if="paper" class="tag bg-brand-50 text-brand-600">{{ paper.paperName }}</span>
         <span v-if="paper" class="tag bg-slate-100 text-slate-500">满分 {{ paper.fullScore }}</span>
       </div>

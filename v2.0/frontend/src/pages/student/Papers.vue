@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">我的考试</h1>
+      <h1 class="">我的考试</h1>
       <div class="flex items-center gap-3">
         <button class="text-xs text-brand-600 hover:underline" @click="load">刷新</button>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>

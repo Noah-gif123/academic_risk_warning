@@ -3,7 +3,7 @@
     <div v-if="!embedded" class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回课程</button>
-        <h1 class="text-lg font-semibold text-slate-800">成绩与批改</h1>
+        <h1 class="">成绩与批改</h1>
         <span v-if="matrix" class="tag bg-brand-50 text-brand-600">{{ matrix.courseName }}</span>
         <span v-if="matrix" class="tag bg-slate-100 text-slate-500">{{ matrix.className }}</span>
       </div>

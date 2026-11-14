@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="back">← 返回课程</button>
-        <h1 class="text-lg font-semibold text-slate-800">成绩构成</h1>
+        <h1 class="">成绩构成</h1>
         <span v-if="scheme" class="tag bg-brand-50 text-brand-600">{{ scheme.courseName }}</span>
         <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ scheme.termName }}</span>
         <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ courseTypeLabel(scheme.courseType) }} · {{ scheme.level }}</span>

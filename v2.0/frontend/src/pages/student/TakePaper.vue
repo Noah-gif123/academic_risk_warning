@@ -4,7 +4,7 @@
       <div class="flex items-center gap-3 flex-wrap">
         <button v-if="!embedded" class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/student/exams')">← 返回</button>
         <button v-else class="text-sm text-slate-400 hover:text-slate-600" @click="emit('close')">← 关闭</button>
-        <h1 class="text-lg font-semibold text-slate-800">{{ paper ? paper.paperName : '加载中…' }}</h1>
+        <h1 class="">{{ paper ? paper.paperName : '加载中…' }}</h1>
         <span v-if="paper" class="tag bg-slate-100 text-slate-500">{{ typeLabel(paper.paperType) }}</span>
         <span v-if="paper" class="tag bg-slate-100 text-slate-500">满分 {{ paper.fullScore }}</span>
       </div>

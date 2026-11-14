@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/student/courses')">← 返回课程</button>
-        <h1 class="text-lg font-semibold text-slate-800">{{ d ? d.courseName : '加载中…' }}</h1>
+        <h1 class="">{{ d ? d.courseName : '加载中…' }}</h1>
         <span v-if="d" class="tag bg-slate-100 text-slate-500">{{ d.teacherName }} ｜ {{ d.termName }}</span>
         <span v-if="d" class="tag" :class="d.statusText === '进行中' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-600'">
           {{ d.statusText }}

@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3">
-        <h1 class="text-lg font-semibold text-slate-800">问卷调查</h1>
+        <h1 class="">问卷调查</h1>
         <span class="tag bg-slate-100 text-slate-500">匿名问卷 · 评教 / 满意度 / 心理健康 / 去向 / 学情</span>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
