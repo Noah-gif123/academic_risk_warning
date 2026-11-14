@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/student/courses')">← 返回课程</button>
-        <h1 class="">{{ d ? d.courseName : '加载中…' }}</h1>
+        <h1>{{ d ? d.courseName : '加载中…' }}</h1>
         <span v-if="d" class="tag bg-slate-100 text-slate-500">{{ d.teacherName }} ｜ {{ d.termName }}</span>
         <span v-if="d" class="tag" :class="d.statusText === '进行中' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-600'">
           {{ d.statusText }}
@@ -15,7 +15,7 @@
     <!-- 页签 -->
     <div class="flex flex-wrap gap-2" v-if="d">
       <button v-for="t in visibleTabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
-              :class="tab === t.key ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
               @click="tab = t.key">{{ t.label }}</button>
     </div>
 
@@ -31,7 +31,7 @@
     </div>
 
     <!-- 教学目标 -->
-    <div class="card p-4" v-if="d && tab === 'objectives'">
+    <div class="card p-5" v-if="d && tab === 'objectives'">
       <h2 class="font-medium text-slate-700 mb-3">教学目标</h2>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
@@ -53,7 +53,7 @@
     </div>
 
     <!-- 目录 -->
-    <div class="card p-4 space-y-2" v-if="d && tab === 'catalog'">
+    <div class="card p-5 space-y-2" v-if="d && tab === 'catalog'">
       <div class="flex items-center justify-between">
         <h2 class="font-medium text-slate-700">课程目录（{{ d.lessons.length }} 次课）</h2>
         <span class="text-xs text-slate-400">点开某一次课，按 课前 / 课中 / 课后 查看</span>
@@ -94,7 +94,7 @@
     </div>
 
     <!-- 测验 / 作业 -->
-    <div class="card p-4" v-if="d && (tab === 'quiz' || tab === 'homework')">
+    <div class="card p-5" v-if="d && (tab === 'quiz' || tab === 'homework')">
       <h2 class="font-medium text-slate-700 mb-3">{{ tab === 'quiz' ? '随堂测验' : '课后作业' }}</h2>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
@@ -127,7 +127,7 @@
     </div>
 
     <!-- 项目 -->
-    <div class="card p-4" v-if="d && tab === 'project'">
+    <div class="card p-5" v-if="d && tab === 'project'">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">项目</h2>
         <button class="text-xs text-brand-600 hover:underline" @click="$router.push('/student/projects')">去提交项目</button>

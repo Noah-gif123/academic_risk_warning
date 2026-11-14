@@ -3,13 +3,13 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/counselor/home')">← 返回看板</button>
-        <h1 class="">个人中心</h1>
+        <h1>个人中心</h1>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="card p-4 space-y-2" v-if="p">
+      <div class="card p-5 space-y-2" v-if="p">
         <h2 class="font-medium text-slate-700 mb-2">基本信息</h2>
         <div class="text-sm space-y-1">
           <p><span class="text-slate-400 w-24 inline-block">姓名</span>{{ p.counselorName }}</p>
@@ -22,7 +22,7 @@
         </div>
       </div>
 
-      <div class="card p-4 space-y-3">
+      <div class="card p-5 space-y-3">
         <h2 class="font-medium text-slate-700">修改密码</h2>
         <p class="text-xs text-slate-400">初始密码 000000，新密码 6~32 位。</p>
         <label class="text-sm block">原密码

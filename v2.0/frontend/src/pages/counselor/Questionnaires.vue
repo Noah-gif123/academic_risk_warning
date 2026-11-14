@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="">问卷发布</h1>
+      <h1>问卷发布</h1>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
@@ -9,7 +9,7 @@
       支持评教、学生满意度、心理健康普查、毕业生去向调研、全国本科生学情调查；按行政班发布、**匿名**作答，结果由教务汇总分发。
     </p>
 
-    <div class="card p-4 space-y-3">
+    <div class="card p-5 space-y-3">
       <h2 class="font-medium text-slate-700">发布新问卷</h2>
       <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
         <label class="text-sm">行政班
@@ -42,7 +42,7 @@
       <button class="btn-primary text-sm" @click="publish">发布（匿名）</button>
     </div>
 
-    <div class="card p-4">
+    <div class="card p-5">
       <h2 class="font-medium text-slate-700 mb-3">我的问卷（{{ list.length }}）</h2>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
