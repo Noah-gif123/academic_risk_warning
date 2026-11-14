@@ -32,7 +32,7 @@
             {{ q.statusText }}
           </span>
           <button v-if="q.statusText !== '已完成'" class="btn-primary text-sm" @click="open(q)">开始作答</button>
-          <button v-else class="text-xs text-slate-400">已提交（匿名）</button>
+          <span v-else class="text-xs text-slate-400">已提交（匿名）</span>
         </div>
       </div>
     </div>
