@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="goBack">← 返回{{ backLabel }}</button>
-        <h1 class="">交卷与批改</h1>
+        <h1>交卷与批改</h1>
         <span v-if="paper" class="tag bg-brand-50 text-brand-600">{{ paper.paperName }}</span>
         <span v-if="paper" class="tag bg-slate-100 text-slate-500">满分 {{ paper.fullScore }}</span>
       </div>
@@ -14,7 +14,7 @@
       单选 / 多选 / 判断由系统自动判分；<b>填空与简答需要你逐题给分</b>，系统记录判卷人（每题一行）。缺考学生记 0 分，无需批改。
     </p>
 
-    <div class="card p-4">
+    <div class="card p-5">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">提交列表（{{ rows.length }}）</h2>
         <span v-if="paper" class="text-xs text-slate-400">

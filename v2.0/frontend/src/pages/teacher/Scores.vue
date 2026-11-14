@@ -3,7 +3,7 @@
     <div v-if="!embedded" class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回课程</button>
-        <h1 class="">成绩与批改</h1>
+        <h1>成绩与批改</h1>
         <span v-if="matrix" class="tag bg-brand-50 text-brand-600">{{ matrix.courseName }}</span>
         <span v-if="matrix" class="tag bg-slate-100 text-slate-500">{{ matrix.className }}</span>
       </div>
@@ -17,7 +17,7 @@
 
     <div class="flex flex-wrap gap-2 items-center">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
-              :class="tab === t.key ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
               @click="tab = t.key">{{ t.label }}</button>
       <div class="ml-auto flex items-center gap-2">
         <span v-if="matrix && matrix.summary.schemeVersion" class="text-xs text-slate-400">
@@ -29,7 +29,7 @@
     </div>
 
     <!-- 待批改 -->
-    <div class="card p-4 space-y-3" v-if="tab === 'pending'">
+    <div class="card p-5 space-y-3" v-if="tab === 'pending'">
       <div class="flex items-center justify-between">
         <h2 class="font-medium text-slate-700">待批改（{{ pending.paperPending + pending.projectPending }}）</h2>
         <span class="text-xs text-slate-400">客观题已自动判分，这里只列需要人工处理的</span>
@@ -71,7 +71,7 @@
     </div>
 
     <!-- 成绩矩阵 -->
-    <div class="card p-4 space-y-3" v-if="tab === 'matrix' && matrix">
+    <div class="card p-5 space-y-3" v-if="tab === 'matrix' && matrix">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">成绩矩阵（{{ matrix.rows.length }} 人 × {{ matrix.items.length }} 项）</h2>
         <span class="text-xs text-slate-400">灰色单元格为自动汇总（只读），可直接在输入框里改手工项</span>
@@ -147,7 +147,7 @@
     </div>
 
     <!-- 总评汇总 -->
-    <div class="card p-4 space-y-3" v-if="tab === 'summary' && matrix">
+    <div class="card p-5 space-y-3" v-if="tab === 'summary' && matrix">
       <h2 class="font-medium text-slate-700">总评汇总</h2>
       <p class="text-xs text-slate-400">
         汇总会把每位学生的加权分、扣分、总评与判定结果写入成绩单（score_result，状态 FINAL），作为后续预警与报表的依据。

@@ -3,7 +3,7 @@
     <div v-if="!embedded" class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回课程</button>
-        <h1 class="">项目与贡献度</h1>
+        <h1>项目与贡献度</h1>
         <span class="tag bg-slate-100 text-slate-500">教学班 #{{ teachingClassId }}</span>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
@@ -15,7 +15,7 @@
     </p>
 
     <!-- 新建 -->
-    <div class="card p-4" v-if="!active">
+    <div class="card p-5" v-if="!active">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">新建项目</h2>
         <span class="text-xs text-slate-400">先建草稿，发布后学生可见</span>
@@ -63,7 +63,7 @@
     </div>
 
     <!-- 列表 -->
-    <div class="card p-4">
+    <div class="card p-5">
       <h2 class="font-medium text-slate-700 mb-3">本班项目（{{ projects.length }}）</h2>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
@@ -106,7 +106,7 @@
     </div>
 
     <!-- 明细 -->
-    <div class="card p-4 space-y-4" v-if="active">
+    <div class="card p-5 space-y-4" v-if="active">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">{{ active.projectName }} · 提交与评分</h2>
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="active = null">收起</button>

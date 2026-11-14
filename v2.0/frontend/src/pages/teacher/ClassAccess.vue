@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回课程</button>
-        <h1 class="">入班设置</h1>
+        <h1>入班设置</h1>
         <span class="tag bg-slate-100 text-slate-500">教学班 #{{ teachingClassId }}</span>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
@@ -14,7 +14,7 @@
       同意后系统给教务记一条**知会**（教务不需要审批）。
     </p>
 
-    <div class="card p-4 space-y-3">
+    <div class="card p-5 space-y-3">
       <h2 class="font-medium text-slate-700">邀请码</h2>
       <div class="flex flex-wrap items-end gap-3">
         <label class="text-sm">当前邀请码
@@ -30,7 +30,7 @@
       </div>
     </div>
 
-    <div class="card p-4">
+    <div class="card p-5">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">入班申请（待审 {{ pendingCount }}）</h2>
         <label class="text-sm">状态

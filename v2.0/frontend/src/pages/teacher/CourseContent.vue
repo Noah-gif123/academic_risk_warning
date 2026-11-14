@@ -3,7 +3,7 @@
     <div v-if="!embedded" class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="back">← 返回课程</button>
-        <h1 class="">课程内容</h1>
+        <h1>课程内容</h1>
         <span class="tag bg-slate-100 text-slate-500">教学班 #{{ teachingClassId }}</span>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
@@ -12,7 +12,7 @@
     <!-- 页签（嵌入到「教学详情」时由外层页签控制，这里不再重复一排） -->
     <div class="flex flex-wrap gap-2" v-if="!embedded">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
-              :class="tab === t.key ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
               @click="tab = t.key">{{ t.label }}</button>
     </div>
 
@@ -20,7 +20,7 @@
     <input ref="fileInput" type="file" class="hidden" multiple @change="onPick" />
 
     <!-- ============ 导学 ============ -->
-    <div class="card p-4 space-y-3" v-if="tab === 'guide'">
+    <div class="card p-5 space-y-3" v-if="tab === 'guide'">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">课程导学</h2>
         <span class="text-xs text-slate-400">
@@ -45,7 +45,7 @@
     </div>
 
     <!-- ============ 教学目标 ============ -->
-    <div class="card p-4 space-y-3" v-if="tab === 'objectives'">
+    <div class="card p-5 space-y-3" v-if="tab === 'objectives'">
       <div class="flex items-center justify-between">
         <h2 class="font-medium text-slate-700">教学目标</h2>
         <span class="text-xs text-slate-400">表格展示、内容过长时截断显示</span>
@@ -86,7 +86,7 @@
     </div>
 
     <!-- ============ 目录 ============ -->
-    <div class="card p-4 space-y-3" v-if="tab === 'lessons'">
+    <div class="card p-5 space-y-3" v-if="tab === 'lessons'">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">课程目录（一行 = 一次课）</h2>
         <div class="flex items-center gap-2">
@@ -265,7 +265,7 @@
     </div>
 
     <!-- ============ 资料库（课程组共享） ============ -->
-    <div class="card p-4 space-y-3" v-if="tab === 'files'">
+    <div class="card p-5 space-y-3" v-if="tab === 'files'">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <div class="flex items-center gap-3 flex-wrap">
           <h2 class="font-medium text-slate-700">课程资料库</h2>

@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="back">← 返回课程</button>
-        <h1 class="">成绩构成</h1>
+        <h1>成绩构成</h1>
         <span v-if="scheme" class="tag bg-brand-50 text-brand-600">{{ scheme.courseName }}</span>
         <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ scheme.termName }}</span>
         <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ courseTypeLabel(scheme.courseType) }} · {{ scheme.level }}</span>
@@ -17,7 +17,7 @@
     </p>
 
     <!-- 状态条 -->
-    <div class="card p-4" v-if="scheme">
+    <div class="card p-5" v-if="scheme">
       <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
         <div><p class="text-xs text-slate-400">版本</p><p class="font-medium">v{{ scheme.version }}</p></div>
         <div><p class="text-xs text-slate-400">根层权重合计</p>
@@ -36,7 +36,7 @@
     </div>
 
     <!-- 还没有构成：套用模板 -->
-    <div class="card p-4" v-if="!scheme && !loading">
+    <div class="card p-5" v-if="!scheme && !loading">
       <h2 class="font-medium text-slate-700 mb-2">本课程还没有成绩构成</h2>
       <p class="text-xs text-slate-500 mb-3">可以套用模板后微调，也可以从空白开始自定义（推荐先套模板）。</p>
       <div class="flex flex-wrap items-end gap-3">
@@ -54,7 +54,7 @@
     </div>
 
     <!-- 编辑 / 只读 -->
-    <div class="card p-4" v-if="items.length">
+    <div class="card p-5" v-if="items.length">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">{{ scheme && scheme.locked ? '成绩构成（已锁定，只读）' : '成绩构成（编辑中）' }}</h2>
         <span class="text-xs" :class="rootSum === 100 ? 'text-emerald-600' : 'text-red-600'">

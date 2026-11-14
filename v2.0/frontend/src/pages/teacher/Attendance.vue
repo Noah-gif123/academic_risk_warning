@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回课程</button>
-        <h1 class="">考勤与归档</h1>
+        <h1>考勤与归档</h1>
         <span class="tag bg-slate-100 text-slate-500">教学班 #{{ teachingClassId }}</span>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
@@ -16,7 +16,7 @@
 
     <div class="flex flex-wrap gap-2">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
-              :class="tab === t.key ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
               @click="tab = t.key">{{ t.label }}</button>
       <div class="ml-auto flex items-center gap-2">
         <input ref="importInput" type="file" class="hidden" accept=".xlsx,.csv" @change="onImport" />
@@ -26,7 +26,7 @@
     </div>
 
     <!-- 导入结果 -->
-    <div v-if="importResult" class="card p-4 text-sm">
+    <div v-if="importResult" class="card p-5 text-sm">
       <div class="flex items-center justify-between">
         <p>导入 {{ importResult.fileName }}：共 {{ importResult.totalRows }} 行，成功 {{ importResult.successRows }}，跳过 {{ importResult.skippedRows }}</p>
         <button class="text-xs text-slate-400 hover:text-slate-600" @click="importResult = null">关闭</button>
@@ -36,7 +36,7 @@
     </div>
 
     <!-- 点名单 -->
-    <div class="card p-4" v-if="tab === 'call'">
+    <div class="card p-5" v-if="tab === 'call'">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">课次（{{ sessions.length }}）</h2>
         <span class="text-xs text-slate-400">点击某一课次开始点名</span>
@@ -79,7 +79,7 @@
     </div>
 
     <!-- 点名单明细 -->
-    <div class="card p-4 space-y-3" v-if="tab === 'call' && active">
+    <div class="card p-5 space-y-3" v-if="tab === 'call' && active">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">
           第 {{ active.weekNo }} 周 · 第 {{ active.sessionNo }} 次（{{ active.sessionDate }}）
@@ -157,7 +157,7 @@
     </div>
 
     <!-- 汇总 -->
-    <div class="card p-4" v-if="tab === 'stats'">
+    <div class="card p-5" v-if="tab === 'stats'">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">考勤汇总（{{ stats.length }} 人）</h2>
         <span class="text-xs text-slate-400">
@@ -193,7 +193,7 @@
     </div>
 
     <!-- 归档 -->
-    <div class="card p-4 space-y-3" v-if="tab === 'archive'">
+    <div class="card p-5 space-y-3" v-if="tab === 'archive'">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">归档批次</h2>
         <div class="flex items-center gap-2">
