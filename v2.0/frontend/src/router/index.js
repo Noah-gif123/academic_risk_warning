@@ -1,7 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { session, homeOf } from '../session'
 
-const Placeholder = () => import('../pages/Placeholder.vue')
 
 const routes = [
   { path: '/', redirect: '/login' },

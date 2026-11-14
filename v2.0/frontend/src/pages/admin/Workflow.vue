@@ -98,16 +98,6 @@
       </p>
     </div>
 
-    <!-- 问卷流转 -->
-    <div class="card p-4 space-y-2" v-if="tab === 'survey'">
-      <h2 class="font-medium text-slate-700">问卷流转</h2>
-      <p class="text-sm text-slate-500">
-        本版问卷只有「教师风格判定」一种：导员按行政班发布 → 匿名收集 → 教务分发到课程组全体教师 → 汇总。
-      </p>
-      <p class="text-xs text-slate-400">
-        问卷流转属于第二阶段（学情预警）的能力，第一阶段先保留入口占位；届时在这里查看各环节状态与超时提醒。
-      </p>
-    </div>
   </div>
 </template>
 
@@ -119,7 +109,6 @@ import { adminApi } from '../../api/admin'
 const tabs = [
   { key: 'notice', label: '入课知会' },
   { key: 'batch', label: '导入批次' },
-  { key: 'survey', label: '问卷流转' },
   { key: 'audit', label: '审计日志' }
 ]
 const tab = ref('notice')
