@@ -23,6 +23,55 @@
             </div>
           </div>
 
+          <div v-if="activeReport" class="rounded-2xl border border-[#dbe7f2] bg-white overflow-hidden">
+            <div class="flex items-center justify-between gap-3 px-5 py-3 bg-[#f7fbfd] border-b border-[#e6edf5]">
+              <div>
+                <h2>{{ activeCourse?.courseName || activeReport.courseName }} · 课程学情报告</h2>
+                <p class="text-[11px] text-slate-400 mt-1">{{ activeCourse?.teacherName || activeReport.teacherName }} · {{ activeCourse?.classCode || activeReport.className }} · {{ activeReport.termName }}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="btn-ghost text-sm" @click="downloadCourse(activeCourse)">导出 PDF</button>
+                <button class="text-xs text-slate-400 hover:text-slate-600" @click="activeReport = null">返回课程列表</button>
+              </div>
+            </div>
+            <div class="p-5 space-y-4">
+              <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-[#f7fbfd] p-4 flex items-center gap-5">
+                <div><p class="text-4xl font-semibold" :class="riskColor">{{ num(activeReport.totalScore ?? activeCourse?.riskScore) }}</p><p class="text-[10px] text-slate-400 mt-1">课程风险分 / 100</p></div>
+                <div class="flex-1 text-sm text-slate-600 leading-6"><span class="tag" :class="riskTagClass">{{ riskLevelText }}</span><br>{{ activeReport.summary }}</div>
+              </div>
+
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div class="rounded-lg bg-[#f8fbfd] border border-[#eef4f9] p-3"><p class="text-[10px] text-slate-400">缺课 / 允许</p><p class="text-lg font-semibold" :class="activeCourse?.hardFail ? 'text-red-600' : 'text-slate-700'">{{ activeCourse?.absentCount ?? '—' }} / {{ activeCourse?.allowedAbsent ?? '—' }}</p></div>
+                <div class="rounded-lg bg-[#f8fbfd] border border-[#eef4f9] p-3"><p class="text-[10px] text-slate-400">过程分 / 总评</p><p class="text-lg font-semibold text-slate-700">{{ activeCourse?.processScore ?? '—' }} / {{ activeCourse?.totalScore ?? '—' }}</p></div>
+                <div class="rounded-lg bg-[#f8fbfd] border border-[#eef4f9] p-3"><p class="text-[10px] text-slate-400">考勤扣分</p><p class="text-lg font-semibold text-slate-700">{{ activeCourse?.deductPoints ?? '—' }}</p></div>
+                <div class="rounded-lg bg-[#f8fbfd] border border-[#eef4f9] p-3"><p class="text-[10px] text-slate-400">加权分</p><p class="text-lg font-semibold text-slate-700">{{ activeCourse?.weightedScore ?? '—' }}</p></div>
+              </div>
+
+              <div>
+                <div class="flex items-center justify-between mb-2"><h3>六维画像对比</h3><span class="text-[10px] text-slate-400">学生 / 班级均值</span></div>
+                <div v-if="activeReport.metrics?.dimensions?.length" class="space-y-2">
+                  <div v-for="d in activeReport.metrics.dimensions" :key="'full-'+d.key" class="grid grid-cols-[72px_1fr_86px] gap-2 items-center text-xs">
+                    <span class="text-slate-500">{{ d.label }}</span>
+                    <div class="h-2 rounded-full bg-slate-100 overflow-hidden flex gap-0.5"><div class="h-full bg-[#0f9d8a]" :style="{ width: (d.student ?? 0) + '%' }"></div><div class="h-full bg-slate-300" :style="{ width: (d.classAvg ?? 0) + '%' }"></div></div>
+                    <span class="text-right text-slate-600">{{ d.student ?? '—' }} / {{ d.classAvg ?? '—' }}</span>
+                  </div>
+                </div>
+                <p v-else class="text-xs text-slate-400">该报告没有六维指标。</p>
+              </div>
+
+              <div class="space-y-3">
+                <div v-for="(sec, si) in activeReport.sections" :key="'full-sec-'+si" class="rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-4">
+                  <h3 class="text-[13px]">{{ ['一','二','三','四','五','六','七','八'][si] || (si+1) }}、{{ sec.title }}</h3>
+                  <p class="text-sm text-slate-600 leading-7 whitespace-pre-line mt-1">{{ sec.text }}</p>
+                </div>
+              </div>
+
+              <div v-if="activeReport.actions?.length" class="flex flex-wrap gap-2 pt-1">
+                <button v-for="(a, i) in activeReport.actions" :key="i" class="btn-ghost text-xs" @click="activeReport = null">{{ a.label }}</button>
+              </div>
+            </div>
+          </div>
+
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-medium text-slate-700">课程报告</h3>
             <span class="text-xs text-slate-400">{{ mode === 'teacher' ? '仅显示本人任教课程' : (mode === 'student' ? '本学期课程' : '行政班全部课程') }}</span>
@@ -111,6 +160,7 @@ const emit = defineEmits(['close'])
 const selected = ref(null)
 const reports = ref([])
 const activeReport = ref(null)
+const activeCourse = computed(() => props.courses.find((c) => Number(c.teachingClassId) === Number(activeReport.value?.teachingClassId)) || null)
 const reportMessage = ref('')
 const loadingReports = ref(false)
 const riskCourses = computed(() => props.courses.filter((c) => courseLevel(c) !== '正常'))
