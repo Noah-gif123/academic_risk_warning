@@ -47,6 +47,20 @@
                 <div class="rounded-lg bg-[#f8fbfd] border border-[#eef4f9] p-3"><p class="text-[10px] text-slate-400">加权分</p><p class="text-lg font-semibold text-slate-700">{{ activeCourse?.weightedScore ?? '—' }}</p></div>
               </div>
 
+              <div class="rounded-xl border border-[#e6edf5] overflow-hidden">
+                <div class="px-4 py-2 bg-[#f7fbfd] border-b border-[#e6edf5]"><h3>成绩与考勤明细</h3></div>
+                <table>
+                  <thead><tr><th>项目</th><th>当前值</th><th>说明</th></tr></thead>
+                  <tbody>
+                    <tr><td>缺课 / 允许</td><td :class="activeCourse?.hardFail ? 'text-red-600 font-medium' : ''">{{ activeCourse?.absentCount ?? '—' }} / {{ activeCourse?.allowedAbsent ?? '—' }}</td><td>{{ activeCourse?.hardFail ? '已超过允许上限，触发硬性不合格' : '缺课在允许范围内' }}</td></tr>
+                    <tr><td>迟到 / 请假</td><td>{{ activeCourse?.lateCount ?? '—' }} / {{ activeCourse?.leaveCount ?? '—' }}</td><td>按课程考勤记录汇总</td></tr>
+                    <tr><td>过程分</td><td>{{ activeCourse?.processScore ?? '—' }}</td><td>作业、测验、课堂表现等已录项加权</td></tr>
+                    <tr><td>当前总评</td><td>{{ activeCourse?.totalScore ?? activeReport.totalScore ?? '—' }}</td><td>加权分 − 考勤扣分</td></tr>
+                    <tr><td>加权分 / 扣分</td><td>{{ activeCourse?.weightedScore ?? '—' }} / {{ activeCourse?.deductPoints ?? '—' }}</td><td>过程性成绩与考勤扣分</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
               <div>
                 <div class="flex items-center justify-between mb-2"><h3>六维画像对比</h3><span class="text-[10px] text-slate-400">学生 / 班级均值</span></div>
                 <div v-if="activeReport.metrics?.dimensions?.length" class="space-y-2">
