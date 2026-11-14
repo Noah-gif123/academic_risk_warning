@@ -1,21 +1,41 @@
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="">我的考试</h1>
+  <div class="space-y-5">
+    <header class="flex items-end justify-between flex-wrap gap-3">
+      <div>
+        <h1>我的考试</h1>
+        <p class="text-xs text-slate-500 mt-2">作业、测验与考试统一在这里作答；已结束的记录可查看成绩与详情。</p>
+      </div>
       <div class="flex items-center gap-3">
-        <button class="text-xs text-brand-600 hover:underline" @click="load">刷新</button>
+        <button class="btn-ghost text-sm" @click="load">刷新</button>
         <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
       </div>
-    </div>
+    </header>
+
+    <section class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="card p-4">
+        <p class="text-[11px] text-slate-400">未完成</p>
+        <p class="text-2xl font-semibold text-[#17324b] mt-1">{{ openItems.length }}</p>
+        <p class="text-[11px] text-slate-400 mt-1">待作答 / 待提交</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-[11px] text-slate-400">已结束</p>
+        <p class="text-2xl font-semibold text-[#17324b] mt-1">{{ finishedItems.length }}</p>
+        <p class="text-[11px] text-slate-400 mt-1">已提交 / 已批阅</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-[11px] text-slate-400">当前范围</p>
+        <p class="text-2xl font-semibold text-[#0f9d8a] mt-1">{{ shown.length }}</p>
+        <p class="text-[11px] text-slate-400 mt-1">当前页展示</p>
+      </div>
+    </section>
 
     <div class="flex flex-wrap items-center gap-2">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
-              :class="tab === t.key ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-[#e6edf5]'"
               @click="tab = t.key; page = 1">
         {{ t.label }}（{{ t.key === 'open' ? openItems.length : finishedItems.length }}）
       </button>
 
-      <!-- 已结束才显示搜索 -->
       <div v-if="tab === 'finished'" class="ml-auto flex flex-wrap items-center gap-2">
         <input v-model="q.keyword" class="input w-52" placeholder="关键词（课程 / 名称）" @keyup.enter="page = 1" />
         <input v-model="q.from" type="date" class="input w-40" />
@@ -29,30 +49,31 @@
       {{ tab === 'open' ? '没有未完成的考试 / 测验 / 作业' : '没有已结束的记录' }}
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      <div v-for="p in shown" :key="p.id" class="card p-4 space-y-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+      <article v-for="p in shown" :key="p.id" class="card p-4 relative overflow-hidden hover:-translate-y-0.5 transition-transform">
+        <span class="absolute left-0 top-0 bottom-0 w-1"
+              :class="p.paperType === 'EXAM' ? 'bg-amber-400' : p.paperType === 'QUIZ' ? 'bg-[#20b7a4]' : 'bg-[#7aa7c7]'"></span>
         <div class="flex items-start justify-between gap-2">
-          <h3 class="font-medium text-slate-800">
-            {{ p.courseName || '—' }} · {{ p.paperName }}
-          </h3>
-          <span class="tag" :class="typeClass(p.paperType)">{{ typeLabel(p.paperType) }}</span>
+          <div class="min-w-0">
+            <p class="text-[11px] text-slate-400 truncate">{{ p.courseName || '—' }}</p>
+            <h3 class="mt-1 leading-snug">{{ p.paperName }}</h3>
+          </div>
+          <span class="tag shrink-0" :class="typeClass(p.paperType)">{{ typeLabel(p.paperType) }}</span>
         </div>
-        <p class="text-xs text-slate-500">发起人 {{ p.teacherName || '—' }}</p>
-        <p class="text-xs text-slate-400">
-          开始 {{ fmt(p.startTime) }} ｜ 结束 {{ fmt(p.endTime) }}
-        </p>
-        <p class="text-xs text-slate-400">
-          时长 {{ p.durationMinutes ? p.durationMinutes + ' 分钟' : '不限' }} ｜ 试卷满分 {{ p.fullScore }}
-        </p>
-        <div class="flex items-center justify-between pt-1">
+        <p class="text-[11px] text-slate-400 mt-2">发起人 {{ p.teacherName || '—' }}</p>
+        <div class="mt-3 rounded-lg bg-[#f8fbfd] border border-[#eef4f9] px-3 py-2 text-[11px] text-slate-500 space-y-1">
+          <p>开始 {{ fmt(p.startTime) }}</p>
+          <p>结束 {{ fmt(p.endTime) }}</p>
+          <p>时长 {{ p.durationMinutes ? p.durationMinutes + ' 分钟' : '不限' }} ｜ 满分 {{ p.fullScore }}</p>
+        </div>
+        <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#eef4f9]">
           <span class="text-xs" :class="statusClass(p)">{{ statusText(p) }}</span>
-          <button v-if="p.canAnswer" class="btn-primary text-xs"
-                  @click="go(p.id)">开始作答</button>
-          <button v-else class="text-xs text-brand-600 hover:underline" @click="go(p.id)">
+          <button v-if="p.canAnswer" class="btn-primary text-xs" @click="go(p.id)">开始作答</button>
+          <button v-else class="text-xs text-[#3c6f9b] hover:underline" @click="go(p.id)">
             {{ tab === 'open' ? '查看' : '查看详情' }}
           </button>
         </div>
-      </div>
+      </article>
     </div>
 
     <div class="flex items-center justify-between text-sm text-slate-500" v-if="tab === 'finished' && filtered.length > size">
@@ -65,7 +86,7 @@
 
     <!-- 作答 / 看结果：独立弹窗（不再跳转页面） -->
     <Teleport to="body">
-      <div v-if="takingId" class="fixed inset-0 z-50 bg-slate-900/45 overflow-hidden flex items-center justify-center p-4" @click.self="closeTake">
+      <div v-if="takingId" class="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-sm overflow-hidden flex items-center justify-center p-4" @click.self="closeTake">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-auto my-0 relative">
           <button class="absolute right-4 top-4 z-10 text-slate-400 hover:text-slate-600 text-xl leading-none"
                   title="关闭（Esc）" @click="closeTake">✕</button>
