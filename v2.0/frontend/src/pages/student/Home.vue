@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-5">
     <!-- 欢迎区 + 本学期概况（概览并入欢迎卡，课程区独占整行） -->
-    <section class="card px-6 py-5">
+    <section class="card px-6 py-5 bg-gradient-to-br from-[#f7fdfb] to-white">
       <div class="flex items-end justify-between flex-wrap gap-4">
         <div>
-          <h1 class="text-2xl font-semibold">Hello，{{ name }}</h1>
+          <h1 class="text-[26px] font-semibold tracking-tight text-[#17324b]">Hello，{{ name }}</h1>
           <p class="text-slate-500 mt-1">欢迎来到学情预警系统</p>
         </div>
         <label class="text-sm">学期
@@ -14,7 +14,7 @@
           </select>
         </label>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-slate-100">
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mt-4 pt-4 border-t border-slate-100">
         <div>
           <p class="text-xs text-slate-400">本学期课程</p>
           <p class="text-xl font-semibold text-slate-800">{{ total }} 门</p>
@@ -64,7 +64,7 @@
       </div>
       <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 max-h-[620px] overflow-y-auto pr-1">
         <div v-for="c in cards" :key="c.teachingClassId" class="card overflow-hidden flex flex-col hover:shadow-md transition">
-          <div class="h-24 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
+          <div class="h-24 bg-gradient-to-r from-[#20b7a4] to-[#3b82c4] flex items-start justify-between p-3">
             <span class="tag bg-white/85 text-slate-700">{{ courseTypeLabel(c.courseType) }}</span>
             <span class="tag" :class="c.status === '进行中' ? 'bg-white/90 text-brand-700' : 'bg-white/70 text-slate-600'">
               {{ c.status }}

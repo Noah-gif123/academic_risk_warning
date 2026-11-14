@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">课程学习</h1>
+      <h1>课程学习</h1>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
@@ -58,7 +58,7 @@
     </div>
     <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       <div v-for="c in items" :key="c.teachingClassId" class="card overflow-hidden hover:shadow-md transition flex flex-col">
-        <div class="h-24 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
+        <div class="h-24 bg-gradient-to-r from-[#20b7a4] to-[#3b82c4] flex items-start justify-between p-3">
           <span class="tag bg-white/85 text-slate-700">{{ courseTypeLabel(c.courseType) }}</span>
           <span class="tag" :class="c.status === '进行中' ? 'bg-white/90 text-brand-700' : 'bg-white/70 text-slate-600'">
             {{ c.status }}
