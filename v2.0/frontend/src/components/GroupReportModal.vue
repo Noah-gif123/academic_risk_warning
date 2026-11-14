@@ -1,31 +1,13 @@
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="report-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-sm p-4 overflow-hidden"
-         @click.self="close">
-      <div class="report-card bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-        <!-- 固定头部 -->
-        <div class="report-head shrink-0 flex items-start justify-between gap-3 px-5 py-3 border-b border-slate-100 bg-white/95">
-          <div class="min-w-0">
-            <h2 class="font-semibold text-slate-800 truncate">{{ title || '群体学情报告' }}</h2>
-            <p class="text-xs text-slate-400 mt-0.5">
-              {{ scopeLabel }}
-              <span v-if="report" class="ml-2 px-1.5 py-0.5 rounded"
-                    :class="report.source === 'TEMPLATE' ? 'bg-slate-100 text-slate-500' : 'bg-brand-50 text-brand-600'">
-                {{ sourceLabel }}
-              </span>
-            </p>
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button v-if="report" class="btn-ghost text-sm" @click="exportPdf">导出 PDF</button>
-            <button class="btn-ghost text-sm" :disabled="busy" @click="generate">
-              {{ busy ? '生成中…' : (report ? '重新生成' : '生成报告') }}
-            </button>
-            <button class="btn-ghost text-sm" @click="close">关闭</button>
-          </div>
-        </div>
+  <ReportModalShell :open="open" :title="title || '群体学情报告'" :subtitle="scopeLabel" @close="close">
+    <template #actions>
+      <button v-if="report" class="btn-ghost text-sm" @click="exportPdf">导出 PDF</button>
+      <button class="btn-ghost text-sm" :disabled="busy" @click="generate">
+        {{ busy ? '生成中…' : (report ? '重新生成' : '生成报告') }}
+      </button>
+    </template>
+    <div class="report-body space-y-4">
 
-        <!-- 报告内容：只有这里滚动 -->
-        <div class="report-body px-5 py-4 space-y-4 overflow-y-auto">
           <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
 
           <div v-if="!report && !busy" class="text-sm text-slate-400 py-12 text-center">
@@ -110,15 +92,14 @@
               生成时间 {{ fmt(report.createTime) }} ｜ 报告里的数字均来自系统判定与成绩数据，可逐项对账；PDF 会保留本页脚。
             </p>
           </template>
-        </div>
-      </div>
     </div>
-  </Teleport>
+  </ReportModalShell>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { groupReportApi } from '../api/ai'
+import ReportModalShell from './ReportModalShell.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
