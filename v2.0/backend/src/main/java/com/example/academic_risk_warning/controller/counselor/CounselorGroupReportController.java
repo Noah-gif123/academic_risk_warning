@@ -6,6 +6,10 @@ import com.example.academic_risk_warning.security.LoginUser;
 import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
 import com.example.academic_risk_warning.service.ai.GroupReportService;
+import com.example.academic_risk_warning.service.ai.ReportPdfService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import com.example.academic_risk_warning.vo.ai.GroupReportVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +34,7 @@ import java.util.List;
 public class CounselorGroupReportController {
 
     private final GroupReportService groupReportService;
+    private final ReportPdfService pdfService;
 
     private Long me() {
         LoginUser user = UserContext.require();
@@ -50,6 +55,16 @@ public class CounselorGroupReportController {
     public Result<GroupReportVO> latest(@PathVariable Long adminClassId) {
         groupReportService.assertCounselorOwns(adminClassId, me());
         return Result.ok(groupReportService.latest("ADMIN_CLASS", adminClassId));
+    }
+
+    @GetMapping("/admin-class/{adminClassId}/pdf")
+    public ResponseEntity<byte[]> pdf(@PathVariable Long adminClassId) {
+        groupReportService.assertCounselorOwns(adminClassId, me());
+        GroupReportVO r = groupReportService.latest("ADMIN_CLASS", adminClassId);
+        if (r == null) throw new BizException(404, "暂无班级报告");
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=admin-class-" + adminClassId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF).body(pdfService.renderGroup(r));
     }
 
     @GetMapping("/admin-class/{adminClassId}/history")

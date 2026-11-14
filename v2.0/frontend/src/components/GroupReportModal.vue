@@ -148,7 +148,10 @@ function sectionNo(i) {
   return ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][i] || String(i + 1)
 }
 function close() { emit('close') }
-function exportPdf() { window.print() }
+async function exportPdf() {
+  if (!report.value || !props.targetId) return
+  try { await groupReportApi.pdf(props.scope, props.targetId) } catch (e) { error.value = e?.message || 'PDF 导出失败' }
+}
 
 async function loadLatest() {
   report.value = null
@@ -193,3 +196,4 @@ watch(
   .report-section { break-inside: avoid; }
 }
 </style>
+

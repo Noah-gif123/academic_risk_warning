@@ -20,6 +20,45 @@ import java.util.Map;
 @Service
 public class ReportPdfService {
 
+    public byte[] renderGroup(com.example.academic_risk_warning.vo.ai.GroupReportVO r) {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Document doc = new Document(PageSize.A4, 36, 36, 42, 42);
+            PdfWriter.getInstance(doc, out);
+            doc.open();
+            BaseFont bf = font();
+            Font title = new Font(bf, 20, Font.BOLD, new Color(23, 50, 75));
+            Font h2 = new Font(bf, 13, Font.BOLD, new Color(17, 24, 39));
+            Font body = new Font(bf, 10, Font.NORMAL, new Color(45, 60, 75));
+            Font small = new Font(bf, 8, Font.NORMAL, new Color(120, 135, 150));
+            doc.add(new Paragraph(nz(r.getTitle()) + " · 学情报告", title));
+            doc.add(new Paragraph("报告 #" + r.getId() + " · " + nz(r.getCreateTime()) + " · " + nz(r.getSource()), small));
+            doc.add(Chunk.NEWLINE);
+            doc.add(new Paragraph(nz(r.getSummary()), body));
+            doc.add(new Paragraph("一、报告正文", h2));
+            if (r.getSections() != null) {
+                for (var s : r.getSections()) {
+                    doc.add(new Paragraph(nz(s.getTitle()), new Font(bf, 11, Font.BOLD, new Color(30, 50, 70))));
+                    Paragraph p = new Paragraph(nz(s.getText()), body);
+                    p.setLeading(15);
+                    doc.add(p);
+                }
+            }
+            if (r.getRunSteps() != null && !r.getRunSteps().isEmpty()) {
+                doc.add(new Paragraph("二、生成链路", h2));
+                for (var s : r.getRunSteps()) {
+                    doc.add(new Paragraph(s.getStepNo() + ". " + nz(s.getName()) + " · "
+                            + nz(s.getValidationStatus()) + " · " + (s.getDurationMs() == null ? "—" : s.getDurationMs() + "ms"), small));
+                }
+            }
+            doc.add(Chunk.NEWLINE);
+            doc.add(new Paragraph("由 v3.0 学情预警系统生成 · 数字可回溯到判定与成绩数据", small));
+            doc.close();
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new BizException(500, "群体报告 PDF 生成失败：" + e.getMessage());
+        }
+    }
+
     public byte[] render(StudentReportVO r) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Document doc = new Document(PageSize.A4, 36, 36, 42, 42);

@@ -1,4 +1,4 @@
-﻿import { http, getToken } from './http'
+import { http, getToken } from './http'
 
 /** 教师/辅导员查看学生课程报告（独立 ai_report 快照） */
 export const staffReportApi = {
@@ -43,7 +43,8 @@ const groupPath = (scope, id) => {
 export const groupReportApi = {
   latest: (scope, id) => http.get(`${groupPath(scope, id)}/latest`),
   generate: (scope, id) => http.post(groupPath(scope, id), {}),
-  history: (scope, id, limit = 10) => http.get(`${groupPath(scope, id)}/history?limit=${limit}`)
+  history: (scope, id, limit = 10) => http.get(`${groupPath(scope, id)}/history?limit=${limit}`),
+  pdf: (scope, id) => http.downloadWithPicker(`${groupPath(scope, id)}/pdf`, `report-${scope}-${id}.pdf`)
 }
 /**
  * 预警解释卡（M9）
@@ -139,5 +140,6 @@ export const qaSessionApi = {
   messages: (id) => http.get(`/student/ai/sessions/${id}/messages`),
   remove: (id) => http.delete(`/student/ai/sessions/${id}`)
 }
+
 
 

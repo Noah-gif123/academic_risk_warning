@@ -6,6 +6,10 @@ import com.example.academic_risk_warning.security.LoginUser;
 import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
 import com.example.academic_risk_warning.service.ai.GroupReportService;
+import com.example.academic_risk_warning.service.ai.ReportPdfService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import com.example.academic_risk_warning.vo.ai.GroupReportVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +34,7 @@ import java.util.List;
 public class TeacherGroupReportController {
 
     private final GroupReportService groupReportService;
+    private final ReportPdfService pdfService;
 
     private Long me() {
         LoginUser user = UserContext.require();
@@ -55,6 +60,14 @@ public class TeacherGroupReportController {
     }
 
     /** 历史列表 */
+    @GetMapping("/class/{teachingClassId}/pdf")
+    public ResponseEntity<byte[]> pdf(@PathVariable Long teachingClassId) {
+        groupReportService.assertTeacherOwns(teachingClassId, me());
+        GroupReportVO r = groupReportService.latest("CLASS", teachingClassId);
+        if (r == null) throw new BizException(404, "暂无班级报告");
+        return pdfResponse(pdfService.renderGroup(r), "class-" + teachingClassId + ".pdf");
+    }
+
     @GetMapping("/class/{teachingClassId}/history")
     public Result<List<GroupReportVO>> history(@PathVariable Long teachingClassId,
                                                @RequestParam(defaultValue = "10") int limit) {
@@ -77,10 +90,23 @@ public class TeacherGroupReportController {
         return Result.ok(groupReportService.latest("OFFERING", offeringId));
     }
 
+    @GetMapping("/offering/{offeringId}/pdf")
+    public ResponseEntity<byte[]> pdfOffering(@PathVariable Long offeringId) {
+        groupReportService.assertTeacherOwnsOffering(offeringId, me());
+        GroupReportVO r = groupReportService.latest("OFFERING", offeringId);
+        if (r == null) throw new BizException(404, "暂无课程报告");
+        return pdfResponse(pdfService.renderGroup(r), "offering-" + offeringId + ".pdf");
+    }
+
     @GetMapping("/offering/{offeringId}/history")
     public Result<List<GroupReportVO>> historyOffering(@PathVariable Long offeringId,
                                                        @RequestParam(defaultValue = "10") int limit) {
         groupReportService.assertTeacherOwnsOffering(offeringId, me());
         return Result.ok(groupReportService.list("OFFERING", offeringId, Math.min(limit, 50)));
+    }
+
+    private ResponseEntity<byte[]> pdfResponse(byte[] bytes, String name) {
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + name)
+                .contentType(MediaType.APPLICATION_PDF).body(bytes);
     }
 }
