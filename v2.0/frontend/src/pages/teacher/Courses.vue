@@ -56,9 +56,6 @@
             <button class="text-sm text-brand-600 hover:underline font-medium"
                     @click="$router.push({ path: '/teacher/course/' + c.offeringId })">课程详情 →</button>
             <div class="flex items-center gap-3">
-              <button class="text-sm text-brand-600 hover:underline font-medium" @click="openReport(c)">
-                课程总报告
-              </button>
               <button class="text-sm text-slate-500 hover:underline"
                       @click="$router.push({ path: '/teacher/teaching', query: { teachingClassId: (c.classes && c.classes[0] || {}).teachingClassId, offeringId: c.offeringId } })">
                 教学详情
@@ -69,10 +66,6 @@
       </div>
     </div>
 
-    <GroupReportModal :open="reportOpen" scope="OFFERING" :target-id="reportTarget.id"
-                      :title="reportTarget.title"
-                      @open-student="openStudentFromReport"
-                      @close="reportOpen = false" />
   </div>
 </template>
 
@@ -81,7 +74,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { teacherPortalApi } from '../../api/teacherPortal'
 import { courseTypeLabel } from '../../labels'
-import GroupReportModal from '../../components/GroupReportModal.vue'
 
 const router = useRouter()
 

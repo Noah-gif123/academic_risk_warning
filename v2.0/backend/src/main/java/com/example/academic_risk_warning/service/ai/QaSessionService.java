@@ -64,6 +64,17 @@ public class QaSessionService {
 
     public Long saveExchange(Long studentId, Long sessionId, Long courseId, Long teachingClassId,
                              String question, String answer, Object citations, Long runId) {
+        if (courseId == null && teachingClassId != null) {
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "select o.course_id from teaching_class tc join course_offering o on o.id=tc.offering_id where tc.id=?",
+                    teachingClassId);
+            if (!rows.isEmpty() && rows.get(0).get("course_id") != null) {
+                courseId = ((Number) rows.get(0).get("course_id")).longValue();
+            }
+        }
+        if (courseId == null) {
+            throw new IllegalArgumentException("缺少课程上下文，无法创建答疑会话");
+        }
         if (sessionId == null) {
             Map<String, Object> s = create(studentId, courseId, teachingClassId, question);
             sessionId = ((Number) s.get("id")).longValue();

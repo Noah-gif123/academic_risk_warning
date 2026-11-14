@@ -1,7 +1,8 @@
 <template>
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-[70] bg-slate-900/45 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden" @click.self="$emit('close')">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div class="bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden"
+           :class="wide ? 'max-w-[1200px] max-h-[92vh]' : 'max-w-4xl max-h-[90vh]'">
         <div class="shrink-0 px-5 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
           <div class="min-w-0">
             <h2 class="font-semibold text-slate-800 truncate">{{ title }}</h2>
@@ -21,6 +22,6 @@
 </template>
 
 <script setup>
-defineProps({ open: Boolean, title: String, subtitle: String })
+defineProps({ open: Boolean, title: String, subtitle: String, wide: Boolean })
 defineEmits(['close'])
 </script>

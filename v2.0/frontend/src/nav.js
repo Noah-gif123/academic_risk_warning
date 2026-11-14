@@ -9,14 +9,14 @@ export const NAV = {
     ] },
     { text: '学情预警', path: '/student/warnings' },
     { text: '学习计划', path: '/student/plan' },
-    { text: '课程答疑', path: '/student/qa' },
-    { text: '我的画像', path: '/student/memory' }
+    { text: '课程答疑', path: '/student/qa' }
   ],
   // 教师端：口径只有「首页 / 预警监控」两项；因新增「全部课程」独立页，补一项「课程」
   TEACHER: [
     { text: '首页', path: '/teacher/home' },
     { text: '课程', path: '/teacher/courses' },
-    { text: '预警监控', path: '/teacher/monitor' }
+    { text: '预警监控', path: '/teacher/monitor' },
+    { text: '学情报告', path: '/teacher/reports' }
   ],
   COUNSELOR: [
     { text: '首页看板', path: '/counselor/home' },

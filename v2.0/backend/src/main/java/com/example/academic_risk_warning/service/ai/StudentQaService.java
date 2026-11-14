@@ -81,6 +81,16 @@ public class StudentQaService {
         out.put("courseId", courseId);
         out.put("courseName", courseName);
 
+        // 寒暄/能力咨询不是课程知识问题，不能拿 RAG 的“无依据拒答”去拦
+        if (isSmallTalk(q)) {
+            String answer = smallTalkAnswer(q, courseName);
+            Map<String, Object> res = finish(out, runId, studentId, courseId, teachingClassId, q,
+                    answer, List.of(), 0, 0d, false, "OK", "TEMPLATE", 0, t0,
+                    "SMALL_TALK", Map.of("reason", "greeting_or_capability"));
+            res.put("smallTalk", true);
+            return res;
+        }
+
         // ---- R：检索（R2 混合检索：全文 + 向量 + RRF；向量没配置时自动只用全文路）
         RetrievalService.Outcome retrieval = retrievalService.retrieve(courseId, q, 4);
         List<Map<String, Object>> hits = RetrievalService.toMaps(retrieval.hits());
@@ -173,6 +183,43 @@ public class StudentQaService {
                 retrieval.effective().name(), retrievalDiag);
         res.put("lexSupport", lexSupport);
         return res;
+    }
+
+    private static boolean isSmallTalk(String q) {
+        String s = q == null ? "" : q.replaceAll("[\\s\\p{Punct}\\u3000-\\u303f\\uff00-\\uffef]", "").toLowerCase();
+        if (s.isEmpty() || s.length() > 30) return false;
+        if (List.of("你好", "您好", "嗨", "hi", "hello", "在吗", "早上好", "下午好", "晚上好",
+                "谢谢", "感谢", "你好呀").contains(s)) {
+            return true;
+        }
+        // 能力/使用咨询是开放问法，不能只靠整句穷举
+        for (String k : List.of("你能回答", "能回答什么", "可以回答什么", "可以问什么", "能问什么",
+                "有什么功能", "有哪些功能", "能做什么", "可以做什么", "能干什么", "你会什么",
+                "你是谁", "怎么用", "如何使用", "使用说明", "帮助", "介绍一下你", "你能帮我")) {
+            if (s.contains(k)) return true;
+        }
+        return false;
+    }
+
+    private static String smallTalkAnswer(String q, String courseName) {
+        String s = q.replaceAll("[\\s\\p{Punct}\\u3000-\\u303f\\uff00-\\uffef]", "");
+        if (s.contains("谢谢") || s.contains("感谢")) {
+            return "不客气。还有课程知识点、作业要求或考试范围的问题，可以继续问我。";
+        }
+        if (s.contains("你能回答") || s.contains("能回答什么") || s.contains("可以回答什么")
+                || s.contains("可以问什么") || s.contains("能问什么") || s.contains("有什么功能")
+                || s.contains("有哪些功能") || s.contains("能做什么") || s.contains("可以做什么")
+                || s.contains("能干什么") || s.contains("你会什么") || s.contains("你是谁")
+                || s.contains("怎么用") || s.contains("如何使用") || s.contains("使用说明")
+                || s.contains("帮助") || s.contains("介绍一下你") || s.contains("你能帮我")) {
+            return "我是《" + courseName + "》的课程答疑助手。你可以直接问：\n"
+                    + "1. 课程知识点、公式或概念；\n"
+                    + "2. 作业要求、提交方式和截止时间；\n"
+                    + "3. 考试范围、成绩构成和复习重点；\n"
+                    + "4. 课程资料在哪一节。\n"
+                    + "我只依据本课程资料回答，并尽量给出处；资料不足时会明确说明。";
+        }
+        return "你好，我是《" + courseName + "》的课程答疑助手。你可以直接问课程知识点、作业要求、考试范围或资料位置，我会依据课程资料回答。";
     }
 
     /**

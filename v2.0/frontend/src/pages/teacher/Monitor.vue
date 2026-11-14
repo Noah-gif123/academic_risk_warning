@@ -18,19 +18,8 @@
         <button class="btn-primary text-sm" :disabled="evaluating" @click="reevaluate">
           {{ evaluating ? '判定中…' : '重新判定' }}
         </button>
-        <button class="btn-ghost text-sm" :disabled="!filters.teachingClassId" @click="openClassReport">
-          班级报告
-        </button>
       </div>
     </div>
-
-    <GroupReportModal
-      :open="reportOpen"
-      scope="CLASS"
-      :target-id="reportTargetId"
-      :title="reportTitle"
-      @open-student="focusStudentFromReport"
-      @close="reportOpen = false" />
 
     <StudentReportModal :open="studentReportOpen" :student="studentReportStudent" :courses="studentReportCourses"
                         mode="teacher" @close="studentReportOpen = false" />
@@ -352,7 +341,6 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import GroupReportModal from '../../components/GroupReportModal.vue'
 import AlertExplainCard from '../../components/AlertExplainCard.vue'
 import StudentReportModal from '../../components/StudentReportModal.vue'
 import { teacherAlertApi, riskEngineApi } from '../../api/alert'

@@ -8,7 +8,6 @@ const routes = [
 
   { path: '/student', component: () => import('../layouts/PortLayout.vue'), props: { role: 'STUDENT' }, children: [
     { path: 'home', component: () => import('../pages/student/Home.vue'), meta: { title: '首页' } },
-    { path: 'memory', component: () => import('../pages/student/Memory.vue'), meta: { title: '我的画像' } },
     { path: 'notifications', component: () => import('../pages/NotificationCenter.vue'), meta: { title: '消息中心' } },
     { path: 'courses', component: () => import('../pages/student/Courses.vue'), meta: { title: '课程学习' } },
     { path: 'course/:teachingClassId', component: () => import('../pages/student/CourseDetail.vue'), meta: { title: '课程详情' } },
@@ -39,7 +38,8 @@ const routes = [
     { path: 'courses', component: () => import('../pages/teacher/Courses.vue'), meta: { title: '全部课程' } },
     { path: 'course/:offeringId', component: () => import('../pages/teacher/CourseDetail.vue'), meta: { title: '课程详情' } },
     { path: 'teaching', component: () => import('../pages/teacher/TeachingDetail.vue'), meta: { title: '教学详情' } },
-    { path: 'monitor', component: () => import('../pages/teacher/Monitor.vue'), meta: { title: '预警监控' } }
+    { path: 'monitor', component: () => import('../pages/teacher/Monitor.vue'), meta: { title: '预警监控' } },
+    { path: 'reports', component: () => import('../pages/teacher/TeacherReports.vue'), meta: { title: '学情报告' } }
   ] },
 
   { path: '/counselor', component: () => import('../layouts/PortLayout.vue'), props: { role: 'COUNSELOR' }, children: [

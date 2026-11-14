@@ -5,6 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 学生端 · 我的学情预警（第二阶段第 4 步）。
@@ -55,6 +56,15 @@ public class StudentWarningVO {
         private String courseType;
         private String classCode;
         private String teacherName;
+        /** 学分、课型难度因子（教务配置） */
+        private BigDecimal credit;
+        private String difficultyFactorCode;
+        /** 最近作业完成情况（paper 已发布 + submission 已交） */
+        private Integer homeworkExpected;
+        private Integer homeworkSubmitted;
+        private BigDecimal homeworkRate;
+        /** 近期教师布置的截止任务 */
+        private List<Map<String, Object>> upcomingTasks = new java.util.ArrayList<>();
 
         private String level;
         private BigDecimal riskScore;

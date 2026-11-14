@@ -90,9 +90,15 @@ public class ReportComposer {
         sections.add(new Section("你的强项", strongText(f)));
         sections.add(new Section("需要补的地方", weakText(f)));
         sections.add(new Section("学习投入", investText(f)));
-        sections.add(new Section("下一步做什么", "按下面的动作清单做，两周后再看一次这份报告。"));
+        List<Action> acts = actions(f);
+        StringBuilder next = new StringBuilder();
+        for (int i = 0; i < Math.min(4, acts.size()); i++) {
+            if (i > 0) next.append("；");
+            next.append(i + 1).append("）").append(acts.get(i).getLabel());
+        }
+        sections.add(new Section("下一步做什么", next + "。两周后再看一次这份报告。"));
         c.setSections(sections);
-        c.setActions(actions(f));
+        c.setActions(acts);
         return c;
     }
 
@@ -655,6 +661,36 @@ public class ReportComposer {
     // ================================================================ 动作与工具
     private List<Action> actions(ReportFact f) {
         List<Action> list = new ArrayList<>();
+        int absent = f.getAbsentCount() == null ? 0 : f.getAbsentCount();
+        int allowed = f.getAllowedAbsent() == null ? 0 : f.getAllowedAbsent();
+        if (Boolean.TRUE.equals(f.getHardFail()) || (allowed > 0 && absent > allowed)) {
+            Map<String, Object> check = new LinkedHashMap<>();
+            check.put("teachingClassId", f.getTeachingClassId());
+            check.put("teacherName", f.getTeacherName());
+            check.put("focus", "ATTENDANCE");
+            list.add(new Action("ATTENDANCE_CHECK",
+                    "先核对缺课 " + absent + " 次，确认是否已影响期末资格", check));
+            Map<String, Object> repair = new LinkedHashMap<>(check);
+            repair.put("focus", "REPAIR");
+            list.add(new Action("ATTENDANCE_REPAIR",
+                    "本周内找 " + (f.getTeacherName() == null ? "任课教师" : f.getTeacherName()) + " 说明缺课原因并提出补救", repair));
+        }
+        if (f.getFinalExamNeeded() != null && f.getPassScore() != null
+                && f.getFinalExamNeeded().compareTo(java.math.BigDecimal.valueOf(f.getPassScore())) >= 0) {
+            Map<String, Object> exam = new LinkedHashMap<>();
+            exam.put("offeringId", f.getOfferingId());
+            exam.put("teachingClassId", f.getTeachingClassId());
+            exam.put("finalExamNeeded", f.getFinalExamNeeded());
+            list.add(new Action("EXAM_PLAN",
+                    "按期末需考 " + f.getFinalExamNeeded() + " 分制定复习清单", exam));
+        }
+        if (f.getProcessScore() != null && f.getProcessScore().compareTo(java.math.BigDecimal.valueOf(60)) < 0) {
+            Map<String, Object> fill = new LinkedHashMap<>();
+            fill.put("teachingClassId", f.getTeachingClassId());
+            fill.put("processScore", f.getProcessScore());
+            list.add(new Action("HOMEWORK_FILL",
+                    "先补过程分：优先补交未交作业/实验（当前过程分 " + f.getProcessScore() + "）", fill));
+        }
         List<ReportFact.Dim> weak = f.getGroups().stream()
                 .filter(g -> g.getMyRate() != null && g.getClassRate() != null && g.getMyRate().compareTo(g.getClassRate()) < 0)
                 .sorted(Comparator.comparing(ReportFact.Dim::getGap)).limit(2).toList();
@@ -673,6 +709,7 @@ public class ReportComposer {
         Map<String, Object> ask = new LinkedHashMap<>();
         ask.put("offeringId", f.getOfferingId());
         ask.put("teacherName", f.getTeacherName());
+        ask.put("teachingClassId", f.getTeachingClassId());
         list.add(new Action("ASK_TEACHER", "找任课老师答疑", ask));
         return list;
     }

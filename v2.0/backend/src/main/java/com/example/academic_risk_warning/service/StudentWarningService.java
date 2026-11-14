@@ -31,6 +31,7 @@ import com.example.academic_risk_warning.util.JsonObjects;
 import com.example.academic_risk_warning.vo.StudentWarningVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -69,6 +70,7 @@ public class StudentWarningService {
     private final ScoreResultMapper scoreResultMapper;
     private final TermMapper termMapper;
     private final RiskEngineConfigMapper configMapper;
+    private final JdbcTemplate jdbc;
 
     // ============================================================ 概览
     public StudentWarningVO overview(LoginUser user, Long termId) {
@@ -192,6 +194,31 @@ public class StudentWarningService {
         i.setCourseType(c == null ? null : c.getCourseType());
         i.setClassCode(tc == null ? null : tc.getClassCode());
         i.setTeacherName(t == null ? null : t.getTeacherName());
+        if (c != null) {
+            i.setCredit(c.getCredit());
+            i.setDifficultyFactorCode(c.getDifficultyFactorCode());
+        }
+        try {
+            Integer expected = jdbc.queryForObject(
+                    "select count(*) from paper where teaching_class_id=? and status <> 'DRAFT'",
+                    Integer.class, e.getTeachingClassId());
+            Integer submitted = jdbc.queryForObject("""
+                    select count(distinct s.paper_id) from submission s
+                    where s.enrollment_id=? and s.submit_status in ('SUBMITTED','MARKED','GRADED')
+                    """, Integer.class, e.getId());
+            int exp = expected == null ? 0 : expected;
+            int sub = submitted == null ? 0 : submitted;
+            i.setHomeworkExpected(exp);
+            i.setHomeworkSubmitted(sub);
+            i.setHomeworkRate(exp == 0 ? null : BigDecimal.valueOf(sub * 100.0 / exp).setScale(1, java.math.RoundingMode.HALF_UP));
+            i.setUpcomingTasks(jdbc.queryForList("""
+                    select paper_name name, paper_type type, end_time endTime
+                    from paper where teaching_class_id=? and status='PUBLISHED' and end_time >= now()
+                    order by end_time asc limit 3
+                    """, e.getTeachingClassId()));
+        } catch (Exception ignored) {
+            // 课程数据不完整时不影响预警主体
+        }
 
         String level = s != null && s.getRiskLevel() != null ? s.getRiskLevel()
                 : (a != null && a.getAlertLevel() != null ? a.getAlertLevel() : "GREEN");
