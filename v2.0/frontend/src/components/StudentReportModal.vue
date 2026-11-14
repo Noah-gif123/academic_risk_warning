@@ -163,7 +163,15 @@ async function loadReports() {
 async function toggleReport(c) {
   const r = courseReport(c)
   if (r) {
-    activeReport.value = activeReport.value?.id === r.id ? null : r
+    if (activeReport.value?.id === r.id) {
+      activeReport.value = null
+      return
+    }
+    try {
+      activeReport.value = await reportApi.detail(r.id)
+    } catch (e) {
+      reportMessage.value = e?.message || '报告详情读取失败'
+    }
     return
   }
   try {
