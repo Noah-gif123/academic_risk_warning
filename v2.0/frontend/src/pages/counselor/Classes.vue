@@ -1,15 +1,21 @@
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">班级管理</h1>
+      <h1>班级管理</h1>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
-    <p class="text-xs text-slate-400">按行政班查看挂科率与预警分布；退课与休学学生不计入比例。</p>
+    <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <p class="text-[11px] text-slate-400">名下行政班</p>
+        <p class="text-2xl font-semibold text-[#17324b] mt-1">{{ classes.length }} <span class="text-xs font-normal text-slate-400">个</span></p>
+      </div>
+      <p class="text-xs text-slate-400 max-w-xl leading-6">按行政班查看挂科率与预警分布；退课与休学学生不计入比例。点击班级卡片切换名单，班级报告按当前行政班生成。</p>
+    </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div v-for="c in classes" :key="c.adminClassId" class="card p-4 space-y-2 cursor-pointer"
-           :class="adminClassId === c.adminClassId ? 'ring-2 ring-brand-200' : ''"
+           :class="adminClassId === c.adminClassId ? 'ring-2 ring-[#9fe3d8] bg-[#fbfefd]' : ''"
            @click="pick(c.adminClassId)">
         <div class="flex items-center justify-between">
           <h2 class="font-medium text-slate-800">{{ classLabel(c) }}</h2>
@@ -40,6 +46,7 @@
           <button class="btn-ghost text-sm" @click="openReport">班级报告</button>
         </div>
       </div>
+      <div class="overflow-x-auto border border-[#e6edf5] rounded-xl">
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
           <tr>
@@ -65,6 +72,7 @@
           <tr v-if="!shownStudents.length"><td colspan="8" class="py-6 text-center text-slate-400">没有学生</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <GroupReportModal
