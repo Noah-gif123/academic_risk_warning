@@ -12,7 +12,7 @@ let seq=0
 function send(ws,method,params={}){return new Promise((res,rej)=>{const id=++seq;const on=e=>{const m=JSON.parse(e.data);if(m.id===id){ws.removeEventListener('message',on);m.error?rej(new Error(JSON.stringify(m.error))):res(m.result)}};ws.addEventListener('message',on);ws.send(JSON.stringify({id,method,params}))})}
 const jobs={
  STUDENT:[['memory','/student/memory'],['course-detail','/student/course/201']],
- TEACHER:[['attendance','/teacher/attendance?teachingClassId=201'],['scores','/teacher/scores?teachingClassId=201'],['teaching','/teacher/teaching?teachingClassId=201&offeringId=1'],['class-access','/teacher/class-access'],['score-scheme','/teacher/score-scheme?teachingClassId=201']],
+ TEACHER:[['attendance','/teacher/attendance?teachingClassId=201'],['scores','/teacher/scores?teachingClassId=201'],['teaching','/teacher/teaching?teachingClassId=201&offeringId=1'],['class-access','/teacher/class-access'],['score-scheme','/teacher/score-scheme?teachingClassId=201'],['papers','/teacher/papers?teachingClassId=201&offeringId=1'],['projects','/teacher/projects?teachingClassId=201&offeringId=1'],['course-content','/teacher/course-content?teachingClassId=201&offeringId=1']],
  COUNSELOR:[['profile','/counselor/profile'],['questionnaires','/counselor/questionnaires'],['notices','/counselor/notices']]
 }
 const users={STUDENT:'20250001',TEACHER:'1001',COUNSELOR:'C001'}
