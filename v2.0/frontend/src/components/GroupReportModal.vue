@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="open" class="report-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 overflow-hidden"
+    <div v-if="open" class="report-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-sm p-4 overflow-hidden"
          @click.self="close">
       <div class="report-card bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         <!-- 固定头部 -->
