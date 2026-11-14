@@ -44,7 +44,7 @@ public class StudentReportService {
     private static final String LIST_SQL = """
             select r.id, r.enrollment_id, r.teaching_class_id, r.offering_id, r.course_id, r.term_id,
                    r.report_type, r.scope, r.risk_level, r.total_score, r.summary,
-                   r.content_json, r.metrics_json, r.source, r.read_time, r.create_time,
+                   r.content_json, r.metrics_json, r.fact_json, r.source, r.read_time, r.create_time,
                    r.run_id, r.report_version, r.stale, r.stale_reason,
                    c.course_name, tc.class_name, t.term_name, te.teacher_name
             from ai_report r
@@ -482,6 +482,7 @@ public class StudentReportService {
         vo.setStale(stale instanceof Boolean b ? b : (stale instanceof Number n && n.intValue() != 0));
         vo.setStaleReason(asString(r.get("stale_reason")));
         vo.setMetrics(parseMetrics(asString(r.get("metrics_json"))));
+        vo.setFact(parseMetrics(asString(r.get("fact_json"))));
         parseContent(asString(r.get("content_json")), vo);
         return vo;
     }

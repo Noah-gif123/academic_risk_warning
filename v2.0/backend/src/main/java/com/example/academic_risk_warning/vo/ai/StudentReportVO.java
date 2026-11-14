@@ -33,6 +33,8 @@ public class StudentReportVO {
     private String createTime;
     /** 六维指标快照（学生值 / 班级均值 / 口径） */
     private Map<String, Object> metrics = new java.util.LinkedHashMap<>();
+    /** 报告事实包：趋势、考核项、排名、置信度、考勤等完整明细 */
+    private Map<String, Object> fact = new java.util.LinkedHashMap<>();
     private Long runId;
     private Integer reportVersion;
     private Boolean stale;

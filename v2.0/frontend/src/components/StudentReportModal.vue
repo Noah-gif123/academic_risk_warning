@@ -37,7 +37,7 @@
             <div class="p-5 space-y-4">
               <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-[#f7fbfd] p-4 flex items-center gap-5">
                 <div><p class="text-4xl font-semibold" :class="riskColor">{{ num(activeReport.totalScore ?? activeCourse?.riskScore) }}</p><p class="text-[10px] text-slate-400 mt-1">课程风险分 / 100</p></div>
-                <div class="flex-1 text-sm text-slate-600 leading-6"><span class="tag" :class="riskTagClass">{{ riskLevelText }}</span><br>{{ activeReport.summary }}</div>
+                <div class="flex-1 text-sm text-slate-600 leading-6"><span class="tag" :class="riskTagClass">{{ riskLevelText }}</span><br>{{ activeReport.summary }}<br><span class="text-[11px] text-slate-400">有效课次 {{ fact.effectiveSessions ?? '—' }} · 置信度 {{ fact.confidenceLevel ?? '—' }}<span v-if="fact.classRank"> · 班内排名 {{ fact.classRank }} / {{ fact.classSize }}</span></span></div>
               </div>
 
               <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -71,6 +71,38 @@
                   </div>
                 </div>
                 <p v-else class="text-xs text-slate-400">该报告没有六维指标。</p>
+              </div>
+
+              <div v-if="trendRows.length" class="rounded-xl border border-[#e6edf5] p-4">
+                <div class="flex items-center justify-between mb-2"><h3>课程成绩趋势</h3><span class="text-[10px] text-slate-400">最近 {{ trendRows.length }} 次 · 学生 / 班级均分</span></div>
+                <svg viewBox="0 0 620 150" class="w-full h-36">
+                  <line x1="0" y1="130" x2="620" y2="130" stroke="#e6edf5" />
+                  <polyline :points="trendPath(trendRows, 'myRate')" fill="none" stroke="#0f9d8a" stroke-width="2" />
+                  <polyline :points="trendPath(trendRows, 'classRate')" fill="none" stroke="#b9cad9" stroke-width="2" stroke-dasharray="5 4" />
+                  <circle v-for="(p, i) in trendPoints(trendRows, 'myRate')" :key="'tp-'+i" :cx="p.x" :cy="p.y" r="3" fill="#0f9d8a" />
+                </svg>
+                <div class="flex justify-between text-[10px] text-slate-400 mt-1"><span v-for="t in trendRows" :key="'tl-'+t.week">第{{ t.week }}周</span></div>
+              </div>
+
+              <div v-if="assessmentRows.length" class="rounded-xl border border-[#e6edf5] p-4">
+                <div class="flex items-center justify-between mb-2"><h3>考核项对比</h3><span class="text-[10px] text-slate-400">当前得分 / 权重</span></div>
+                <div class="space-y-2">
+                  <div v-for="it in assessmentRows" :key="it.name" class="grid grid-cols-[90px_1fr_70px] gap-2 items-center text-xs">
+                    <span class="text-slate-500 truncate" :title="it.name">{{ it.name }}</span>
+                    <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full bg-[#0f9d8a]" :style="{ width: Math.max(0, Math.min(100, Number(it.rate ?? it.score ?? 0))) + '%' }"></div></div>
+                    <span class="text-right text-slate-600">{{ it.score ?? '—' }} / {{ it.weight ?? '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="pipeline.length" class="rounded-xl border border-[#e6edf5] p-4">
+                <h3 class="mb-2">多智能体研判链路</h3>
+                <div class="flex flex-wrap items-center gap-2 text-[10px]">
+                  <template v-for="(s, i) in pipeline" :key="'pipe-'+i">
+                    <span class="rounded-full border border-[#dbe7f2] bg-[#f7fbfd] px-2 py-1 text-[#3c6f9b]">{{ s.name }} <b class="text-[#0f9d8a]">{{ s.status }}</b></span>
+                    <span v-if="i < pipeline.length - 1" class="text-slate-300">→</span>
+                  </template>
+                </div>
               </div>
 
               <div class="space-y-3">
@@ -175,6 +207,28 @@ const selected = ref(null)
 const reports = ref([])
 const activeReport = ref(null)
 const activeCourse = computed(() => props.courses.find((c) => Number(c.teachingClassId) === Number(activeReport.value?.teachingClassId)) || null)
+const fact = computed(() => activeReport.value?.fact || {})
+const trendRows = computed(() => Array.isArray(fact.value.weeks) ? fact.value.weeks : [])
+const assessmentRows = computed(() => Array.isArray(fact.value.items) ? fact.value.items : [])
+const pipeline = computed(() => {
+  const r = activeReport.value
+  if (!r) return []
+  return [
+    { name: '数据体检', status: fact.value.effectiveSessions ? 'READY' : '—' },
+    { name: '数据分析', status: (r.metrics?.dimensions?.length || 0) + ' 维' },
+    { name: '学情研判', status: r.riskLevel || '—' },
+    { name: 'RAG 证据', status: (r.sections || []).some(s => s.title === '参考依据') ? '已附' : '—' },
+    { name: '报告生成', status: r.source || '—' },
+    { name: '质量校验', status: r.stale ? '需复核' : 'PASS' }
+  ]
+})
+function trendPoints(rows, key) {
+  if (!rows.length) return []
+  return rows.map((r, i) => ({ x: rows.length === 1 ? 300 : 10 + i * 600 / (rows.length - 1), y: 130 - Math.max(0, Math.min(100, Number(r[key] ?? 0))) * 1.2 }))
+}
+function trendPath(rows, key) {
+  return trendPoints(rows, key).map(p => `${p.x},${p.y}`).join(' ')
+}
 const reportMessage = ref('')
 const loadingReports = ref(false)
 const riskCourses = computed(() => props.courses.filter((c) => courseLevel(c) !== '正常'))
