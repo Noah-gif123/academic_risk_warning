@@ -162,12 +162,14 @@
       </div>
     </div>
   </div>
+  <ReportDetailModal :open="!!active" :report="active" @close="active = null" />
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { reportApi } from '../../api/ai'
+import ReportDetailModal from '../../components/ReportDetailModal.vue'
 import { portalApi } from '../../api/portal'
 import { riskLevelBadge, riskLevelLabel } from '../../labels'
 
