@@ -13,7 +13,7 @@
             <!-- 有子项：下拉 -->
             <div v-if="item.children && item.children.length" class="relative shrink-0">
               <button class="px-3 py-1.5 rounded-lg text-sm whitespace-nowrap flex items-center gap-1"
-                      :class="isGroupActive(item) ? 'bg-brand-50 text-brand-600 font-medium' : 'text-slate-600 hover:bg-slate-50'"
+                      :class="isGroupActive(item) ? 'port-nav-active font-medium' : 'port-nav-link'"
                       @click="toggleGroup(item.text)">
                 {{ item.text }}
                 <span class="text-[10px] text-slate-400">▾</span>
@@ -29,7 +29,7 @@
             <router-link v-else
               :to="item.path"
               class="px-3 py-1.5 rounded-lg text-sm whitespace-nowrap shrink-0 port-nav-link"
-              :class="isActive(item.path) ? 'bg-brand-50 text-brand-600 font-medium' : 'text-slate-600 hover:bg-slate-50'">
+              :class="isActive(item.path) ? 'port-nav-active font-medium' : 'port-nav-link'">
               {{ item.text }}
             </router-link>
           </template>
