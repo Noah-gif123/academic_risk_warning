@@ -3,7 +3,7 @@
     <!-- 标题栏 -->
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
-        <h1 class="text-lg font-semibold text-slate-800">预警监控</h1>
+        <h1>预警监控</h1>
         <span class="tag bg-slate-100 text-slate-500">引擎 {{ stats.engineVersion || '—' }}</span>
         <span v-if="stats.lastEvalTime" class="text-xs text-slate-400">最近判定 {{ fmt(stats.lastEvalTime) }}</span>
       </div>
@@ -47,7 +47,7 @@
 
     <!-- 总览 -->
     <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-      <div v-for="c in cards" :key="c.key" class="card p-4">
+      <div v-for="c in cards" :key="c.key" class="card p-4 relative overflow-hidden">
         <p class="text-xs text-slate-400">{{ c.label }}</p>
         <p class="text-2xl font-semibold mt-1" :class="c.color">{{ c.value }}</p>
         <p class="text-xs text-slate-400 mt-1 truncate">{{ c.hint }}</p>
@@ -55,11 +55,18 @@
     </div>
 
     <!-- 名单 -->
-    <div class="card p-4 space-y-3">
+    <div class="card p-5 space-y-4">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h2>预警名单</h2>
+          <p class="text-[11px] text-slate-400 mt-1">共 {{ filteredRows.length }} 条，按当前筛选实时统计</p>
+        </div>
+        <span class="text-[11px] text-slate-400">导出与批量提醒只作用于当前筛选结果</span>
+      </div>
       <div class="flex flex-wrap items-center gap-2">
         <div class="flex items-center gap-1">
           <button v-for="lv in levelTabs" :key="lv.value" class="px-3 py-1.5 rounded-lg text-sm"
-                  :class="filters.level === lv.value ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+                  :class="filters.level === lv.value ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
                   @click="filters.level = lv.value">{{ lv.label }}</button>
         </div>
         <select v-model="filters.status" class="input w-32">
