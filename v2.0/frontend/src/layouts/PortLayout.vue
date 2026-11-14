@@ -72,7 +72,7 @@
       <router-view />
     </main>
 
-    <footer class="text-center text-xs text-slate-400 py-4">学情预警系统 v2.0 · 四端统一入口</footer>
+    <footer class="text-center text-xs text-slate-400 py-4">学情预警系统 v3.0 · 三端统一入口</footer>
 
     <ToastHost />
   </div>
