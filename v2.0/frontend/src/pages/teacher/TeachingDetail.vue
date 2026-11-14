@@ -6,7 +6,7 @@
                 @click="$router.push(offeringId ? { path: '/teacher/course/' + offeringId } : '/teacher/courses')">
           ← 返回{{ offeringId ? '课程详情' : '全部课程' }}
         </button>
-        <h1 class="text-lg font-semibold text-slate-800">教学详情</h1>
+        <h1>教学详情</h1>
         <span class="tag bg-slate-100 text-slate-500">教学班 #{{ teachingClassId }}</span>
       </div>
       <div class="flex items-center gap-2">
@@ -23,7 +23,7 @@
 
     <div class="flex flex-wrap gap-2">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
-              :class="tab === t.key ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
               @click="tab = t.key">{{ t.label }}</button>
     </div>
 

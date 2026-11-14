@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div>
-        <h1 class="text-xl font-semibold text-slate-800">统计看板</h1>
+        <h1>统计看板</h1>
         <p class="text-xs text-slate-400 mt-1">
           数据重算于 {{ meta.materializedAt || '—' }}
           <span v-if="meta.refreshed" class="text-brand-600 ml-1">（因 {{ meta.refreshReason }} 已自动重算）</span>

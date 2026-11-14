@@ -1,13 +1,17 @@
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">通知与回执</h1>
+      <h1>通知与回执</h1>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
-    <p class="text-xs text-slate-400">
-      系统只发**汇总通知**（一次一条，覆盖名下全部行政班），支持标记已读；未读条目左侧有红点。
-    </p>
+    <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <p class="text-[11px] text-slate-400">通知总数 / 未读</p>
+        <p class="text-2xl font-semibold text-[#17324b] mt-1">{{ list.length }} <span class="text-sm font-normal text-red-500">/ {{ unread }}</span></p>
+      </div>
+      <p class="text-xs text-slate-400 max-w-2xl leading-6">系统只发汇总通知，一次覆盖名下全部行政班；支持标记已读，未读条目左侧有红点。</p>
+    </div>
 
     <div class="card p-4">
       <div class="flex items-center justify-between mb-3">
