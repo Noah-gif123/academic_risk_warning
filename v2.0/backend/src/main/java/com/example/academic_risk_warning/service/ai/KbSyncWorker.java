@@ -21,8 +21,15 @@ public class KbSyncWorker {
     @Scheduled(fixedDelay = 60_000, initialDelay = 20_000)
     public void drain() {
         if (!dify.configured()) return;
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "select id, course_id, doc_id, action from ai_kb_sync_outbox where status='PENDING' order by id limit 10");
+        List<Map<String, Object>> rows;
+        try {
+            rows = jdbc.queryForList(
+                    "select id, course_id, doc_id, action from ai_kb_sync_outbox where status='PENDING' order by id limit 10");
+        } catch (Exception e) {
+            // v3 才有的 outbox；误连 v2 库时不要让定时任务每 60 秒刷异常
+            log.debug("[KB-SYNC] 跳过 outbox 消费：{}", e.getMessage());
+            return;
+        }
         for (Map<String, Object> r : rows) {
             long outboxId = ((Number) r.get("id")).longValue();
             long courseId = ((Number) r.get("course_id")).longValue();

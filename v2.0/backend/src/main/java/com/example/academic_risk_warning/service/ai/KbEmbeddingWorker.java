@@ -21,7 +21,8 @@ public class KbEmbeddingWorker {
                 log.info("[KB-EMBED] {}", r);
             }
         } catch (Exception e) {
-            log.warn("[KB-EMBED] worker 失败：{}", e.getMessage());
+            // 误连 v2 库时 ai_kb_embedding_job 不存在，避免每 8 秒刷 warning
+            log.debug("[KB-EMBED] 跳过本轮：{}", e.getMessage());
         }
     }
 }

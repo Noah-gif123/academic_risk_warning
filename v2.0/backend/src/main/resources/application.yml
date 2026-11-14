@@ -1,4 +1,4 @@
-﻿server:
+server:
   port: 8080
   servlet:
     encoding:
@@ -18,7 +18,7 @@ spring:
       - optional:file:./backend/ai.env[.properties]
       - optional:file:./v2.0/backend/ai.env[.properties]
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/study_warning_system_v2?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    url: jdbc:mysql://127.0.0.1:3306/${DB_NAME:study_warning_system_v3}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
