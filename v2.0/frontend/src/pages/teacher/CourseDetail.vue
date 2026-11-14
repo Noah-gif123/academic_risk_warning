@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回首页</button>
-        <h1 class="text-lg font-semibold text-slate-800">{{ card ? card.courseName : '课程详情' }}</h1>
+        <h1>{{ card ? card.courseName : '课程详情' }}</h1>
         <span v-if="card" class="tag bg-slate-100 text-slate-500">{{ card.termName }}</span>
         <span v-if="card" class="tag bg-brand-50 text-brand-600">{{ card.classCount }} 个教学班 · {{ card.studentCount }} 人</span>
       </div>
@@ -12,12 +12,12 @@
 
     <div class="flex flex-wrap gap-2">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
-              :class="tab === t.key ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
               @click="tab = t.key">{{ t.label }}</button>
     </div>
 
     <!-- 教学班级 -->
-    <div class="card p-4" v-if="tab === 'classes'">
+    <div class="card p-5" v-if="tab === 'classes'">
       <h2 class="font-medium text-slate-700 mb-3">教学班级</h2>
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">

@@ -1,13 +1,17 @@
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">干预记录</h1>
+      <h1>干预记录</h1>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
-    <p class="text-xs text-slate-400">
-      干预流程：录入处理 → 14 天或下次评估复评 → 两次仍无改善可上报教务 → 教务处理后回填结果；始终无改善可终止并留痕。
-    </p>
+    <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <p class="text-[11px] text-slate-400">干预记录总数</p>
+        <p class="text-2xl font-semibold text-[#17324b] mt-1">{{ rows.length }}</p>
+      </div>
+      <p class="text-xs text-slate-400 max-w-2xl leading-6">干预流程：录入处理 → 14 天或下次评估复评 → 两次仍无改善可上报教务 → 教务处理后回填结果；始终无改善可终止并留痕。</p>
+    </div>
 
     <div class="card p-4 flex flex-wrap items-end gap-3">
       <label class="text-sm">行政班
@@ -19,7 +23,8 @@
       <label class="text-xs mb-2 text-slate-500">共 {{ rows.length }} 条记录</label>
     </div>
 
-    <div class="card p-4">
+    <div class="card p-5">
+      <div class="overflow-x-auto border border-[#e6edf5] rounded-xl">
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
           <tr>
@@ -54,6 +59,7 @@
           <tr v-if="!rows.length"><td colspan="8" class="py-6 text-center text-slate-400">还没有干预记录</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 </template>
