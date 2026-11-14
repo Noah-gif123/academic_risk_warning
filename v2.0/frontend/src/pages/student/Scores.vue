@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/student/home')">← 返回首页</button>
-        <h1 class="text-lg font-semibold text-slate-800">我的成绩</h1>
+        <h1>我的成绩</h1>
       </div>
       <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
     </div>
@@ -15,7 +15,7 @@
 
     <div v-if="!items.length" class="card p-10 text-center text-slate-400 text-sm">还没有成绩记录。</div>
 
-    <div v-for="c in items" :key="c.teachingClassId" class="card p-4 space-y-3">
+    <div v-for="c in items" :key="c.teachingClassId" class="card p-5 space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 class="font-medium text-slate-800">{{ c.courseName }}</h2>
