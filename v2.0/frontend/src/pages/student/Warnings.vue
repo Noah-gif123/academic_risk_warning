@@ -1,108 +1,123 @@
 <template>
-  <div class="space-y-4">
-    <!-- 标题 -->
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex items-center gap-3 flex-wrap">
-        <h1 class="text-lg font-semibold text-slate-800">学情预警</h1>
-        <span v-if="data.termName" class="tag bg-slate-100 text-slate-500">{{ data.termName }}</span>
-        <span v-if="data.engineVersion" class="text-xs text-slate-400">引擎 {{ data.engineVersion }}</span>
-        <span v-if="data.lastEvalTime" class="text-xs text-slate-400">最近判定 {{ fmt(data.lastEvalTime) }}</span>
+  <div class="space-y-5">
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <h1>学情预警</h1>
+          <span v-if="data.termName" class="tag bg-white text-slate-500 border border-[#e6edf5]">{{ data.termName }}</span>
+          <span v-if="data.engineVersion" class="text-[11px] text-slate-400">引擎 {{ data.engineVersion }}</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-2 max-w-3xl leading-6">
+          结论由考勤与成绩自动判定：缺课是否超限、加权分与扣分共同决定红 / 橙 / 黄分级。有疑问可在详情内提交申诉。
+        </p>
       </div>
       <div class="flex items-center gap-2">
         <button class="btn-ghost text-sm" :disabled="loading" @click="load">{{ loading ? '刷新中…' : '刷新' }}</button>
         <button class="btn-primary text-sm" @click="$router.push('/student/reports')">学习评价</button>
         <button class="btn-ghost text-sm" @click="$router.push('/student/notifications')">消息中心</button>
       </div>
-    </div>
+    </header>
 
     <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
 
-    <p class="text-xs text-slate-400">
-      这里的结论由考勤与成绩自动判定：先看缺课是否超过上限（有效课次 ÷ 3），再结合加权分与扣分给出红 / 橙 / 黄分级。
-      结论有疑问可以在详情里提交申诉，由任课教师核实。
-    </p>
-
-    <!-- 概览 -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div v-for="c in tiles" :key="c.key" class="card p-4">
-        <p class="text-xs text-slate-400">{{ c.label }}</p>
-        <p class="text-2xl font-semibold mt-1" :class="c.color">{{ c.value }}</p>
-        <p class="text-xs text-slate-400 mt-1 truncate">{{ c.hint }}</p>
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div v-for="c in tiles" :key="c.key" class="card p-4 relative overflow-hidden">
+        <span class="absolute left-0 top-0 bottom-0 w-1" :class="c.key === 'red' ? 'bg-red-400' : c.key === 'orange' ? 'bg-amber-400' : c.key === 'yellow' ? 'bg-yellow-400' : 'bg-emerald-400'"></span>
+        <div class="flex items-start justify-between">
+          <p class="text-[11px] text-slate-400">{{ c.label }}</p>
+          <span class="w-2 h-2 rounded-full" :class="c.key === 'red' ? 'bg-red-400' : c.key === 'orange' ? 'bg-amber-400' : c.key === 'yellow' ? 'bg-yellow-400' : 'bg-emerald-400'"></span>
+        </div>
+        <p class="text-[30px] leading-none font-semibold mt-3" :class="c.color">{{ c.value }}</p>
+        <p class="text-[11px] text-slate-400 mt-2 truncate">{{ c.hint }}</p>
       </div>
-    </div>
+    </section>
 
-    <!-- 总体建议 -->
-    <div v-if="data.advice?.length" class="card p-4">
-      <h2 class="font-medium text-slate-700 mb-2">给你的建议</h2>
-      <ul class="space-y-1.5">
-        <li v-for="(a, i) in data.advice" :key="i" class="text-sm text-slate-600 flex gap-2">
-          <span class="text-brand-500">·</span><span>{{ a }}</span>
-        </li>
-      </ul>
-    </div>
-
-    <!-- 课程结论 -->
-    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-      <div v-for="it in data.items" :key="it.enrollmentId" class="card p-4 space-y-2.5">
-        <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0">
-            <p class="font-medium text-slate-800 truncate" :title="it.courseName">{{ it.courseName }}</p>
-            <p class="text-xs text-slate-400 truncate">
-              {{ it.classCode }}<span v-if="it.teacherName"> · {{ it.teacherName }}</span>
-            </p>
-          </div>
-          <span class="tag shrink-0" :class="riskLevelBadge(it.level)">{{ riskLevelLabel(it.level) }}</span>
-        </div>
-
-        <p class="text-sm" :class="textColor(it.level)">{{ it.conclusion }}</p>
-
-        <div class="grid grid-cols-3 gap-2 text-xs text-slate-500">
-          <div>
-            <p class="text-slate-400">缺课 / 上限</p>
-            <p class="text-slate-700 font-medium">{{ it.absentCount ?? 0 }} / {{ it.allowedAbsent ?? '—' }}</p>
-          </div>
-          <div>
-            <p class="text-slate-400">过程分</p>
-            <p class="text-slate-700 font-medium">
-              {{ it.processScore == null ? (it.totalScore == null ? '—' : num(it.totalScore)) : num(it.processScore) }}
-            </p>
-          </div>
-          <div>
-            <p class="text-slate-400">需考 / 还差</p>
-            <p class="font-medium" :class="it.finalUnreachable ? 'text-red-600' : 'text-slate-700'">
-              {{ it.finalUnreachable ? '不可达' : (it.finalExamNeeded == null ? '—' : num(it.finalExamNeeded)) }}
-            </p>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2 pt-0.5">
-          <button class="text-sm text-brand-600 hover:underline" @click="openDetail(it)">查看详情</button>
-          <button class="text-sm text-brand-600 hover:underline" @click="openReport(it)">课程报告</button>
-          <button v-if="canAppeal(it)" class="text-sm text-amber-600 hover:underline" @click="openDetail(it, true)">
-            申诉
-          </button>
-          <span v-if="it.teacherReply" class="tag bg-emerald-50 text-emerald-700 border border-emerald-200">老师已回复</span>
-          <span v-else-if="it.studentResponse" class="tag bg-slate-100 text-slate-500">已申诉·待核实</span>
-          <span v-else-if="it.status === 'CLOSED'" class="tag bg-slate-100 text-slate-500">老师已处理</span>
+    <section v-if="data.advice?.length" class="card p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#0f9d8a]"></span>
+        <h2>给你的建议</h2>
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div v-for="(a, i) in data.advice" :key="i" class="rounded-xl bg-[#f7fbfd] border border-[#eaf1f7] px-4 py-3">
+          <p class="text-[10px] font-semibold text-[#0f9d8a] mb-1">建议 {{ i + 1 }}</p>
+          <p class="text-xs text-slate-600 leading-6">{{ a }}</p>
         </div>
       </div>
+    </section>
 
-      <div v-if="!loading && !data.items?.length" class="card p-8 text-center text-slate-400 md:col-span-2 xl:col-span-3">
-        本学期暂无在修课程，等有考勤与成绩数据后会自动生成学情结论。
+    <section>
+      <div class="flex items-end justify-between mb-3">
+        <div>
+          <h2>课程结论</h2>
+          <p class="text-[11px] text-slate-400 mt-1">共 {{ data.items?.length || 0 }} 门在修课程，按风险等级排列</p>
+        </div>
+        <span class="text-[11px] text-slate-400">数据来自当前学期考勤与成绩</span>
       </div>
-    </div>
 
-    <!-- 判定口径 -->
-    <div class="card p-4">
+      <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <article v-for="it in data.items" :key="it.enrollmentId"
+                 class="card p-4 relative overflow-hidden hover:-translate-y-0.5 transition-transform duration-150">
+          <span class="absolute left-0 top-0 bottom-0 w-1"
+                :class="it.level === 'RED' ? 'bg-red-400' : it.level === 'ORANGE' ? 'bg-amber-400' : it.level === 'YELLOW' ? 'bg-yellow-400' : 'bg-emerald-400'"></span>
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="font-semibold text-[#24435c] truncate" :title="it.courseName">{{ it.courseName }}</p>
+              <p class="text-[11px] text-slate-400 truncate mt-1">
+                {{ it.classCode }}<span v-if="it.teacherName"> · {{ it.teacherName }}</span>
+              </p>
+            </div>
+            <span class="tag shrink-0" :class="riskLevelBadge(it.level)">{{ riskLevelLabel(it.level) }}</span>
+          </div>
+
+          <div class="mt-3 rounded-lg bg-[#f8fbfd] border border-[#eef4f9] px-3 py-2">
+            <p class="text-xs leading-5" :class="textColor(it.level)">{{ it.conclusion }}</p>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 mt-3">
+            <div>
+              <p class="text-[10px] text-slate-400">缺课 / 上限</p>
+              <p class="text-sm font-semibold mt-1" :class="it.hardFail ? 'text-red-600' : 'text-slate-700'">{{ it.absentCount ?? 0 }} / {{ it.allowedAbsent ?? '—' }}</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400">过程分</p>
+              <p class="text-sm font-semibold text-slate-700 mt-1">
+                {{ it.processScore == null ? (it.totalScore == null ? '—' : num(it.totalScore)) : num(it.processScore) }}
+              </p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400">需考 / 还差</p>
+              <p class="text-sm font-semibold mt-1" :class="it.finalUnreachable ? 'text-red-600' : 'text-slate-700'">
+                {{ it.finalUnreachable ? '不可达' : (it.finalExamNeeded == null ? '—' : num(it.finalExamNeeded)) }}
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 mt-4 pt-3 border-t border-[#eef4f9] flex-wrap">
+            <button class="text-xs font-medium text-[#0f9d8a] hover:underline" @click="openDetail(it)">查看详情</button>
+            <button class="text-xs font-medium text-[#3c6f9b] hover:underline" @click="openReport(it)">课程报告</button>
+            <button v-if="canAppeal(it)" class="text-xs font-medium text-amber-600 hover:underline" @click="openDetail(it, true)">申诉</button>
+            <span v-if="it.teacherReply" class="tag bg-emerald-50 text-emerald-700 border border-emerald-200">老师已回复</span>
+            <span v-else-if="it.studentResponse" class="tag bg-amber-50 text-amber-700 border border-amber-200">已申诉·待核实</span>
+            <span v-else-if="it.status === 'CLOSED'" class="tag bg-slate-100 text-slate-500">老师已处理</span>
+          </div>
+        </article>
+
+        <div v-if="!loading && !data.items?.length" class="card p-10 text-center text-slate-400 md:col-span-2 xl:col-span-3">
+          本学期暂无在修课程，等有考勤与成绩数据后会自动生成学情结论。
+        </div>
+      </div>
+    </section>
+
+    <section class="card p-4">
       <details>
-        <summary class="cursor-pointer text-sm font-medium text-slate-700">判定口径（怎么算出这个结论的）</summary>
-        <ul class="mt-2 space-y-1.5">
+        <summary class="cursor-pointer">判定口径（怎么算出这个结论的）</summary>
+        <ul class="mt-3 space-y-2">
           <li v-for="(g, i) in data.guidelines" :key="i" class="text-xs text-slate-500 flex gap-2">
             <span class="text-slate-300">{{ i + 1 }}.</span><span>{{ g }}</span>
           </li>
         </ul>
       </details>
-    </div>
+    </section>
 
     <!-- 详情抽屉 -->
     <div v-if="detail" class="fixed inset-0 z-40 bg-slate-900/30 flex justify-end" @click.self="detail = null">
