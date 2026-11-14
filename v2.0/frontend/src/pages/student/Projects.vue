@@ -3,22 +3,26 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/student/home')">← 返回首页</button>
-        <h1 class="">我的项目</h1>
+        <h1>我的项目</h1>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
-    <p class="text-xs text-slate-400">
-      项目提交以文件为主（Word / PDF / 代码 / PPT / 压缩包 / 仓库链接），逾期不允许补交。
-      团队项目由组长提交，贡献表也只能由组长提交一次，提交后不可修改。
-    </p>
+    <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <p class="text-[11px] text-slate-400">项目总数</p>
+        <p class="text-2xl font-semibold text-[#17324b] mt-1">{{ items.length }}</p>
+      </div>
+      <p class="text-xs text-slate-400 max-w-2xl leading-6">项目提交以文件为主（Word / PDF / 代码 / PPT / 压缩包 / 仓库链接），逾期不允许补交。团队项目由组长提交，贡献表只能由组长提交一次，提交后不可修改。</p>
+    </div>
 
     <div v-if="!items.length" class="card p-10 text-center text-slate-400 text-sm">
       暂时没有项目。老师发布后这里会出现卡片。
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      <div v-for="p in items" :key="p.id" class="card p-4 space-y-2">
+      <article v-for="p in items" :key="p.id" class="card p-4 relative overflow-hidden hover:-translate-y-0.5 transition-transform">
+        <span class="absolute left-0 top-0 bottom-0 w-1" :class="p.isTeam === 1 ? 'bg-[#20b7a4]' : 'bg-[#7aa7c7]'"></span>
         <div class="flex items-start justify-between gap-2">
           <h3 class="font-medium text-slate-800">{{ p.projectName }}</h3>
           <span class="tag" :class="p.isTeam === 1 ? 'bg-brand-50 text-brand-600' : 'bg-slate-100 text-slate-500'">
@@ -30,12 +34,12 @@
         <p class="text-xs" :class="lineClass(p)">
           {{ statusLine(p) }}
         </p>
-        <button class="btn-primary text-xs mt-1" @click="open(p)">进入项目</button>
-      </div>
+        <button class="btn-primary text-xs mt-3" @click="open(p)">进入项目</button>
+      </article>
     </div>
 
     <!-- 详情 -->
-    <div class="card p-4 space-y-4" v-if="active">
+    <div class="card p-5 space-y-4" v-if="active">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <h2 class="font-medium text-slate-700">{{ active.projectName }}</h2>
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="active = null">收起</button>
