@@ -2,21 +2,26 @@
   <div class="space-y-4">
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3">
-        <h1 class="">问卷调查</h1>
+        <h1>问卷调查</h1>
         <span class="tag bg-slate-100 text-slate-500">匿名问卷 · 评教 / 满意度 / 心理健康 / 去向 / 学情</span>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
     </div>
 
-    <p class="text-xs text-slate-400">
-      问卷由导员或教务按行政班发布，<b>匿名作答</b>：系统只记录是否提交，不记录是谁答的。
-    </p>
+    <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex gap-8">
+        <div><p class="text-[11px] text-slate-400">待作答</p><p class="text-2xl font-semibold text-amber-600 mt-1">{{ list.filter(q => q.statusText !== '已完成').length }}</p></div>
+        <div><p class="text-[11px] text-slate-400">已完成</p><p class="text-2xl font-semibold text-emerald-600 mt-1">{{ list.filter(q => q.statusText === '已完成').length }}</p></div>
+      </div>
+      <p class="text-xs text-slate-400 max-w-2xl leading-6">问卷由导员或教务按行政班发布，匿名作答：系统只记录是否提交，不记录是谁答的。</p>
+    </div>
 
     <div v-if="!list.length" class="card p-10 text-center text-slate-400 text-sm">
       当前没有需要你作答的问卷。导员发布后这里会出现。
     </div>
 
-    <div v-for="q in list" :key="q.id" class="card p-4 space-y-2">
+    <div v-for="q in list" :key="q.id" class="card p-4 relative overflow-hidden space-y-2">
+      <span class="absolute left-0 top-0 bottom-0 w-1" :class="q.statusText === '已完成' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 class="font-medium text-slate-800">{{ q.title }}</h2>
@@ -33,7 +38,7 @@
     </div>
 
     <!-- 作答面板 -->
-    <div v-if="current" class="card p-4 space-y-3">
+    <div v-if="current" class="card p-5 space-y-3">
       <div class="flex items-center justify-between">
         <h2 class="font-medium text-slate-700">{{ current.title }}</h2>
         <button class="text-sm text-slate-400 hover:text-slate-600" @click="current = null">收起</button>
@@ -49,7 +54,7 @@
           <label v-for="o in scoreOptions" :key="o.value"
                  class="px-3 py-1.5 rounded-lg border text-sm cursor-pointer"
                  :class="answers[q.itemCode] === o.value
-                   ? 'bg-brand-50 border-brand-400 text-brand-700'
+                   ? 'bg-[#e9f6f2] border-[#20b7a4] text-[#0b7d6e]'
                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'">
             <input type="radio" class="hidden" :value="o.value" v-model.number="answers[q.itemCode]" />
             {{ o.label }}
