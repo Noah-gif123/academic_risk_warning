@@ -1,23 +1,12 @@
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden print:static print:p-0 print:bg-white print:block"
-         @click.self="$emit('close')">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden my-0 print:shadow-none print:rounded-none print:my-0 print:max-w-none print:max-h-none print:overflow-visible">
-        <div class="shrink-0 sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 px-5 py-3 flex items-center justify-between gap-3 print:static print:border-0">
-          <div class="min-w-0">
-            <h2 class="font-semibold text-slate-800">学生报告</h2>
-            <p class="text-xs text-slate-400 mt-0.5">
-              {{ student?.studentName }} · {{ student?.studentNo }} · {{ student?.adminClassName }}
-              <span class="ml-1">｜ {{ mode === 'teacher' ? '教师视角' : (mode === 'student' ? '学生视角' : '辅导员视角') }}</span>
-            </p>
-          </div>
-          <div class="flex items-center gap-2 print:hidden">
-            <button class="btn-ghost text-sm" @click="exportPdf">导出 PDF</button>
-            <button class="text-slate-400 hover:text-slate-600 px-2" title="关闭" @click="$emit('close')">✕</button>
-          </div>
-        </div>
+  <ReportModalShell :open="open" title="学生报告"
+                    :subtitle="`${student?.studentName || ''} · ${student?.studentNo || ''} · ${student?.adminClassName || ''} ｜ ${mode === 'teacher' ? '教师视角' : (mode === 'student' ? '学生视角' : '辅导员视角')}`"
+                    @close="$emit('close')">
+    <template #actions>
+      <button class="btn-ghost text-sm" @click="exportPdf">导出 PDF</button>
+    </template>
+    <div class="space-y-4">
 
-        <div class="p-5 space-y-4 overflow-y-auto print:p-0 print:overflow-visible">
           <p v-if="reportMessage" class="text-xs text-amber-600 print:hidden">{{ reportMessage }}</p>
           <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 flex items-center gap-5">
             <div>
@@ -102,15 +91,14 @@
             学生 / 教师 / 辅导员均读取 ai_report 独立快照；PDF 由服务端 OpenPDF 生成，可选择保存目录。
             报告数字可回溯到 risk_state / 成绩 / 考勤。
           </p>
-        </div>
-      </div>
     </div>
-  </Teleport>
+  </ReportModalShell>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { staffReportApi, reportApi } from '../api/ai'
+import ReportModalShell from './ReportModalShell.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
