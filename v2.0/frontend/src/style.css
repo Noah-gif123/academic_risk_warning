@@ -4,14 +4,41 @@
 
 @layer base {
   html, body, #app { height: 100%; }
-  body { @apply bg-slate-100 text-slate-800; font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif; }
+  body {
+    @apply text-slate-800 antialiased;
+    background: #f3f7fb;
+    font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+  }
 }
 
 @layer components {
-  .card { @apply bg-white rounded-xl shadow-sm border border-slate-200; }
+  .card {
+    @apply bg-white rounded-2xl border border-[#e6edf5];
+    box-shadow: 0 8px 28px rgba(23, 50, 75, .055);
+  }
   .btn { @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition; }
-  .btn-primary { @apply btn bg-brand-500 text-white hover:bg-brand-600; }
-  .btn-ghost { @apply btn border border-slate-300 text-slate-600 hover:bg-slate-50; }
-  .input { @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
+  .btn-primary {
+    @apply btn text-white;
+    background: linear-gradient(135deg, #0f9d8a, #2f7fbe);
+    box-shadow: 0 5px 14px rgba(15, 157, 138, .22);
+  }
+  .btn-primary:hover { filter: brightness(.96); }
+  .btn-ghost { @apply btn border border-[#dbe7f2] bg-white text-[#3c6f9b] hover:bg-[#f3f8fc]; }
+  .input { @apply w-full rounded-lg border border-[#dbe7f2] px-3 py-2 text-sm outline-none focus:border-[#0f9d8a] focus:ring-2 focus:ring-[#d9f3ee]; }
   .tag { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs; }
 }
+
+/* 统一顶部导航：三端共用，不使用侧边栏 */
+.port-header {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(255,255,255,.94);
+  border-bottom: 1px solid #e6edf5;
+  backdrop-filter: blur(12px);
+}
+.port-mark {
+  background: linear-gradient(135deg, #20b7a4, #3b82c4);
+  box-shadow: 0 4px 12px rgba(32,183,164,.25);
+}
+.port-nav-active { background: #e9f6f2 !important; color: #0b7d6e !important; box-shadow: inset 0 0 0 1px #d2eee7; }
+.port-nav-link { color: #607586; }
+.port-nav-link:hover { background: #f2f7fb; color: #1f4e79; }

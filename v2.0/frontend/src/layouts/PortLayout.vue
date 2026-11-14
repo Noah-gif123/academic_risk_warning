@@ -1,9 +1,9 @@
 <template>
   <div class="min-h-full flex flex-col">
-    <header class="bg-white border-b border-slate-200">
-      <div class="max-w-[1280px] mx-auto px-6 h-14 flex items-center gap-8">
+    <header class="port-header">
+      <div class="max-w-[1360px] mx-auto px-7 h-[62px] flex items-center gap-8">
         <div class="flex items-center gap-2">
-          <span class="w-7 h-7 rounded-lg bg-brand-500 text-white text-xs flex items-center justify-center font-bold">学</span>
+          <span class="w-8 h-8 rounded-[9px] port-mark text-white text-xs flex items-center justify-center font-bold">学</span>
           <span class="font-semibold text-slate-800">学情预警系统</span>
           <span class="tag bg-brand-50 text-brand-600">{{ roleLabel }}</span>
         </div>
@@ -28,7 +28,7 @@
             <!-- 普通项 -->
             <router-link v-else
               :to="item.path"
-              class="px-3 py-1.5 rounded-lg text-sm whitespace-nowrap shrink-0"
+              class="px-3 py-1.5 rounded-lg text-sm whitespace-nowrap shrink-0 port-nav-link"
               :class="isActive(item.path) ? 'bg-brand-50 text-brand-600 font-medium' : 'text-slate-600 hover:bg-slate-50'">
               {{ item.text }}
             </router-link>
@@ -68,7 +68,7 @@
       </div>
     </header>
 
-    <main class="flex-1 max-w-[1280px] w-full mx-auto px-6 py-6">
+    <main class="flex-1 max-w-[1360px] w-full mx-auto px-7 py-6">
       <router-view />
     </main>
 
