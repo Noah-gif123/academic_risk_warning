@@ -117,11 +117,37 @@
               </div>
 
               <div v-else-if="chartKind(s.title) === 'courseRisk'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3 space-y-2">
+                <div class="flex justify-between text-[10px] text-slate-400"><span>条形长度 = 课程风险率</span><span>0 — {{ courseRiskMaxRate }}%</span></div>
                 <div v-for="c in courseRiskRows" :key="'cr-'+c.name">
-                  <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-600 truncate">{{ c.name }}</span><span class="text-slate-400">红 {{ c.red }} · 黄 {{ c.yellow }} · 风险率 {{ c.rate }}%</span></div>
+                  <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-600 truncate">{{ c.name }}</span><span class="text-slate-400">风险率 <b class="text-slate-600">{{ c.rate }}%</b> · 红 {{ c.red }} / 黄 {{ c.yellow }}</span></div>
                   <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-red-400 to-amber-400" :style="{ width: c.pct + '%' }"></div></div>
                 </div>
                 <p v-if="!courseRiskRows.length" class="text-[11px] text-slate-400 py-2 text-center">暂无集中风险课程</p>
+              </div>
+
+              <div v-else-if="chartKind(s.title) === 'multiRisk'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-4">
+                <div class="flex items-end justify-around gap-4 h-36 border-b border-[#dbe7f2] pb-1">
+                  <div v-for="b in multiRiskBuckets" :key="'mr-'+b.label" class="flex flex-col items-center justify-end gap-1 flex-1 max-w-[72px]">
+                    <span class="text-[11px] font-semibold text-slate-700">{{ b.value }} 人</span>
+                    <div class="w-full rounded-t-md bg-gradient-to-t from-red-400 to-amber-300" :style="{ height: Math.max(8, b.pct) + 'px' }"></div>
+                  </div>
+                </div>
+                <div class="flex justify-around gap-4 mt-1">
+                  <span v-for="b in multiRiskBuckets" :key="'ml-'+b.label" class="text-[10px] text-slate-500 flex-1 text-center max-w-[72px]">{{ b.label }}</span>
+                </div>
+                <p v-if="!multiRiskBuckets.length" class="text-[11px] text-slate-400 py-4 text-center">没有两门及以上预警学生</p>
+                <p class="text-[10px] text-slate-400 mt-2">按同一名学生被预警的课程门数分组；柱高为人数。</p>
+              </div>
+
+              <div v-else-if="chartKind(s.title) === 'watchRank'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3 space-y-2">
+                <div v-for="(w, i) in watchRows" :key="'wr-'+w.no" class="grid grid-cols-[22px_92px_1fr_86px] gap-2 items-center">
+                  <span class="text-[10px] text-slate-400">{{ i + 1 }}</span>
+                  <span class="text-[10px] text-slate-600 truncate" :title="w.name + ' ' + w.no">{{ w.name }}</span>
+                  <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-amber-300 to-red-400" :style="{ width: w.pct + '%' }"></div></div>
+                  <span class="text-[10px] text-right text-slate-500"><b class="text-slate-700">{{ w.risk }} 门</b> · 最低 {{ num(w.min) }}</span>
+                </div>
+                <p v-if="!watchRows.length" class="text-[11px] text-slate-400 py-4 text-center">暂无重点学生</p>
+                <p class="text-[10px] text-slate-400 mt-2">条形长度 = 预警门数；按预警门数降序、最低总评升序排列，最多展示 8 人。</p>
               </div>
 
               <div v-else-if="chartKind(s.title) === 'classCompare'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3">
@@ -277,13 +303,40 @@ const classCompareRows = computed(() => (fact.value.classes || []).map(c => ({
 })))
 const courseRiskRows = computed(() => {
   const rows = (fact.value.courseRisks || []).slice(0, 6)
-  const max = Math.max(1, ...rows.map(c => Number(c.red || 0) + Number(c.yellow || 0)))
+  const maxRate = Math.max(1, ...rows.map(c => Number(c.failRate || 0)))
   return rows.map(c => ({
     name: c.courseName || '课程',
     red: Number(c.red || 0),
     yellow: Number(c.yellow || 0),
     rate: Number(c.failRate || 0),
-    pct: Math.round((Number(c.red || 0) + Number(c.yellow || 0)) / max * 100)
+    pct: Math.round(Number(c.failRate || 0) / maxRate * 100)
+  }))
+})
+const courseRiskMaxRate = computed(() => Math.max(1, ...(fact.value.courseRisks || []).map(c => Number(c.failRate || 0))))
+const adminStudents = computed(() => (fact.value.multiRiskStudents || []))
+const multiRiskBuckets = computed(() => {
+  const map = new Map()
+  for (const s of adminStudents.value) {
+    const n = Number(s.riskCount || 0)
+    if (n < 2) continue
+    map.set(n, (map.get(n) || 0) + 1)
+  }
+  const rows = [...map.entries()].sort((a, b) => a[0] - b[0]).map(([label, value]) => ({ label: label + ' 门', value }))
+  const max = Math.max(1, ...rows.map(r => r.value))
+  return rows.map(r => ({ ...r, pct: Math.round(r.value / max * 100) }))
+})
+const watchRows = computed(() => {
+  const rows = adminStudents.value.slice().sort((a, b) => {
+    const d = Number(b.riskCount || 0) - Number(a.riskCount || 0)
+    return d !== 0 ? d : Number(a.minScore ?? 999) - Number(b.minScore ?? 999)
+  }).slice(0, 8)
+  const max = Math.max(1, ...rows.map(s => Number(s.riskCount || 0)))
+  return rows.map(s => ({
+    name: s.studentName || '学生',
+    no: s.studentNo || '',
+    risk: Number(s.riskCount || 0),
+    min: s.minScore,
+    pct: Math.round(Number(s.riskCount || 0) / max * 100)
   }))
 })
 const radar = computed(() => {  const f = fact.value
@@ -325,6 +378,8 @@ function chartKind(title) {
   if (t.includes('风险结构')) return 'risk'
   if (t.includes('成绩与考核项')) return 'score'
   if (t.includes('集中风险课程')) return 'courseRisk'
+  if (t.includes('多门预警学生') && report.value?.scope === 'ADMIN_CLASS') return 'multiRisk'
+  if (t.includes('重点关注学生') && report.value?.scope === 'ADMIN_CLASS') return 'watchRank'
   if (t.includes('教学班对比')) return 'classCompare'
   if (t.includes('薄弱点')) return 'breakdown'
   return ''

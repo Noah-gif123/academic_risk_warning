@@ -113,8 +113,7 @@
 
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
         <div v-for="s in topStudents" :key="s.studentId"
-             class="border border-slate-200 rounded-xl p-3 hover:border-brand-300 hover:bg-brand-50/20 transition cursor-pointer"
-             @click="open(s)">
+             class="border border-slate-200 rounded-xl p-3 hover:border-brand-300 hover:bg-brand-50/20 transition">
           <div class="flex items-start justify-between gap-2">
             <div>
               <p class="text-sm font-medium text-slate-800">{{ s.studentName }}
@@ -130,8 +129,10 @@
             <div><p class="text-[10px] text-slate-400">缺课</p><b class="text-sm text-slate-700">{{ s.absentTotal ?? 0 }}</b></div>
             <div><p class="text-[10px] text-slate-400">最低总评</p><b class="text-sm text-slate-700">{{ s.minTotalScore ?? '—' }}</b></div>
           </div>
-          <div class="flex justify-end mt-2">
-            <button class="text-xs text-brand-600 hover:underline" @click.stop="openReport(s)">学期汇总</button>
+          <div class="flex justify-end gap-2 mt-2">
+            <button class="text-xs text-brand-600 hover:underline" @click="openReport(s)">预览</button>
+            <button class="text-xs text-brand-600 hover:underline" @click="downloadReport(s)">下载</button>
+            <button class="text-xs text-slate-500 hover:underline" @click="processStudent(s)">处理</button>
           </div>
         </div>
         <div v-if="!topStudents.length" class="text-sm text-slate-400 py-8 text-center xl:col-span-2">当前筛选下没有风险学生</div>
@@ -164,9 +165,10 @@
               <td class="py-2 text-right">{{ s.absentTotal ?? 0 }}</td>
               <td class="py-2 text-right">{{ s.minTotalScore ?? '—' }}</td>
               <td class="py-2 text-right font-medium">{{ num(s.riskScore) }}</td>
-              <td class="py-2 px-3 text-right">
-                <button class="text-brand-600 hover:underline" @click="open(s)">详情</button>
-                <button class="text-brand-600 hover:underline ml-2" @click="openReport(s)">学期汇总</button>
+              <td class="py-2 px-3 text-right whitespace-nowrap">
+                <button class="text-brand-600 hover:underline" @click="openReport(s)">预览</button>
+                <button class="text-brand-600 hover:underline ml-2" @click="downloadReport(s)">下载</button>
+                <button class="text-slate-500 hover:underline ml-2" @click="processStudent(s)">处理</button>
               </td>
             </tr>
             <tr v-if="!shown.length"><td colspan="9" class="py-6 text-center text-slate-400">当前筛选下没有学生</td></tr>
@@ -175,31 +177,29 @@
       </div>
     </div>
 
-    <StudentDetailPanel v-if="detail" :detail="detail"
-                        @close="detail = null"
-                        @report="openReport"
-                        @refer="refer"
-                        @terminate="terminate"
-                        @saved="reloadDetail" />
-
-    <CounselorStudentReportModal :open="reportOpen" :student="reportDetail" @close="reportOpen = false" />
+    <CounselorStudentReportModal :open="reportOpen" :student="reportDetail" :print-on-open="reportPrint"
+                                @close="reportOpen = false; reportPrint = false" />
+    <CounselorInterventionModal :open="interventionOpen" :student="interventionStudent"
+                               @close="interventionOpen = false" @saved="load" />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { counselorApi } from '../../api/counselor'
-import StudentDetailPanel from './StudentDetailPanel.vue'
 import CounselorStudentReportModal from '../../components/CounselorStudentReportModal.vue'
+import CounselorInterventionModal from '../../components/CounselorInterventionModal.vue'
 
 const classes = ref([])
 const students = ref([])
 const overview = ref(null)
 const adminClassId = ref(0)
 const onlyRisky = ref(true)
-const detail = ref(null)
 const reportOpen = ref(false)
 const reportDetail = ref(null)
+const reportPrint = ref(false)
+const interventionOpen = ref(false)
+const interventionStudent = ref(null)
 const loading = ref(false)
 const message = ref('')
 const ok = ref(true)
@@ -268,33 +268,19 @@ async function load() {
     loading.value = false
   }
 }
-async function open(s) { detail.value = await counselorApi.studentDetail(s.studentId) }
 async function openReport(s) {
   reportDetail.value = await counselorApi.studentDetail(s.studentId)
+  reportPrint.value = false
   reportOpen.value = true
 }
-async function reloadDetail() {
-  if (!detail.value) return
-  detail.value = await counselorApi.studentDetail(detail.value.studentId)
-  await load()
+async function downloadReport(s) {
+  reportDetail.value = await counselorApi.studentDetail(s.studentId)
+  reportPrint.value = true
+  reportOpen.value = true
 }
-async function refer(r) {
-  const note = window.prompt('上报说明（教务可见）：', '两次处理均无改善，请教务协助介入')
-  if (note === null) return
-  try {
-    await counselorApi.refer(r.id, note)
-    toast('已上报教务')
-    await reloadDetail()
-  } catch (e) { toast(e.message, false) }
-}
-async function terminate(r) {
-  const reason = window.prompt('终止原因：', '学生已转专业，停止跟踪')
-  if (reason === null) return
-  try {
-    await counselorApi.terminate(r.id, reason)
-    toast('已终止干预')
-    await reloadDetail()
-  } catch (e) { toast(e.message, false) }
+function processStudent(s) {
+  interventionStudent.value = s
+  interventionOpen.value = true
 }
 
 onMounted(async () => {

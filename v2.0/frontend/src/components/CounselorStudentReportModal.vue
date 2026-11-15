@@ -19,11 +19,12 @@
           <span class="tag" :class="riskTag">{{ riskLabel }}</span>
         </div>
         <p class="text-sm text-slate-600 leading-7 mt-3">{{ summaryText }}</p>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3">
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-3">
           <div class="rounded-lg bg-white border border-[#eef4f9] p-2.5"><p class="text-[10px] text-slate-400">课程</p><b class="text-lg text-slate-700">{{ courses.length }}</b></div>
           <div class="rounded-lg bg-white border border-[#eef4f9] p-2.5"><p class="text-[10px] text-slate-400">风险课程</p><b class="text-lg text-red-600">{{ riskCount }}</b></div>
           <div class="rounded-lg bg-white border border-[#eef4f9] p-2.5"><p class="text-[10px] text-slate-400">硬门槛</p><b class="text-lg text-red-600">{{ hardCount }}</b></div>
           <div class="rounded-lg bg-white border border-[#eef4f9] p-2.5"><p class="text-[10px] text-slate-400">累计缺课</p><b class="text-lg text-slate-700">{{ absentTotal }}</b></div>
+          <div class="rounded-lg bg-white border border-[#eef4f9] p-2.5"><p class="text-[10px] text-slate-400">迟到</p><b class="text-lg text-amber-600">{{ lateTotal }}</b></div>
           <div class="rounded-lg bg-white border border-[#eef4f9] p-2.5"><p class="text-[10px] text-slate-400">平均总评</p><b class="text-lg text-slate-700">{{ avgScore }}</b></div>
         </div>
       </div>
@@ -33,7 +34,7 @@
           <div class="flex justify-between mb-2"><p class="text-xs font-semibold text-[#24435c]">课程风险分布</p><span class="text-[10px] text-slate-400">{{ courses.length }} 门</span></div>
           <div class="flex items-center gap-4">
             <div class="w-24 h-24 rounded-full relative shrink-0" :style="{ background: donutStyle }"><div class="absolute inset-4 rounded-full bg-white"></div><div class="absolute inset-0 flex flex-col items-center justify-center"><b class="text-lg">{{ courses.length }}</b><span class="text-[9px] text-slate-400">课程</span></div></div>
-            <div class="space-y-1.5 text-[11px] flex-1"><div class="flex justify-between"><span class="text-slate-500">红 / 橙</span><b class="text-red-600">{{ riskCount }}</b></div><div class="flex justify-between"><span class="text-slate-500">正常</span><b class="text-emerald-600">{{ normalCount }}</b></div></div>
+            <div class="space-y-1.5 text-[11px] flex-1"><div v-for="s in riskSegments" :key="s.label" class="flex justify-between"><span class="text-slate-500">{{ s.label }}</span><b :style="{ color: s.color }">{{ s.value }}</b></div></div>
           </div>
         </div>
         <div class="rounded-xl border border-[#e6edf5] bg-white p-4 lg:col-span-2">
@@ -49,16 +50,32 @@
       <div class="rounded-xl border border-[#e6edf5] bg-white p-4">
         <div class="flex justify-between mb-2"><h3 class="text-sm font-bold text-[#17324b]">一、学期课程总览</h3><span class="text-[10px] text-slate-400">共 {{ courses.length }} 门</span></div>
         <div class="overflow-x-auto border border-[#eef4f9] rounded-lg">
-          <table><thead><tr><th>课程</th><th>教师</th><th class="text-right">缺课/允许</th><th class="text-right">扣分</th><th class="text-right">加权</th><th class="text-right">总评</th><th>结论</th></tr></thead><tbody>
-            <tr v-for="c in courses" :key="'c-'+c.teachingClassId"><td>{{ c.courseName }}</td><td class="text-slate-500">{{ c.teacherName }}</td><td class="text-right" :class="c.hardFail ? 'text-red-600 font-medium' : ''">{{ c.absentCount ?? 0 }} / {{ c.allowedAbsent ?? 0 }}</td><td class="text-right">{{ c.deductPoints ?? '—' }}</td><td class="text-right">{{ c.weightedScore ?? '—' }}</td><td class="text-right" :class="c.fail ? 'text-red-600 font-medium' : ''">{{ c.totalScore ?? '未定稿' }}</td><td class="text-xs">{{ c.failReasonText || c.riskHint || '—' }}</td></tr>
-            <tr v-if="!courses.length"><td colspan="7" class="py-6 text-center text-slate-400">当前学期没有选课记录</td></tr>
+          <table><thead><tr><th>课程</th><th>教师</th><th class="text-right">缺课/允许</th><th class="text-right">迟到/请假</th><th class="text-right">扣分</th><th class="text-right">加权</th><th class="text-right">总评</th><th>结论</th></tr></thead><tbody>
+            <tr v-for="c in courses" :key="'c-'+c.teachingClassId"><td>{{ c.courseName }}</td><td class="text-slate-500">{{ c.teacherName }}</td><td class="text-right" :class="c.hardFail ? 'text-red-600 font-medium' : ''">{{ c.absentCount ?? 0 }} / {{ c.allowedAbsent ?? 0 }}</td><td class="text-right">{{ c.lateCount ?? 0 }} / {{ c.leaveCount ?? 0 }}</td><td class="text-right">{{ c.deductPoints ?? '—' }}</td><td class="text-right">{{ c.weightedScore ?? '—' }}</td><td class="text-right" :class="c.fail ? 'text-red-600 font-medium' : ''">{{ c.totalScore ?? '未定稿' }}</td><td class="text-xs">{{ c.failReasonText || c.riskHint || '—' }}</td></tr>
+            <tr v-if="!courses.length"><td colspan="8" class="py-6 text-center text-slate-400">当前学期没有选课记录</td></tr>
           </tbody></table>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-[#e6edf5] bg-white p-4">
+        <div class="flex items-center justify-between mb-2"><h3 class="text-sm font-bold text-[#17324b]">二、考勤与学习投入</h3><span class="text-[10px] text-slate-400">当前学期汇总</span></div>
+        <div class="grid md:grid-cols-3 gap-4">
+          <div v-for="a in attendanceRows" :key="'att-'+a.label">
+            <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-500">{{ a.label }}</span><b class="text-slate-700">{{ a.value }} 次</b></div>
+            <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full" :style="{ width: a.value / maxAttendance * 100 + '%', background: a.color }"></div></div>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-3 mt-3 text-[11px] text-slate-500">
+          <span>缺课超限课程 <b class="text-red-600">{{ overLimitCount }}</b></span>
+          <span>分数不合格课程 <b class="text-red-600">{{ failCount }}</b></span>
+          <span>成绩未齐课程 <b class="text-amber-600">{{ incompleteCount }}</b></span>
+          <span>请假合计 <b class="text-slate-700">{{ leaveTotal }}</b> 次</span>
         </div>
       </div>
 
       <div class="grid lg:grid-cols-2 gap-3">
         <div class="rounded-xl border border-[#e6edf5] bg-white p-4">
-          <h3 class="text-sm font-bold text-[#17324b] mb-2">二、重点关注课程</h3>
+          <h3 class="text-sm font-bold text-[#17324b] mb-2">三、重点关注课程</h3>
           <div v-if="focusCourses.length" class="space-y-2">
             <div v-for="c in focusCourses" :key="'f-'+c.teachingClassId" class="rounded-lg border border-[#f3e3e3] bg-[#fffafa] p-2.5">
               <div class="flex justify-between gap-2"><b class="text-xs text-slate-700">{{ c.courseName }}</b><span class="tag bg-red-50 text-red-600">{{ c.riskLevel === 'RED' ? '红灯' : (c.riskLevel === 'ORANGE' ? '橙色' : '黄色') }}</span></div>
@@ -68,7 +85,13 @@
           <p v-else class="text-xs text-slate-400 py-4">当前学期没有风险课程。</p>
         </div>
         <div class="rounded-xl border border-[#e6edf5] bg-white p-4">
-          <h3 class="text-sm font-bold text-[#17324b] mb-2">三、处理记录</h3>
+          <h3 class="text-sm font-bold text-[#17324b] mb-2">四、处理记录与干预效果</h3>
+          <div class="grid grid-cols-4 gap-2 mb-3">
+            <div class="rounded-lg bg-emerald-50 p-2"><p class="text-[10px] text-emerald-700">有效</p><b class="text-lg text-emerald-600">{{ interventionStats.effective }}</b></div>
+            <div class="rounded-lg bg-red-50 p-2"><p class="text-[10px] text-red-600">无效</p><b class="text-lg text-red-600">{{ interventionStats.ineffective }}</b></div>
+            <div class="rounded-lg bg-amber-50 p-2"><p class="text-[10px] text-amber-700">已上报</p><b class="text-lg text-amber-600">{{ interventionStats.referred }}</b></div>
+            <div class="rounded-lg bg-slate-50 p-2"><p class="text-[10px] text-slate-500">待复评</p><b class="text-lg text-slate-700">{{ interventionStats.pending }}</b></div>
+          </div>
           <div v-if="interventions.length" class="space-y-2">
             <div v-for="r in interventions.slice(0, 4)" :key="'i-'+r.id" class="rounded-lg bg-[#f8fbfd] p-2.5"><p class="text-[10px] text-slate-500">{{ fmt(r.createTime) }} · {{ r.actionTypeText }}</p><p class="text-xs text-slate-600 mt-1">{{ r.content }}</p></div>
           </div>
@@ -77,7 +100,7 @@
       </div>
 
       <div class="rounded-xl border border-[#dbe7f2] bg-[#fbfdff] p-4">
-        <h3 class="text-sm font-bold text-[#17324b]">四、辅导员动作清单</h3>
+        <h3 class="text-sm font-bold text-[#17324b]">五、辅导员动作清单</h3>
         <div class="space-y-1.5 mt-2">
           <p v-for="(a, i) in actions" :key="'a-'+i" class="text-xs text-slate-600">□ {{ a }}</p>
         </div>
@@ -97,7 +120,8 @@ import GenerationOverlay from './GenerationOverlay.vue'
 
 const props = defineProps({
   open: Boolean,
-  student: { type: Object, default: () => ({}) }
+  student: { type: Object, default: () => ({}) },
+  printOnOpen: { type: Boolean, default: false }
 })
 const emit = defineEmits(['close'])
 const ready = ref(false)
@@ -125,6 +149,33 @@ const riskCount = computed(() => riskCourses.value.length)
 const hardCount = computed(() => courses.value.filter(c => c.hardFail).length)
 const normalCount = computed(() => courses.value.length - riskCount.value)
 const absentTotal = computed(() => courses.value.reduce((n, c) => n + Number(c.absentCount || 0), 0))
+const lateTotal = computed(() => courses.value.reduce((n, c) => n + Number(c.lateCount || 0), 0))
+const leaveTotal = computed(() => courses.value.reduce((n, c) => n + Number(c.leaveCount || 0), 0))
+const overLimitCount = computed(() => courses.value.filter(c => c.hardFail).length)
+const incompleteCount = computed(() => courses.value.filter(c => c.totalScore == null).length)
+const failCount = computed(() => courses.value.filter(c => c.fail).length)
+const redCount = computed(() => courses.value.filter(c => c.riskLevel === 'RED' || c.hardFail).length)
+const orangeCount = computed(() => courses.value.filter(c => c.riskLevel === 'ORANGE' && !c.hardFail).length)
+const yellowCount = computed(() => courses.value.filter(c => c.riskLevel === 'YELLOW' && !c.hardFail).length)
+const greenCount = computed(() => Math.max(0, courses.value.length - redCount.value - orangeCount.value - yellowCount.value))
+const maxAttendance = computed(() => Math.max(1, absentTotal.value, lateTotal.value, leaveTotal.value))
+const attendanceRows = computed(() => [
+  { label: '缺课', value: absentTotal.value, color: '#ef4444' },
+  { label: '迟到', value: lateTotal.value, color: '#f59e0b' },
+  { label: '请假', value: leaveTotal.value, color: '#7aa7c7' }
+])
+const riskSegments = computed(() => [
+  { label: '红色', value: redCount.value, color: '#ef4444' },
+  { label: '橙色', value: orangeCount.value, color: '#f59e0b' },
+  { label: '黄色', value: yellowCount.value, color: '#eab308' },
+  { label: '正常', value: greenCount.value, color: '#22c55e' }
+])
+const interventionStats = computed(() => ({
+  effective: interventions.value.filter(i => i.effective === 'EFFECTIVE' || i.effectiveText === '有效').length,
+  ineffective: interventions.value.filter(i => i.effective === 'INEFFECTIVE').length,
+  referred: interventions.value.filter(i => i.referStatus === 'REFERRED').length,
+  pending: interventions.value.filter(i => i.effective === 'PENDING').length
+}))
 const avgScore = computed(() => {
   const vals = courses.value.map(c => Number(c.totalScore)).filter(Number.isFinite)
   return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : '—'
@@ -132,11 +183,16 @@ const avgScore = computed(() => {
 const focusCourses = computed(() => riskCourses.value.slice().sort((a, b) => Number(a.totalScore ?? 999) - Number(b.totalScore ?? 999)).slice(0, 4))
 const riskLabel = computed(() => hardCount.value ? '高风险' : riskCount.value ? '中风险' : '正常')
 const riskTag = computed(() => hardCount.value ? 'bg-red-50 text-red-600' : riskCount.value ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600')
-const summaryText = computed(() => `本学期共 ${courses.value.length} 门课程，${riskCount.value} 门存在风险，${hardCount.value} 门触发硬门槛；累计缺课 ${absentTotal.value} 次。`)
+const summaryText = computed(() => `本学期共 ${courses.value.length} 门课程，${riskCount.value} 门存在风险，${hardCount.value} 门触发硬门槛；累计缺课 ${absentTotal.value} 次、迟到 ${lateTotal.value} 次、请假 ${leaveTotal.value} 次；${incompleteCount.value} 门成绩未齐，建议优先处理风险最高的课程。`)
 const donutStyle = computed(() => {
   const total = Math.max(1, courses.value.length)
-  const risk = riskCount.value / total * 100
-  return `conic-gradient(#ef4444 0 ${risk}%, #22c55e ${risk}% 100%)`
+  let at = 0
+  const parts = riskSegments.value.filter(s => s.value > 0).map(s => {
+    const from = at / total * 100
+    at += s.value
+    return `${s.color} ${from}% ${at / total * 100}%`
+  })
+  return parts.length ? `conic-gradient(${parts.join(', ')})` : '#e5e7eb'
 })
 const actions = computed(() => {
   const arr = []
@@ -157,6 +213,6 @@ watch(() => props.open, (v) => {
   generationStep.value = 0
   clearInterval(timer)
   timer = setInterval(() => { if (generationStep.value < 7) generationStep.value++ }, 450)
-  setTimeout(() => { clearInterval(timer); generating.value = false; ready.value = true }, 3200)
+  setTimeout(() => { clearInterval(timer); generating.value = false; ready.value = true; if (props.printOnOpen) setTimeout(() => window.print(), 120) }, 3200)
 })
 </script>

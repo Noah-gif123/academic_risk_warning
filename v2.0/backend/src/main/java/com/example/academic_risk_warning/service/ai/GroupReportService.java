@@ -888,14 +888,8 @@ public class GroupReportService {
         if (f.getMultiRiskStudents().isEmpty()) {
             multi.append("没有学生出现两门及以上课程预警。");
         } else {
-            multi.append("多门预警学生 ").append(f.getMultiRiskStudents().size()).append(" 人：");
-            int i = 1;
-            for (AdminClassFact.Student st : f.getMultiRiskStudents()) {
-                if (i > 10) break;
-                multi.append(i++).append("）").append(st.getStudentName())
-                        .append("（").append(nzf(st.getRiskCount())).append(" 门，")
-                        .append(nz(st.getRiskCourses())).append("）；");
-            }
+            multi.append("多门预警学生 ").append(f.getMultiRiskStudents().size())
+                    .append(" 人；按预警门数分布见下，学生明细见重点关注学生。");
         }
         sections.add(new ReportContent.Section("多门预警学生", multi.toString()));
         sections.add(new ReportContent.Section("班级风险结构",
@@ -904,7 +898,9 @@ public class GroupReportService {
                         + nzf(f.getHardFailCount()) + " 人，未关闭预警 " + nzf(f.getActiveAlertCount())
                         + " 条，数据不足 " + nzf(f.getUnknownCount()) + " 条。"));
         sections.add(new ReportContent.Section("重点关注学生",
-                watchText(f.getMultiRiskStudents(), red + yellow)));
+                f.getMultiRiskStudents().isEmpty() ? "当前没有多门预警学生。"
+                        : "重点学生 " + f.getMultiRiskStudents().size()
+                        + " 人；按预警门数从高到低展示，名称、门数与最低总评见下。"));
         sections.add(new ReportContent.Section("干预动作", adminActions(f)));
         old.sections.clear();
         old.sections.addAll(sections);

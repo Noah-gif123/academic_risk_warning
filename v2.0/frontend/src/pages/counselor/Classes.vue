@@ -67,8 +67,10 @@
             <td class="py-2 text-right">{{ s.absentTotal }}</td>
             <td class="py-2 text-right">{{ s.avgTotalScore ?? '—' }}</td>
             <td class="py-2 text-xs text-slate-500">{{ s.latestInterventionText || '—' }}</td>
-            <td class="py-2 text-right">
-              <button class="text-brand-600 hover:underline" @click="open(s)">详情</button>
+            <td class="py-2 text-right whitespace-nowrap">
+              <button class="text-brand-600 hover:underline" @click="previewStudent(s)">预览</button>
+              <button class="text-brand-600 hover:underline ml-2" @click="downloadStudent(s)">下载</button>
+              <button class="text-slate-500 hover:underline ml-2" @click="processStudent(s)">处理</button>
             </td>
           </tr>
           <tr v-if="!shownStudents.length"><td colspan="8" class="py-6 text-center text-slate-400">没有学生</td></tr>
@@ -85,14 +87,11 @@
       @open-student="openStudentFromReport"
       @close="reportOpen = false" />
 
-    <StudentDetailPanel v-if="detail" :detail="detail"
-                        @close="detail = null"
-                        @report="openStudentReport"
-                        @refer="refer"
-                        @terminate="terminate"
-                        @saved="reloadDetail" />
     <CounselorStudentReportModal :open="studentReportOpen" :student="studentReportDetail"
-                                @close="studentReportOpen = false" />
+                                :print-on-open="studentReportPrint"
+                                @close="studentReportOpen = false; studentReportPrint = false" />
+    <CounselorInterventionModal :open="interventionOpen" :student="interventionStudent"
+                               @close="interventionOpen = false" @saved="load" />
   </div>
 </template>
 
@@ -100,18 +99,20 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { counselorApi } from '../../api/counselor'
-import StudentDetailPanel from './StudentDetailPanel.vue'
 import GroupReportModal from '../../components/GroupReportModal.vue'
 import CounselorStudentReportModal from '../../components/CounselorStudentReportModal.vue'
+import CounselorInterventionModal from '../../components/CounselorInterventionModal.vue'
 
 const route = useRoute()
 const classes = ref([])
 const students = ref([])
 const adminClassId = ref(Number(route.query.adminClassId || 0))
 const onlyRisky = ref(false)
-const detail = ref(null)
 const studentReportOpen = ref(false)
+const studentReportPrint = ref(false)
 const studentReportDetail = ref(null)
+const interventionOpen = ref(false)
+const interventionStudent = ref(null)
 const reportOpen = ref(false)
 const reportTitle = ref('')
 
@@ -125,20 +126,34 @@ function openReport() {
   reportOpen.value = true
 }
 
-/** 报告里点学生名：关掉报告，右侧抽屉打开这个学生的详情 */
+/** 报告里点学生名：关闭班级报告，打开该生的学期汇总报告 */
 async function openStudentFromReport(p) {
   if (!p || !p.studentId) return
   reportOpen.value = false
-  try {
-    detail.value = await counselorApi.studentDetail(p.studentId)
-  } catch (e) {
-    toast(e.message, false)
-  }
+  await previewStudent({ studentId: p.studentId, studentName: p.studentName })
 }
 
 function openStudentReport(d) {
   studentReportDetail.value = d
+  studentReportPrint.value = false
   studentReportOpen.value = true
+}
+
+async function previewStudent(s) {
+  try {
+    openStudentReport(await counselorApi.studentDetail(s.studentId))
+  } catch (e) { toast(e.message, false) }
+}
+async function downloadStudent(s) {
+  try {
+    studentReportDetail.value = await counselorApi.studentDetail(s.studentId)
+    studentReportPrint.value = true
+    studentReportOpen.value = true
+  } catch (e) { toast(e.message, false) }
+}
+function processStudent(s) {
+  interventionStudent.value = s
+  interventionOpen.value = true
 }
 
 const message = ref('')
@@ -188,30 +203,6 @@ const currentClassName = computed(() => {
 async function pick(id) {
   adminClassId.value = id
   await load()
-}
-async function open(s) {
-  try {
-    detail.value = await counselorApi.studentDetail(s.studentId)
-  } catch (e) {
-    toast('打开学生详情失败：' + e.message, false)
-  }
-}
-async function reloadDetail() {
-  if (!detail.value) return
-  detail.value = await counselorApi.studentDetail(detail.value.studentId)
-  await load()
-}
-async function refer(r) {
-  const note = window.prompt('上报说明（教务可见）：', '两次处理均无改善，请教务协助介入')
-  if (note === null) return
-  try { await counselorApi.refer(r.id, note); toast('已上报教务'); await reloadDetail() }
-  catch (e) { toast(e.message, false) }
-}
-async function terminate(r) {
-  const reason = window.prompt('终止原因：', '学生已转专业，停止跟踪')
-  if (reason === null) return
-  try { await counselorApi.terminate(r.id, reason); toast('已终止干预'); await reloadDetail() }
-  catch (e) { toast(e.message, false) }
 }
 
 onMounted(async () => {

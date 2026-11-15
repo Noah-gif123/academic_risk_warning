@@ -21,7 +21,6 @@ export const NAV = {
   COUNSELOR: [
     { text: '首页看板', path: '/counselor/home' },
     { text: '统计看板', path: '/counselor/stats' },
-    { text: '运行轨迹', path: '/counselor/trace' },
     { text: '预警总览', path: '/counselor/focus' },
     { text: '班级管理', path: '/counselor/classes' },
     { text: '干预记录', path: '/counselor/interventions' },
