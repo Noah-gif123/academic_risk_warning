@@ -1,13 +1,19 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1>问卷发布</h1>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap"><h1>问卷发布</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">匿名作答</span></div>
+        <p class="text-xs text-slate-500 mt-2">按行政班发布评教、满意度、心理健康等问卷；结果由教务汇总分发。</p>
+      </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
+    </header>
 
-    <p class="text-xs text-slate-400">
-      支持评教、学生满意度、心理健康普查、毕业生去向调研、全国本科生学情调查；按行政班发布、**匿名**作答，结果由教务汇总分发。
-    </p>
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">已发布</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ list.length }}</p><p class="text-[11px] text-slate-400 mt-2">我的问卷</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">已答</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ totalAnswers }}</p><p class="text-[11px] text-slate-400 mt-2">全部问卷</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">进行中</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ activeCount }}</p><p class="text-[11px] text-slate-400 mt-2">可继续作答</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></span><p class="text-[11px] text-slate-400">匿名问卷</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ anonymousCount }}</p><p class="text-[11px] text-slate-400 mt-2">保护学生隐私</p></div>
+    </section>
 
     <div class="card p-5 space-y-3">
       <h2 class="font-medium text-slate-700">发布新问卷</h2>
@@ -80,7 +86,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { counselorApi } from '../../api/counselor'
 
 const classes = ref([])
@@ -88,6 +94,9 @@ const offerings = ref([])
 const list = ref([])
 const message = ref('')
 const ok = ref(true)
+const totalAnswers = computed(() => list.value.reduce((n, q) => n + Number(q.answerCount || 0), 0))
+const activeCount = computed(() => list.value.filter(q => q.statusText === '进行中' || q.status === 'ACTIVE').length)
+const anonymousCount = computed(() => list.value.filter(q => q.anonymous).length)
 
 const form = reactive({ adminClassId: '', offeringId: '', title: '', questionnaireType: 'TEACHER_STYLE' })
 

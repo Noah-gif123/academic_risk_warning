@@ -227,6 +227,7 @@ public class GroupReportService {
                     "report-facts", content.getSummary(), "PASS", "AI 不可用，模板兜底", System.currentTimeMillis() - t0);
         }
         appendEvidence(content, evidence);
+        content = sevenSectionAdmin(fact, content);
         content.persons = personsOfAdmin(fact);
         auditContent(content, NumberAuditor.fromAdminClass(fact), runId);
 
@@ -856,6 +857,61 @@ public class GroupReportService {
     }
 
     // ============================================================ 七段式（与学生报告同构）
+    private ReportContent sevenSectionAdmin(AdminClassFact f, ReportContent old) {
+        List<ReportContent.Section> sections = new ArrayList<>();
+        int red = nzfInt(f.getRedCount()), yellow = nzfInt(f.getYellowCount());
+        sections.add(new ReportContent.Section("报告摘要",
+                nz(f.getClassName()) + " 共 " + nzf(f.getStudentCount()) + " 人，本学期待评 "
+                        + nzf(f.getCourseCount()) + " 门课程；红灯 " + red + " 人、黄灯 " + yellow
+                        + " 人、绿灯 " + nzf(f.getGreenCount()) + " 人；挂科风险率 " + num(f.getFailRate())
+                        + "%；本周优先处理 " + nzf(f.getMultiRiskStudents().size()) + " 名多门预警学生。"));
+        sections.add(new ReportContent.Section("班级画像",
+                "学生 " + nzf(f.getStudentCount()) + " 人，选课记录 " + nzf(f.getEnrollmentCount())
+                        + " 条；课程 " + nzf(f.getCourseCount()) + " 门；平均总分 " + num(f.getAvgScore())
+                        + "；硬门槛不合格 " + nzf(f.getHardFailCount()) + " 人；数据不足选课 "
+                        + nzf(f.getUnknownCount()) + " 条。"));
+        StringBuilder courses = new StringBuilder();
+        if (f.getCourseRisks().isEmpty()) {
+            courses.append("暂无集中风险课程。");
+        } else {
+            int i = 1;
+            for (AdminClassFact.CourseRisk c : f.getCourseRisks()) {
+                if (i > 5) break;
+                courses.append(i++).append("）").append(c.getCourseName())
+                        .append("：红 ").append(nzf(c.getRed())).append(" 人、黄 ")
+                        .append(nzf(c.getYellow())).append(" 人，挂科风险率 ")
+                        .append(num(c.getFailRate())).append("%；");
+            }
+        }
+        sections.add(new ReportContent.Section("集中风险课程", courses.toString()));
+        StringBuilder multi = new StringBuilder();
+        if (f.getMultiRiskStudents().isEmpty()) {
+            multi.append("没有学生出现两门及以上课程预警。");
+        } else {
+            multi.append("共 ").append(f.getMultiRiskStudents().size()).append(" 人：");
+            int i = 1;
+            for (AdminClassFact.Student st : f.getMultiRiskStudents()) {
+                if (i > 10) break;
+                multi.append(i++).append("）").append(st.getStudentName())
+                        .append("（").append(nzf(st.getRiskCount())).append(" 门，")
+                        .append(nz(st.getRiskCourses())).append("）；");
+            }
+        }
+        sections.add(new ReportContent.Section("多门预警学生", multi.toString()));
+        sections.add(new ReportContent.Section("班级风险结构",
+                "红灯 " + red + " 人、黄灯 " + yellow + " 人、绿灯 " + nzf(f.getGreenCount())
+                        + " 人，挂科风险率 " + num(f.getFailRate()) + "%；硬线不合格 "
+                        + nzf(f.getHardFailCount()) + " 人，未关闭预警 " + nzf(f.getActiveAlertCount())
+                        + " 条，数据不足 " + nzf(f.getUnknownCount()) + " 条。"));
+        sections.add(new ReportContent.Section("重点关注学生",
+                watchText(f.getMultiRiskStudents(), red + yellow)));
+        sections.add(new ReportContent.Section("干预动作", adminActions(f)));
+        old.sections.clear();
+        old.sections.addAll(sections);
+        old.summary = summaryOf(sections);
+        return old;
+    }
+
     private ReportContent sevenSectionClass(ClassFact f, ReportContent old) {
         List<ReportContent.Section> sections = new ArrayList<>();
         int red = nzfInt(f.getRedCount()), yellow = nzfInt(f.getYellowCount());
@@ -938,6 +994,11 @@ public class GroupReportService {
             String name = null, reason = null, level = null;
             if (o instanceof ClassFact.Student s) { name = s.getStudentName(); reason = s.getReason(); level = s.getRiskLevel(); }
             else if (o instanceof OfferingFact.Student s) { name = s.getStudentName(); reason = s.getReason(); level = s.getRiskLevel(); }
+            else if (o instanceof AdminClassFact.Student s) {
+                sb.append(i++).append("）").append(s.getStudentName()).append("（")
+                        .append(nzf(s.getRiskCount())).append(" 门预警，").append(nz(s.getRiskCourses())).append("）；");
+                continue;
+            }
             if (name == null) continue;
             sb.append(i++).append("）").append(name).append("（").append("RED".equals(level) ? "红灯" : "黄灯")
                     .append("，").append(nz(reason)).append("）；");
@@ -973,6 +1034,16 @@ public class GroupReportService {
             sb.append("低分分项：").append(it.getName()).append("（平均 ").append(num(it.getAvgScore())).append("）。");
         }
         return sb.toString();
+    }
+
+    private String adminActions(AdminClassFact f) {
+        List<String> actions = new ArrayList<>();
+        actions.add("先约谈 " + f.getMultiRiskStudents().size() + " 名多门预警学生，并在系统登记干预");
+        if (!f.getCourseRisks().isEmpty()) actions.add("与「" + f.getCourseRisks().get(0).getCourseName() + "」任课教师对齐班级情况");
+        if (nzfInt(f.getHardFailCount()) > 0) actions.add("核对 " + f.getHardFailCount() + " 名硬门槛不合格学生的学分与考试资格");
+        if (nzfInt(f.getUnknownCount()) > 0) actions.add("补齐 " + f.getUnknownCount() + " 条数据不足选课的成绩/考勤");
+        actions.add("T+7 复评红黄灯人数与干预有效性");
+        return numbered(actions);
     }
 
     private String classActions(ClassFact f) {

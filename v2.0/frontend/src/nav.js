@@ -26,7 +26,7 @@ export const NAV = {
     { text: '班级管理', path: '/counselor/classes' },
     { text: '干预记录', path: '/counselor/interventions' },
     { text: '问卷', path: '/counselor/questionnaires' },
-    { text: '通知', path: '/counselor/notices' }
+    { text: '系统通知', path: '/counselor/notices' }
   ],
   // 教务端：2026-10 精简——「覆盖率督办」并入「考勤归档」页签、「审计」并入「流程与问卷」页签；
   // 第二阶段补齐「规则配置」并上导航（判定口径的版本管理入口）

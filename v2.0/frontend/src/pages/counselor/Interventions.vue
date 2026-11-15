@@ -1,17 +1,24 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1>干预记录</h1>
-      <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
-
-    <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+    <header class="flex items-start justify-between gap-4 flex-wrap">
       <div>
-        <p class="text-[11px] text-slate-400">干预记录总数</p>
-        <p class="text-2xl font-semibold text-[#17324b] mt-1">{{ rows.length }}</p>
+        <div class="flex items-center gap-3 flex-wrap"><h1>干预记录</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">闭环跟踪</span></div>
+        <p class="text-xs text-slate-500 mt-2">录入处理 → 复评 → 必要时上报教务 → 终止留痕。记录从学生详情面板新增。</p>
       </div>
-      <p class="text-xs text-slate-400 max-w-2xl leading-6">干预流程：录入处理 → 14 天或下次评估复评 → 两次仍无改善可上报教务 → 教务处理后回填结果；始终无改善可终止并留痕。</p>
-    </div>
+      <div class="flex items-center gap-2">
+        <button class="btn-ghost text-sm" @click="$router.push('/counselor/classes')">去班级名单</button>
+        <button class="btn-ghost text-sm" @click="load">刷新</button>
+      </div>
+    </header>
+
+    <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
+
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">干预记录</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ rows.length }}</p><p class="text-[11px] text-slate-400 mt-2">当前筛选范围</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-300"></span><p class="text-[11px] text-slate-400">已改善</p><p class="text-[28px] leading-none font-semibold text-emerald-600 mt-3">{{ interventionStats.effective }}</p><p class="text-[11px] text-slate-400 mt-2">复评有效</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">已上报</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ interventionStats.referred }}</p><p class="text-[11px] text-slate-400 mt-2">转教务处理</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-red-300"></span><p class="text-[11px] text-slate-400">无改善 / 终止</p><p class="text-[28px] leading-none font-semibold text-red-600 mt-3">{{ interventionStats.ineffective }}</p><p class="text-[11px] text-slate-400 mt-2">需升级处理</p></div>
+    </section>
 
     <div class="card p-4 flex flex-wrap items-end gap-3">
       <label class="text-sm">行政班
@@ -65,7 +72,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { counselorApi } from '../../api/counselor'
 
 const classes = ref([])
@@ -73,6 +80,11 @@ const rows = ref([])
 const adminClassId = ref(0)
 const message = ref('')
 const ok = ref(true)
+const interventionStats = computed(() => ({
+  effective: rows.value.filter(r => ['EFFECTIVE', 'IMPROVED'].includes(r.effective) || r.effectiveText === '有效').length,
+  referred: rows.value.filter(r => r.referStatus === 'REFERRED').length,
+  ineffective: rows.value.filter(r => ['INEFFECTIVE', 'TERMINATED'].includes(r.effective)).length
+}))
 
 function toast(msg, isOk = true) {
   message.value = msg

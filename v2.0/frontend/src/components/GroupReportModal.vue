@@ -116,6 +116,14 @@
                 </div>
               </div>
 
+              <div v-else-if="chartKind(s.title) === 'courseRisk'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3 space-y-2">
+                <div v-for="c in courseRiskRows" :key="'cr-'+c.name">
+                  <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-600 truncate">{{ c.name }}</span><span class="text-slate-400">红 {{ c.red }} · 黄 {{ c.yellow }} · 风险率 {{ c.rate }}%</span></div>
+                  <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-red-400 to-amber-400" :style="{ width: c.pct + '%' }"></div></div>
+                </div>
+                <p v-if="!courseRiskRows.length" class="text-[11px] text-slate-400 py-2 text-center">暂无集中风险课程</p>
+              </div>
+
               <div v-else-if="chartKind(s.title) === 'classCompare'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3">
                 <div class="flex items-center justify-between text-[9px] text-slate-400 mb-2 px-[145px]">
                   <span>0</span><span>25</span><span>50</span><span>75</span><span>100 过程分</span>
@@ -267,6 +275,17 @@ const classCompareRows = computed(() => (fact.value.classes || []).map(c => ({
   risk: Number(c.red || 0) + Number(c.yellow || 0),
   students: Number(c.studentCount || 0)
 })))
+const courseRiskRows = computed(() => {
+  const rows = (fact.value.courseRisks || []).slice(0, 6)
+  const max = Math.max(1, ...rows.map(c => Number(c.red || 0) + Number(c.yellow || 0)))
+  return rows.map(c => ({
+    name: c.courseName || '课程',
+    red: Number(c.red || 0),
+    yellow: Number(c.yellow || 0),
+    rate: Number(c.failRate || 0),
+    pct: Math.round((Number(c.red || 0) + Number(c.yellow || 0)) / max * 100)
+  }))
+})
 const radar = computed(() => {  const f = fact.value
   const n = v => Number(v || 0)
   const students = Math.max(1, n(f.studentCount))
@@ -302,9 +321,10 @@ const sourceLabel = computed(() => report.value?.source === 'TEMPLATE' ? '规则
 
 function chartKind(title) {
   const t = title || ''
-  if (t.includes('班级画像')) return 'radar'
+  if (t.includes('班级画像') && report.value?.scope === 'CLASS') return 'radar'
   if (t.includes('风险结构')) return 'risk'
   if (t.includes('成绩与考核项')) return 'score'
+  if (t.includes('集中风险课程')) return 'courseRisk'
   if (t.includes('教学班对比')) return 'classCompare'
   if (t.includes('薄弱点')) return 'breakdown'
   return ''

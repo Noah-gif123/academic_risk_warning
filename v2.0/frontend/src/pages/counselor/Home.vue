@@ -1,9 +1,13 @@
 <template>
   <div class="space-y-6">
-    <section class="card p-6 flex items-start justify-between flex-wrap gap-3">
+    <header class="flex items-start justify-between gap-4 flex-wrap">
       <div>
-        <h1 class="text-2xl font-semibold">Hello，{{ name }}</h1>
-        <p class="text-slate-500 mt-1">欢迎来到学情预警系统 · 这里是本人名下行政班的看板</p>
+        <div class="flex items-center gap-3 flex-wrap">
+          <h1>辅导员工作台</h1>
+          <span class="tag bg-white text-slate-500 border border-[#e6edf5]">第 {{ o.weekNo || '—' }} 周</span>
+          <span class="tag bg-[#e9f6f2] text-[#0b7d6e]">{{ o.termName || '当前学期' }}</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">名下行政班的风险、重点学生和干预进度，先处理人，再看统计。</p>
       </div>
       <label class="text-sm">学期
         <select v-model="termId" class="input mt-1 w-56" @change="load">
@@ -11,33 +15,16 @@
           <option v-for="t in terms" :key="t.id" :value="t.id">{{ t.termName }}</option>
         </select>
       </label>
-    </section>
+    </header>
 
     <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
 
-    <section class="grid grid-cols-2 md:grid-cols-5 gap-4">
-      <div class="card p-4">
-        <p class="text-xs text-slate-400">教学周</p>
-        <p class="text-lg font-medium text-slate-800">第 {{ o.weekNo || '—' }} 周</p>
-        <p class="text-xs text-slate-400">{{ o.termName || '—' }}</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-xs text-slate-400">名下行政班 / 学生</p>
-        <p class="text-lg font-medium text-slate-800">{{ o.classCount }} / {{ o.studentCount }}</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-xs text-slate-400">有风险学生</p>
-        <p class="text-lg font-medium text-amber-600">{{ o.riskStudentCount }}</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-xs text-slate-400">挂科 / 缺课超门槛</p>
-        <p class="text-lg font-medium text-red-600">{{ o.failStudentCount }} / {{ o.hardFailStudentCount }}</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-xs text-slate-400">平均挂科率</p>
-        <p class="text-lg font-medium text-slate-800">{{ o.avgFailRate == null ? '—' : o.avgFailRate + '%' }}</p>
-        <p class="text-xs text-slate-400">退课不计入比例</p>
-      </div>
+    <section class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">名下行政班</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ o.classCount }}</p><p class="text-[11px] text-slate-400 mt-2">本人负责</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">学生</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ o.studentCount }}</p><p class="text-[11px] text-slate-400 mt-2">行政班合计</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">风险学生</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ o.riskStudentCount }}</p><p class="text-[11px] text-slate-400 mt-2">需要关注</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-red-300"></span><p class="text-[11px] text-slate-400">挂科 / 硬门槛</p><p class="text-[28px] leading-none font-semibold text-red-600 mt-3">{{ o.failStudentCount }} / {{ o.hardFailStudentCount }}</p><p class="text-[11px] text-slate-400 mt-2">优先处理</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></span><p class="text-[11px] text-slate-400">平均挂科率</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ o.avgFailRate == null ? '—' : o.avgFailRate + '%' }}</p><p class="text-[11px] text-slate-400 mt-2">退课不计入</p></div>
     </section>
 
     <section class="card p-4">

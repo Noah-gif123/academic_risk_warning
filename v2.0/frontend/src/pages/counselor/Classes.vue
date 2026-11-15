@@ -1,17 +1,19 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1>班级管理</h1>
-      <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
-
-    <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+    <header class="flex items-start justify-between gap-4 flex-wrap">
       <div>
-        <p class="text-[11px] text-slate-400">名下行政班</p>
-        <p class="text-2xl font-semibold text-[#17324b] mt-1">{{ classes.length }} <span class="text-xs font-normal text-slate-400">个</span></p>
+        <div class="flex items-center gap-3 flex-wrap"><h1>班级管理</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">名下行政班</span></div>
+        <p class="text-xs text-slate-500 mt-2">按行政班查看风险结构、学生名单与班级学情报告。</p>
       </div>
-      <p class="text-xs text-slate-400 max-w-xl leading-6">按行政班查看挂科率与预警分布；退课与休学学生不计入比例。点击班级卡片切换名单，班级报告按当前行政班生成。</p>
-    </div>
+      <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
+    </header>
+
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">行政班</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ classes.length }}</p><p class="text-[11px] text-slate-400 mt-2">本人负责</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">学生</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ classStats.students }}</p><p class="text-[11px] text-slate-400 mt-2">全部行政班</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-red-300"></span><p class="text-[11px] text-slate-400">挂科学生</p><p class="text-[28px] leading-none font-semibold text-red-600 mt-3">{{ classStats.fail }}</p><p class="text-[11px] text-slate-400 mt-2">需重点关注</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">重点班级</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ classStats.focus }}</p><p class="text-[11px] text-slate-400 mt-2">建议班会 / 重点</p></div>
+    </section>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div v-for="c in classes" :key="c.adminClassId" class="card p-4 space-y-2 cursor-pointer"
@@ -134,6 +136,11 @@ const ok = ref(true)
 const shownStudents = computed(() => (onlyRisky.value
   ? students.value.filter((s) => s.riskCourseCount > 0)
   : students.value))
+const classStats = computed(() => ({
+  students: classes.value.reduce((n, c) => n + Number(c.studentCount || 0), 0),
+  fail: classes.value.reduce((n, c) => n + Number(c.failCount || 0), 0),
+  focus: classes.value.filter(c => c.classAlertLevel === 'SUGGEST' || c.classAlertLevel === 'FOCUS').length
+}))
 
 function toast(msg, isOk = true) {
   message.value = msg
