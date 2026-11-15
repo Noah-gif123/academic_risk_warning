@@ -26,7 +26,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/reports/student")
 @RequiredArgsConstructor
-@RequireRole({"TEACHER", "COUNSELOR"})
+@RequireRole("TEACHER")
 public class StudentCourseReportController {
 
     private final StudentReportService reportService;
