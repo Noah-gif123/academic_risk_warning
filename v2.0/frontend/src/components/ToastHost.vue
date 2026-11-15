@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed right-5 bottom-6 z-50 flex flex-col items-end gap-2 pointer-events-none">
+  <div class="fixed right-5 bottom-6 z-50 flex flex-col items-end gap-2 pointer-events-none" role="status" aria-live="polite">
     <transition-group name="toast">
       <div v-for="t in toasts" :key="t.id"
            class="pointer-events-auto max-w-sm px-4 py-3 rounded-xl shadow-lg border text-sm flex items-start gap-2"
@@ -8,7 +8,7 @@
              : 'bg-emerald-50 border-emerald-200 text-emerald-700'">
         <span class="mt-[2px]">{{ t.type === 'error' ? '⚠' : '✓' }}</span>
         <span class="flex-1 whitespace-pre-line">{{ t.text }}</span>
-        <button class="text-current/60 hover:opacity-70" @click="dismiss(t.id)">×</button>
+        <button class="text-current/60 hover:opacity-70" aria-label="关闭提示" @click="dismiss(t.id)">×</button>
       </div>
     </transition-group>
   </div>

@@ -1,14 +1,15 @@
 <template>
   <div class="min-h-full flex flex-col">
+    <a href="#main-content" class="skip-link">跳到主要内容</a>
     <header class="port-header">
       <div class="max-w-[1360px] mx-auto px-7 h-[62px] flex items-center gap-8">
         <div class="flex items-center gap-2">
           <span class="w-8 h-8 rounded-[9px] port-mark text-white text-xs flex items-center justify-center font-bold">学</span>
-          <span class="font-semibold text-slate-800">学情预警系统</span>
+          <span class="font-semibold text-slate-800 port-brand-text">学情预警系统</span>
           <span class="tag bg-brand-50 text-brand-600">{{ roleLabel }}</span>
         </div>
 
-        <nav class="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto whitespace-nowrap">
+        <nav class="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto whitespace-nowrap" aria-label="主导航">
           <template v-for="item in navItems" :key="item.text">
             <!-- 有子项：下拉 -->
             <div v-if="item.children && item.children.length" class="relative shrink-0">
@@ -38,7 +39,7 @@
         <div class="flex items-center gap-3 text-sm text-slate-500 shrink-0">
           <button class="relative flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-50"
                   :class="isActive(noticePath) ? 'text-brand-600' : 'text-slate-600'"
-                  title="消息中心" @click="goNotices">
+                  title="消息中心" aria-label="打开消息中心" @click="goNotices">
             <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8"
                  stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -50,7 +51,7 @@
               {{ unread > 99 ? '99+' : unread }}
             </span>
           </button>
-          <span class="cursor-help" title="帮助文档与常见问题整理中，可先联系管理员">帮助</span>
+          <span class="cursor-help port-help" title="帮助文档与常见问题整理中，可先联系管理员">帮助</span>
           <div class="relative">
             <button class="flex items-center gap-2" @click="menuOpen = !menuOpen">
               <span class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs text-slate-600">
@@ -68,7 +69,7 @@
       </div>
     </header>
 
-    <main class="flex-1 max-w-[1360px] w-full mx-auto px-7 py-6">
+    <main id="main-content" tabindex="-1" class="flex-1 max-w-[1360px] w-full mx-auto px-7 py-6">
       <router-view />
     </main>
 

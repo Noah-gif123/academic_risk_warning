@@ -111,13 +111,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { statsApi } from '../../api/stats'
 import StatCard from '../../components/stats/StatCard.vue'
 import InfoTooltip from '../../components/stats/InfoTooltip.vue'
-import BarChart from '../../components/stats/BarChart.vue'
-import StackedBars from '../../components/stats/StackedBars.vue'
-import ScatterPlot from '../../components/stats/ScatterPlot.vue'
+const BarChart = defineAsyncComponent(() => import('../../components/stats/BarChart.vue'))
+const StackedBars = defineAsyncComponent(() => import('../../components/stats/StackedBars.vue'))
+const ScatterPlot = defineAsyncComponent(() => import('../../components/stats/ScatterPlot.vue'))
 
 const loading = ref(false)
 const error = ref('')

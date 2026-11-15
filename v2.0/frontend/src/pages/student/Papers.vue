@@ -69,7 +69,7 @@
         <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#eef4f9]">
           <span class="text-xs" :class="statusClass(p)">{{ statusText(p) }}</span>
           <button v-if="p.canAnswer" class="btn-primary text-xs" @click="go(p.id)">开始作答</button>
-          <button v-else class="text-xs text-[#3c6f9b] hover:underline" @click="go(p.id)">
+          <button v-else class="text-xs text-[#0b7d6e] hover:underline" @click="go(p.id)">
             {{ tab === 'open' ? '查看' : '查看详情' }}
           </button>
         </div>

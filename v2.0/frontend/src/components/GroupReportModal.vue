@@ -10,9 +10,7 @@
 
           <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
 
-          <div v-if="!report && !busy" class="text-sm text-slate-400 py-12 text-center">
-            还没有这份报告，点右上「生成报告」（约 3–15 秒）
-          </div>
+          <StatePanel v-if="!report && !busy" title="还没有这份报告" hint="点右上「生成报告」开始，约 3–15 秒" />
           <div v-if="busy && !report" class="text-sm text-slate-400 py-12 text-center">正在汇总事实并生成…</div>
 
           <template v-if="report">
@@ -20,9 +18,7 @@
               <div class="flex items-center gap-2 mb-2">
                 <span class="tag bg-brand-50 text-brand-700">多智能体报告</span>
                 <span class="text-[10px] text-slate-400">生成于 {{ fmt(report.createTime) }}</span>
-                <span class="text-[10px] text-slate-400">{{ sourceLabel }}</span>
-                <span v-if="report.promptVersion" class="text-[10px] text-slate-400">Prompt {{ report.promptVersion }}</span>
-                <span v-if="report.model" class="text-[10px] text-slate-400">{{ report.model }}</span>
+                <ReportSourceBadge :source="report.source" :model="report.model" :prompt-version="report.promptVersion" />
               </div>
               <p class="text-sm text-slate-700 leading-7 whitespace-pre-line">{{ report.summary }}</p>
             </div>
@@ -200,6 +196,8 @@ import { computed, ref, watch } from 'vue'
 import { groupReportApi } from '../api/ai'
 import ReportModalShell from './ReportModalShell.vue'
 import GenerationOverlay from './GenerationOverlay.vue'
+import StatePanel from './StatePanel.vue'
+import ReportSourceBadge from './ReportSourceBadge.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },

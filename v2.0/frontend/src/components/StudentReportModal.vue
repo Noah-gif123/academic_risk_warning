@@ -30,6 +30,7 @@
                 <p class="text-[11px] text-slate-400 mt-1">{{ activeCourse?.teacherName || activeReport.teacherName }} · {{ activeCourse?.classCode || activeReport.className }} · {{ activeReport.termName }}</p>
               </div>
               <div class="flex items-center gap-2">
+                <ReportSourceBadge :source="activeReport.source" :model="activeReport.model" :prompt-version="activeReport.promptVersion" />
                 <button class="btn-ghost text-sm" @click="downloadCourse(activeCourse)">导出 PDF</button>
                 <button class="text-xs text-slate-400 hover:text-slate-600" @click="activeReport = null">返回课程列表</button>
               </div>
@@ -111,7 +112,7 @@
                 <h3 class="text-[15px] font-bold text-[#17324b] mb-2">五、多智能体研判链路</h3>
                 <div class="flex flex-wrap items-center gap-2 text-[10px]">
                   <template v-for="(s, i) in pipeline" :key="'pipe-'+i">
-                    <span class="rounded-full border border-[#dbe7f2] bg-[#f7fbfd] px-2 py-1 text-[#3c6f9b]">{{ s.name }} <b class="text-[#0f9d8a]">{{ s.status }}</b></span>
+                    <span class="rounded-full border border-[#dbe7f2] bg-[#f7fbfd] px-2 py-1 text-[#0b7d6e]">{{ s.name }} <b class="text-[#0f9d8a]">{{ s.status }}</b></span>
                     <span v-if="i < pipeline.length - 1" class="text-slate-300">→</span>
                   </template>
                 </div>
@@ -258,6 +259,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { staffReportApi, reportApi } from '../api/ai'
 import ReportModalShell from './ReportModalShell.vue'
+import ReportSourceBadge from './ReportSourceBadge.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },

@@ -118,14 +118,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { statsApi } from '../../api/stats'
 import StatCard from '../../components/stats/StatCard.vue'
 import InfoTooltip from '../../components/stats/InfoTooltip.vue'
-import TrendChart from '../../components/stats/TrendChart.vue'
-import BarChart from '../../components/stats/BarChart.vue'
-import FunnelChart from '../../components/stats/FunnelChart.vue'
-import StackedBars from '../../components/stats/StackedBars.vue'
+const TrendChart = defineAsyncComponent(() => import('../../components/stats/TrendChart.vue'))
+const BarChart = defineAsyncComponent(() => import('../../components/stats/BarChart.vue'))
+const FunnelChart = defineAsyncComponent(() => import('../../components/stats/FunnelChart.vue'))
+const StackedBars = defineAsyncComponent(() => import('../../components/stats/StackedBars.vue'))
 
 const loading = ref(false)
 const error = ref('')

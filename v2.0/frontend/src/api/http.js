@@ -1,4 +1,4 @@
-﻿const BASE = '/api'
+const BASE = '/api'
 
 export function getToken() {
   return localStorage.getItem('token') || ''
@@ -19,9 +19,26 @@ async function handle(res) {
   }
   const data = await res.json().catch(() => ({ code: res.status, message: '响应解析失败' }))
   if (data.code !== 0) {
-    throw new Error(data.message || '请求失败')
+    const err = new Error(data.message || '请求失败')
+    err.code = data.code
+    err.status = res.status
+    throw err
   }
   return data.data
+}
+
+/** 统一超时：避免后端/网络异常时页面一直转圈 */
+async function fetchWithTimeout(input, init = {}, timeoutMs = 30000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('请求超时，请稍后重试')
+    throw new Error('网络连接失败，请检查后端服务')
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function request(method, url, body, options = {}) {
@@ -29,11 +46,11 @@ async function request(method, url, body, options = {}) {
   const token = getToken()
   if (token) headers.Authorization = 'Bearer ' + token
 
-  const res = await fetch(BASE + url, {
+  const res = await fetchWithTimeout(BASE + url, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body)
-  })
+  }, options.timeoutMs || 30000)
   return handle(res)
 }
 
@@ -42,7 +59,7 @@ async function upload(url, formData) {
   const headers = {}
   const token = getToken()
   if (token) headers.Authorization = 'Bearer ' + token
-  const res = await fetch(BASE + url, { method: 'POST', headers, body: formData })
+  const res = await fetchWithTimeout(BASE + url, { method: 'POST', headers, body: formData }, 120000)
   return handle(res)
 }
 
@@ -51,8 +68,9 @@ async function download(url, fallbackName = 'download') {
   const headers = {}
   const token = getToken()
   if (token) headers.Authorization = 'Bearer ' + token
-  const res = await fetch(BASE + url, { headers })
+  const res = await fetchWithTimeout(BASE + url, { headers }, 120000)
   if (!res.ok) {
+    if (res.status === 401) return handle(res)
     const data = await res.json().catch(() => ({ message: '下载失败' }))
     throw new Error(data.message || '下载失败')
   }
@@ -87,8 +105,9 @@ async function downloadWithPicker(url, fallbackName = 'download') {
     }
   }
 
-  const res = await fetch(BASE + url, { headers })
+  const res = await fetchWithTimeout(BASE + url, { headers }, 120000)
   if (!res.ok) {
+    if (res.status === 401) return handle(res)
     const data = await res.json().catch(() => ({ message: '下载失败' }))
     throw new Error(data.message || '下载失败')
   }

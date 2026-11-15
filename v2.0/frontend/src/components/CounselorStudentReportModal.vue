@@ -16,7 +16,7 @@
       <div class="rounded-xl border border-slate-200 bg-[#fbfdff] p-4">
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div><p class="text-[11px] text-slate-400">{{ activeStudent?.termName || '当前学期' }}</p><h2 class="text-lg font-semibold text-[#17324b] mt-1">{{ activeStudent?.studentName }} · 学期学情汇总</h2></div>
-          <div class="flex items-center gap-2"><span v-if="serverReport" class="tag bg-[#e9f6f2] text-[#0b7d6e]">{{ reportSourceText }}</span><span class="tag" :class="riskTag">{{ riskLabel }}</span></div>
+          <div class="flex items-center gap-2"><ReportSourceBadge v-if="serverReport" :source="serverReport.source" :model="serverReport.model" :prompt-version="serverReport.promptVersion" /><span class="tag" :class="riskTag">{{ riskLabel }}</span></div>
         </div>
         <p class="text-sm text-slate-600 leading-7 mt-3">{{ summaryText }}</p>
         <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-3">
@@ -117,6 +117,7 @@
 import { computed, ref, watch } from 'vue'
 import ReportModalShell from './ReportModalShell.vue'
 import GenerationOverlay from './GenerationOverlay.vue'
+import ReportSourceBadge from './ReportSourceBadge.vue'
 import { counselorApi } from '../api/counselor'
 
 const props = defineProps({
@@ -131,12 +132,6 @@ const generationStep = ref(0)
 const serverReport = ref(null)
 const serverLoading = ref(false)
 const activeStudent = computed(() => serverReport.value?.fact || props.student || {})
-const reportSourceText = computed(() => {
-  const s = serverReport.value?.source
-  if (s === 'LLM' || s === 'DIFY') return 'AI 生成'
-  if (s) return '规则汇总'
-  return '学期汇总'
-})
 const generationMessages = [
   '正在读取当前学期全部课程…',
   '正在汇总风险等级与成绩…',

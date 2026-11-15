@@ -65,6 +65,7 @@
     </div>
 
     <InterventionMetricsCard role="admin" />
+    <AiRuntimeCard />
   </div>
 </template>
 
@@ -73,6 +74,7 @@ import { onMounted, ref } from 'vue'
 import { adminPortalApi } from '../../api/adminPortal'
 import { adminApi } from '../../api/admin'
 import InterventionMetricsCard from '../../components/InterventionMetricsCard.vue'
+import AiRuntimeCard from '../../components/AiRuntimeCard.vue'
 
 const terms = ref([])
 const termId = ref('')
