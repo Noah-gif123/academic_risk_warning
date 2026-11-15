@@ -15,6 +15,14 @@
       缺课超过有效课次的 1/3 直接硬门槛挂科；缺考/缺交请标记为缺考（按 0 分计），未录入的分项必须补齐才能汇总。
     </p>
 
+    <section v-if="matrix" class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">学生</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ matrix.summary.studentCount }}</p><p class="text-[11px] text-slate-400 mt-2">成绩矩阵</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">已出分</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ matrix.summary.scoredCount }}</p><p class="text-[11px] text-slate-400 mt-2">已定稿</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-red-300"></span><p class="text-[11px] text-slate-400">挂科 / 硬门槛</p><p class="text-[28px] leading-none font-semibold text-red-600 mt-3">{{ matrix.summary.failCount }} / {{ matrix.summary.hardFailCount }}</p><p class="text-[11px] text-slate-400 mt-2">需重点关注</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-300"></span><p class="text-[11px] text-slate-400">通过率</p><p class="text-[28px] leading-none font-semibold text-emerald-600 mt-3">{{ matrix.summary.passRate ?? '—' }}%</p><p class="text-[11px] text-slate-400 mt-2">按已出分</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">平均分</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ matrix.summary.avgTotal ?? '—' }}</p><p class="text-[11px] text-slate-400 mt-2">及格线 {{ matrix.summary.passScore }}</p></div>
+    </section>
+
     <div class="flex flex-wrap gap-2 items-center">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
               :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"

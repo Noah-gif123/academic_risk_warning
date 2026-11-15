@@ -1,13 +1,23 @@
 <template>
   <div class="space-y-4">
-    <div v-if="!embedded" class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex items-center gap-3 flex-wrap">
-        <button class="text-sm text-slate-400 hover:text-slate-600" @click="back">← 返回课程</button>
-        <h1>课程内容</h1>
-        <span class="tag bg-slate-100 text-slate-500">教学班 #{{ teachingClassId }}</span>
+    <header v-if="!embedded" class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <button class="text-sm text-slate-400 hover:text-slate-600" @click="back">← 返回课程</button>
+          <h1>课程内容</h1>
+          <span class="tag bg-white text-slate-500 border border-[#e6edf5]">教学班 #{{ teachingClassId }}</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">导学、教学目标、课次目录与课程组资料统一维护。</p>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
+    </header>
+
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1" :class="guide.isPublished ? 'bg-emerald-300' : 'bg-amber-300'"></span><p class="text-[11px] text-slate-400">导学</p><p class="text-lg leading-none font-semibold mt-3" :class="guide.isPublished ? 'text-emerald-600' : 'text-amber-600'">{{ guide.isPublished ? '已发布' : '草稿' }}</p><p class="text-[11px] text-slate-400 mt-2">v{{ guide.version }} · {{ contentStats.guideChars }} 字</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">教学目标</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ objectives.length }}</p><p class="text-[11px] text-slate-400 mt-2">条目标</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">课次目录</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ lessons.length }}</p><p class="text-[11px] text-slate-400 mt-2">{{ contentStats.resourceCount }} 个资源</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">课程资料</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ resources.length }}</p><p class="text-[11px] text-slate-400 mt-2">课程组共享</p></div>
+    </section>
 
     <!-- 页签（嵌入到「教学详情」时由外层页签控制，这里不再重复一排） -->
     <div class="flex flex-wrap gap-2" v-if="!embedded">
@@ -367,6 +377,10 @@ const uploading = ref(false)
 const mineOnly = ref(false)
 const fileInput = ref(null)
 const resForm = reactive({ phase: 'BEFORE', resType: 'FILE', refId: null, refIds: [], extUrl: '', title: '', publish: true })
+const contentStats = computed(() => ({
+  guideChars: guide.content ? guide.content.replace(/<[^>]+>/g, '').trim().length : 0,
+  resourceCount: lessons.value.reduce((n, l) => n + (l.before?.length || 0) + (l.during?.length || 0) + (l.after?.length || 0), 0)
+}))
 
 function toast(msg, isOk = true) {
   message.value = msg

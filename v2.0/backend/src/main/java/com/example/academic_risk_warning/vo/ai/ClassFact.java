@@ -39,6 +39,8 @@ public class ClassFact {
     private Integer unknownCount;
     private Integer hardFailCount;
     private BigDecimal avgScore;
+    /** 当前过程分均值（期末未计入时使用这一口径） */
+    private BigDecimal avgProcessScore;
     private BigDecimal minScore;
     private BigDecimal maxScore;
 
@@ -74,6 +76,7 @@ public class ClassFact {
         add(out, hardFailCount);
         add(out, unknownCount);
         add(out, avgScore);
+        add(out, avgProcessScore);
         add(out, minScore);
         add(out, maxScore);
         add(out, absentOverLimitCount);
@@ -105,6 +108,7 @@ public class ClassFact {
     public static class Item {
         private String name;
         private BigDecimal avgScore;
+        private BigDecimal weight;
         private Integer sampleCount;
     }
 

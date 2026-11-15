@@ -1,18 +1,25 @@
 <template>
   <div class="space-y-4">
-    <div v-if="!embedded" class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex items-center gap-3 flex-wrap">
-        <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回课程</button>
-        <h1>项目与贡献度</h1>
-        <span class="tag bg-slate-100 text-slate-500">教学班 #{{ teachingClassId }}</span>
+    <header v-if="!embedded" class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回课程</button>
+          <h1>项目与贡献度</h1>
+          <span class="tag bg-white text-slate-500 border border-[#e6edf5]">教学班 #{{ teachingClassId }}</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">项目只收文件，逾期不允许补交；团队项目贡献表提交后锁定，教师只读。</p>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
+    </header>
 
-    <p class="text-xs text-slate-400">
-      项目只收文件（Word / PDF / 代码 / PPT / 压缩包 / 仓库链接），逾期不允许补交。
-      团队项目由组长提交一份贡献表，提交即锁定——**教师也只能查看，不能修改**；个人得分 = 项目总分 × 贡献占比。
-    </p>
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">项目</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ projects.length }}</p><p class="text-[11px] text-slate-400 mt-2">本教学班</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">草稿</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ projectStats.draft }}</p><p class="text-[11px] text-slate-400 mt-2">待发布</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">已提交</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ projectStats.submitted }}</p><p class="text-[11px] text-slate-400 mt-2">个人 / 团队</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-red-300"></span><p class="text-[11px] text-slate-400">已批阅</p><p class="text-[28px] leading-none font-semibold text-emerald-600 mt-3">{{ projectStats.marked }}</p><p class="text-[11px] text-slate-400 mt-2">缺贡献表 {{ projectStats.missing }}</p></div>
+    </section>
+
+    <p v-if="message && embedded" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
 
     <!-- 新建 -->
     <div class="card p-5" v-if="!active">
@@ -65,6 +72,7 @@
     <!-- 列表 -->
     <div class="card p-5">
       <h2 class="font-medium text-slate-700 mb-3">本班项目（{{ projects.length }}）</h2>
+      <div class="overflow-x-auto border border-[#e6edf5] rounded-xl">
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
           <tr>
@@ -103,6 +111,7 @@
           <tr v-if="!projects.length"><td colspan="8" class="py-6 text-center text-slate-400">还没有项目</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <!-- 明细 -->
@@ -277,7 +286,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, reactive, ref, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { projectApi, formatOptions } from '../../api/project'
 import { contentApi } from '../../api/content'
@@ -296,6 +305,12 @@ const formats = ref(['WORD', 'PDF', 'CODE', 'PPT', 'ZIP', 'LINK'])
 const drafts = reactive({})
 const message = ref('')
 const ok = ref(true)
+const projectStats = computed(() => ({
+  draft: projects.value.filter(p => p.status === 'DRAFT').length,
+  submitted: projects.value.reduce((n, p) => n + Number(p.submitCount || 0), 0),
+  marked: projects.value.reduce((n, p) => n + Number(p.markedCount || 0), 0),
+  missing: projects.value.reduce((n, p) => n + Number(p.missingContributionCount || 0), 0)
+}))
 
 const form = reactive({
   projectName: '', description: '', lessonId: null, endTime: '', isTeam: 0, fullScore: 100

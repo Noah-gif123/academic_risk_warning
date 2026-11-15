@@ -37,7 +37,7 @@
     </div>
     <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       <div v-for="c in shown" :key="c.offeringId" class="card overflow-hidden flex flex-col hover:shadow-md transition">
-        <div class="h-24 bg-gradient-to-r from-brand-500 to-brand-700 flex items-start justify-between p-3">
+        <div class="h-24 bg-gradient-to-r from-[#0f9d8a] to-[#0b7d6e] flex items-start justify-between p-3">
           <span class="tag bg-white/85 text-slate-700">{{ courseTypeLabel(c.courseType) }}</span>
           <span class="tag" :class="c.allClosed ? 'bg-white/80 text-slate-600' : 'bg-white/90 text-brand-700'">
             {{ c.allClosed ? '已结课' : '进行中' }}
@@ -48,19 +48,10 @@
             <h3 class="text-base font-semibold text-slate-800 leading-snug">{{ c.courseName }}</h3>
             <p class="text-sm text-slate-500">{{ c.termName }}</p>
             <p class="text-sm text-slate-400">负责 {{ c.classCount }} 个教学班 ｜ 学生 {{ c.studentCount }} 人</p>
-            <p class="text-sm text-slate-400">
-              {{ (c.classes || []).map((x) => x.classCode + ' ' + x.className).join('、') }}
-            </p>
           </div>
           <div class="flex items-center justify-between pt-2 border-t border-slate-100">
             <button class="text-sm text-brand-600 hover:underline font-medium"
                     @click="$router.push({ path: '/teacher/course/' + c.offeringId })">课程详情 →</button>
-            <div class="flex items-center gap-3">
-              <button class="text-sm text-slate-500 hover:underline"
-                      @click="$router.push({ path: '/teacher/teaching', query: { teachingClassId: (c.classes && c.classes[0] || {}).teachingClassId, offeringId: c.offeringId } })">
-                教学详情
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -84,26 +75,6 @@ const status = ref('')
 const keyword = ref('')
 const message = ref('')
 const ok = ref(true)
-const reportOpen = ref(false)
-const reportTarget = ref({ id: null, title: '' })
-
-function openReport(c) {
-  reportTarget.value = {
-    id: c.offeringId,
-    title: (c.courseName || '课程') + ' · 课程学情报告'
-  }
-  reportOpen.value = true
-}
-
-/** 报告里点学生名：跳到预警监控并定位这名学生（跨班报告要带上该生所在教学班） */
-function openStudentFromReport(p) {
-  reportOpen.value = false
-  router.push({
-    path: '/teacher/monitor',
-    query: { teachingClassId: p.teachingClassId, keyword: p.studentName }
-  })
-}
-
 const shown = computed(() => {
   const k = keyword.value.trim()
   return courses.value.filter((c) => {

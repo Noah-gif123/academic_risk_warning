@@ -15,8 +15,8 @@ export const NAV = {
   TEACHER: [
     { text: '首页', path: '/teacher/home' },
     { text: '课程', path: '/teacher/courses' },
-    { text: '预警监控', path: '/teacher/monitor' },
-    { text: '学情报告', path: '/teacher/reports' }
+    { text: '学情报告', path: '/teacher/reports' },
+    { text: '预警监控', path: '/teacher/monitor' }
   ],
   COUNSELOR: [
     { text: '首页看板', path: '/counselor/home' },

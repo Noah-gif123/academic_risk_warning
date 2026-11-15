@@ -402,7 +402,9 @@ async function toggleReport(c) {
       return
     }
     try {
-      activeReport.value = await reportApi.detail(r.id)
+      activeReport.value = props.mode === 'student'
+        ? await reportApi.detail(r.id)
+        : await staffReportApi.detail(props.student.studentId, r.id)
     } catch (e) {
       reportMessage.value = e?.message || '报告详情读取失败'
     }

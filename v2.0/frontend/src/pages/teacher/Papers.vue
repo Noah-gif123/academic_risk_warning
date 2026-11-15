@@ -14,6 +14,13 @@
       作业与测验不允许迟交、不允许教师代交，截止后未交的按缺考记 0 分。
     </p>
 
+    <section v-if="!embedded" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">测验 / 作业</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ papers.length }}</p><p class="text-[11px] text-slate-400 mt-2">本教学班</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">草稿</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ paperStats.draft }}</p><p class="text-[11px] text-slate-400 mt-2">待校对发布</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">已发布</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ paperStats.published }}</p><p class="text-[11px] text-slate-400 mt-2">学生可见</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></span><p class="text-[11px] text-slate-400">交卷</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ paperStats.submitted }}</p><p class="text-[11px] text-slate-400 mt-2">已批 {{ paperStats.marked }}</p></div>
+    </section>
+
     <!-- 新建 -->
     <div class="card p-5" v-if="!editing">
       <div class="flex items-center justify-between mb-3">
@@ -253,6 +260,12 @@ const teachingClassId = props.teachingClassId || Number(route.query.teachingClas
 const offeringId = props.offeringId || Number(route.query.offeringId || 0)
 
 const papers = ref([])
+const paperStats = computed(() => ({
+  draft: papers.value.filter(p => p.status === 'DRAFT').length,
+  published: papers.value.filter(p => p.status === 'PUBLISHED').length,
+  submitted: papers.value.reduce((n, p) => n + Number(p.submitCount || 0), 0),
+  marked: papers.value.reduce((n, p) => n + Number(p.markedCount || 0), 0)
+}))
 const lessons = ref([])
 const schemeItems = ref([])
 const editing = ref(null)

@@ -14,6 +14,13 @@
       单选 / 多选 / 判断由系统自动判分；<b>填空与简答需要你逐题给分</b>，系统记录判卷人（每题一行）。缺考学生记 0 分，无需批改。
     </p>
 
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">应到</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ paper?.totalStudents ?? '—' }}</p><p class="text-[11px] text-slate-400 mt-2">教学班人数</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">已交</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ paper?.submitCount ?? rows.length }}</p><p class="text-[11px] text-slate-400 mt-2">提交记录</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">待人工批阅</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ gradingStats.pending }}</p><p class="text-[11px] text-slate-400 mt-2">填空 / 简答</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></span><p class="text-[11px] text-slate-400">缺考</p><p class="text-[28px] leading-none font-semibold text-red-600 mt-3">{{ paper?.absentCount ?? gradingStats.absent }}</p><p class="text-[11px] text-slate-400 mt-2">按 0 分记入</p></div>
+    </section>
+
     <div class="card p-5">
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-medium text-slate-700">提交列表（{{ rows.length }}）</h2>
@@ -42,7 +49,7 @@
               </span>
             </td>
             <td class="py-2">
-              <span class="tag" :class="r.markedStatus === 'ALL_MARKED' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
+              <span class="tag" :class="['ALL_MARKED','MARKED'].includes(r.markedStatus) ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
                 {{ markedLabel(r.markedStatus) }}
               </span>
             </td>
@@ -73,7 +80,7 @@
                 {{ active.studentNo }} · {{ active.studentName }}
               </h2>
               <span v-if="paper" class="tag bg-brand-50 text-brand-600 truncate max-w-64">{{ paper.paperName }}</span>
-              <span class="tag" :class="active.markedStatus === 'ALL_MARKED'
+              <span class="tag" :class="['ALL_MARKED','MARKED'].includes(active.markedStatus)
                     ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
                 {{ markedLabel(active.markedStatus) }}
               </span>
@@ -213,6 +220,10 @@ const paperId = Number(route.query.paperId || 0)
 
 const paper = ref(null)
 const rows = ref([])
+const gradingStats = computed(() => ({
+  absent: rows.value.filter(r => r.isAbsent === 1 || r.submitStatus === 'ABSENT').length,
+  pending: rows.value.filter(r => r.isAbsent !== 1 && !['ALL_MARKED','MARKED'].includes(r.markedStatus)).length
+}))
 const active = ref(null)
 const drafts = reactive({})
 const remark = ref('')
@@ -256,7 +267,7 @@ function toast(msg, isOk = true) {
 }
 function typeLabel(t) { return (questionTypes.find((x) => x.value === t) || {}).label || t }
 function statusLabel(s) { return { SUBMITTED: '已交', MARKED: '已批阅', ABSENT: '缺考' }[s] || s }
-function markedLabel(s) { return { NOT_MARKED: '未判', SYSTEM_MARKED: '客观已判', ALL_MARKED: '批完' }[s] || s }
+function markedLabel(s) { return { NOT_MARKED: '未判', SYSTEM_MARKED: '客观已判', ALL_MARKED: '批完', MARKED: '已批阅' }[s] || s }
 /** 需要人工批阅的题型：填空与简答（与后端 GradeEngine.isManual 同一口径） */
 function isManual(t) { return t === 'SHORT' || t === 'BLANK' }
 

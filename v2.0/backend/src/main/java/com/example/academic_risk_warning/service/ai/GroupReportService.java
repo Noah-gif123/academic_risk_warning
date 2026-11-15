@@ -125,6 +125,7 @@ public class GroupReportService {
                     "report-facts", content.getSummary(), "PASS", "AI 不可用，模板兜底", System.currentTimeMillis() - t0);
         }
         appendEvidence(content, evidence);
+        content = sevenSectionClass(fact, content);
         content.persons = personsOfClass(fact);
         auditContent(content, NumberAuditor.fromClass(fact), runId);
 
@@ -325,6 +326,7 @@ public class GroupReportService {
                     "report-facts", content.getSummary(), "PASS", "AI 不可用，模板兜底", System.currentTimeMillis() - t0);
         }
         appendEvidence(content, evidence);
+        content = sevenSectionOffering(fact, content);
         content.persons = personsOfOffering(fact);
         auditContent(content, NumberAuditor.fromOffering(fact), runId);
 
@@ -393,7 +395,7 @@ public class GroupReportService {
     public GroupReportVO detail(Long id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "select g.id, g.scope, g.target_id, g.teaching_class_id, g.admin_class_id, g.title, g.summary, "
-                        + "g.content_json, g.source, g.create_time, g.run_id, g.status, "
+                        + "g.content_json, g.fact_json, g.source, g.create_time, g.run_id, g.status, "
                         + "(select max(rs.last_eval_time) from risk_state rs "
                         + "   where (g.teaching_class_id is not null and rs.teaching_class_id = g.teaching_class_id) "
                         + "      or (g.scope = 'OFFERING' and g.offering_id is not null "
@@ -414,6 +416,7 @@ public class GroupReportService {
         vo.setSummary(r.get("summary") == null ? null : String.valueOf(r.get("summary")));
         vo.setSource(String.valueOf(r.get("source")));
         vo.setCreateTime(r.get("create_time") == null ? null : String.valueOf(r.get("create_time")));
+        vo.setFact(parseFactJson(r.get("fact_json")));
         vo.setRunStatus(r.get("status") == null ? null : String.valueOf(r.get("status")));
         Long runId = r.get("run_id") == null ? null : ((Number) r.get("run_id")).longValue();
         vo.setRunId(runId);
@@ -852,6 +855,152 @@ public class GroupReportService {
         return s.length() <= 290 ? s : s.substring(0, 289) + "…";
     }
 
+    // ============================================================ 七段式（与学生报告同构）
+    private ReportContent sevenSectionClass(ClassFact f, ReportContent old) {
+        List<ReportContent.Section> sections = new ArrayList<>();
+        int red = nzfInt(f.getRedCount()), yellow = nzfInt(f.getYellowCount());
+        sections.add(new ReportContent.Section("报告摘要",
+                "本班 " + nzf(f.getStudentCount()) + " 人，红灯 " + red + " 人、黄灯 " + yellow
+                        + " 人、绿灯 " + nzf(f.getGreenCount()) + " 人；当前过程分平均 "
+                        + (f.getAvgProcessScore() == null ? num(f.getAvgScore()) : num(f.getAvgProcessScore()))
+                        + "（期末未计入），及格线 " + nzf(f.getPassScore()) + " 分；本周优先处理 " + (red + yellow)
+                        + " 名红黄灯学生和 " + nzf(f.getAbsentOverLimitCount()) + " 名缺课超限学生。"));
+        sections.add(new ReportContent.Section("班级画像",
+                "成绩水平：当前过程分 " + (f.getAvgProcessScore() == null ? num(f.getAvgScore()) : num(f.getAvgProcessScore()))
+                        + " 分（期末未计入），总评区间 " + num(f.getMinScore())
+                        + "–" + num(f.getMaxScore()) + "；风险结构：红 " + red + "、黄 " + yellow
+                        + "、绿 " + nzf(f.getGreenCount()) + "；出勤：人均缺勤 " + num(f.getAvgAbsent())
+                        + " 次，最多 " + nzf(f.getMaxAbsent()) + " 次；数据完整度：未登分项 "
+                        + nzf(f.getUngradedItemCount()) + " 项。"));
+        sections.add(new ReportContent.Section("风险结构",
+                "红灯 " + red + " 人、黄灯 " + yellow + " 人、绿灯 " + nzf(f.getGreenCount())
+                        + " 人；硬线超限 " + nzf(f.getAbsentOverLimitCount()) + " 人，未关闭预警 "
+                        + nzf(f.getActiveAlertCount()) + " 条。风险主要集中在缺课超限和过程分不足两类。"));
+        sections.add(new ReportContent.Section("成绩与考核项",
+                "当前过程分平均 " + (f.getAvgProcessScore() == null ? num(f.getAvgScore()) : num(f.getAvgProcessScore()))
+                        + "（期末未计入）；总评区间 " + num(f.getMinScore()) + "–" + num(f.getMaxScore())
+                        + "；缺勤超上限 " + nzf(f.getAbsentOverLimitCount())
+                        + " 人，人均缺勤 " + num(f.getAvgAbsent()) + " 次，迟到合计 " + nzf(f.getLateTotal())
+                        + " 次；未登分项 " + nzf(f.getUngradedItemCount()) + " 项。"));
+        sections.add(new ReportContent.Section("重点关注学生", watchText(f.getWatchList(), red + yellow)));
+        sections.add(new ReportContent.Section("教学动作",
+                classActions(f)));
+        old.sections.clear();
+        old.sections.addAll(sections);
+        old.summary = summaryOf(sections);
+        return old;
+    }
+
+    private ReportContent sevenSectionOffering(OfferingFact f, ReportContent old) {
+        List<ReportContent.Section> sections = new ArrayList<>();
+        int red = nzfInt(f.getRedCount()), yellow = nzfInt(f.getYellowCount());
+        sections.add(new ReportContent.Section("课程摘要",
+                nz(f.getCourseName()) + "（" + nz(f.getTermName()) + "）共 " + nzf(f.getClassCount())
+                        + " 个教学班、" + nzf(f.getStudentCount()) + " 人；红灯 " + red + " 人、黄灯 "
+                        + yellow + " 人；红灯占比 " + num(f.getFailRate()) + "%；最吃力教学班为「"
+                        + (f.getClasses().isEmpty() ? "暂无" : f.getClasses().get(0).getClassName()) + "」。"));
+        sections.add(new ReportContent.Section("教学班对比", classCompareText(f)));
+        sections.add(new ReportContent.Section("课程风险结构",
+                "红灯 " + red + " 人、黄灯 " + yellow + " 人、绿灯 " + nzf(f.getGreenCount())
+                        + " 人，红灯占比 " + num(f.getFailRate()) + "%；硬线超限 "
+                        + nzf(f.getHardFailCount()) + " 人，未关闭预警 " + nzf(f.getActiveAlertCount()) + " 条。"));
+        sections.add(new ReportContent.Section("成绩与考核项",
+                "全课程当前过程分平均 " + (f.getAvgProcessScore() == null ? num(f.getAvgScore()) : num(f.getAvgProcessScore()))
+                        + "（期末未计入）；总评区间 " + num(f.getMinScore())
+                        + "–" + num(f.getMaxScore()) + "；缺勤超上限 " + nzf(f.getAbsentOverLimitCount())
+                        + " 人，未登分项 " + nzf(f.getUngradedItemCount()) + " 项；教学班之间的过程分差异见上一节。"));
+        sections.add(new ReportContent.Section("跨班重点学生", watchText(f.getWatchList(), red + yellow)));
+        sections.add(new ReportContent.Section("课程教学动作",
+                offeringActions(f)));
+        old.sections.clear();
+        old.sections.addAll(sections);
+        old.summary = summaryOf(sections);
+        return old;
+    }
+
+    private String classCompareText(OfferingFact f) {
+        if (f.getClasses().isEmpty()) return "暂无可对比的教学班。";
+        StringBuilder sb = new StringBuilder("各教学班情况：");
+        for (OfferingFact.ClassRow c : f.getClasses()) {
+            sb.append(c.getClassName()).append("（").append(nzf(c.getStudentCount())).append(" 人，红 ")
+                    .append(nzf(c.getRed())).append("、黄 ").append(nzf(c.getYellow()))
+                    .append("，过程分 ").append(num(c.getAvgProcessScore() == null ? c.getAvgScore() : c.getAvgProcessScore())).append(" 分）；");
+        }
+        return sb.toString();
+    }
+
+    private String watchText(List<?> list, int total) {
+        if (list == null || list.isEmpty()) return total == 0 ? "当前没有红黄灯学生，保持现有教学节奏。" : "暂无学生明细。";
+        StringBuilder sb = new StringBuilder("需重点关注 ").append(total).append(" 人：");
+        int i = 1;
+        for (Object o : list) {
+            if (i > 8) break;
+            String name = null, reason = null, level = null;
+            if (o instanceof ClassFact.Student s) { name = s.getStudentName(); reason = s.getReason(); level = s.getRiskLevel(); }
+            else if (o instanceof OfferingFact.Student s) { name = s.getStudentName(); reason = s.getReason(); level = s.getRiskLevel(); }
+            if (name == null) continue;
+            sb.append(i++).append("）").append(name).append("（").append("RED".equals(level) ? "红灯" : "黄灯")
+                    .append("，").append(nz(reason)).append("）；");
+        }
+        return sb.toString();
+    }
+
+    private String oldText(ReportContent old, String title) {
+        if (old == null) return "";
+        for (ReportContent.Section s : old.sections) {
+            if (s.title != null && s.title.contains(title)) return "\n" + s.text;
+        }
+        return "";
+    }
+
+    private String weakText(List<?> groups, List<?> types, List<?> items) {
+        StringBuilder sb = new StringBuilder();
+        if (!groups.isEmpty()) {
+            sb.append("正确率最低的分组：");
+            int i = 1;
+            for (Object o : groups) {
+                if (i > 3) break;
+                if (o instanceof ClassFact.Dim d) sb.append(i++).append("）「").append(d.getName()).append("」").append(pct(d.getRate())).append("；");
+                else if (o instanceof OfferingFact.Dim d) sb.append(i++).append("）「").append(d.getName()).append("」").append(pct(d.getRate())).append("；");
+            }
+        }
+        if (!types.isEmpty()) {
+            Object t = types.get(0);
+            if (t instanceof ClassFact.Dim d) sb.append("最弱题型是").append(d.getName()).append("（").append(pct(d.getRate())).append("）。");
+            else if (t instanceof OfferingFact.Dim d) sb.append("最弱题型是").append(d.getName()).append("（").append(pct(d.getRate())).append("）。");
+        }
+        if (!items.isEmpty() && items.get(0) instanceof ClassFact.Item it) {
+            sb.append("低分分项：").append(it.getName()).append("（平均 ").append(num(it.getAvgScore())).append("）。");
+        }
+        return sb.toString();
+    }
+
+    private String classActions(ClassFact f) {
+        List<String> actions = new ArrayList<>();
+        if (f.getRedCount() != null && f.getRedCount() > 0) actions.add("逐一约谈 " + f.getRedCount() + " 名红灯学生，并在系统登记干预");
+        if (f.getAbsentOverLimitCount() != null && f.getAbsentOverLimitCount() > 0) actions.add("核对 " + f.getAbsentOverLimitCount() + " 名缺勤超限学生的考勤与资格");
+        if (!f.getWeakGroups().isEmpty()) actions.add("针对「" + f.getWeakGroups().get(0).getName() + "」安排一次课堂回顾");
+        if (f.getUngradedItemCount() != null && f.getUngradedItemCount() > 0) actions.add("补齐 " + f.getUngradedItemCount() + " 项未登分成绩");
+        actions.add("T+7 复评红黄灯人数与缺勤变化");
+        return numbered(actions);
+    }
+
+    private String offeringActions(OfferingFact f) {
+        List<String> actions = new ArrayList<>();
+        if (!f.getClasses().isEmpty()) actions.add("优先约谈「" + f.getClasses().get(0).getClassName() + "」的红黄灯学生");
+        if (f.getAbsentOverLimitCount() != null && f.getAbsentOverLimitCount() > 0) actions.add("核对 " + f.getAbsentOverLimitCount() + " 名缺勤超限学生");
+        if (!f.getWeakGroups().isEmpty()) actions.add("把「" + f.getWeakGroups().get(0).getName() + "」排进下一轮跨班复习");
+        if (f.getUngradedItemCount() != null && f.getUngradedItemCount() > 0) actions.add("补齐 " + f.getUngradedItemCount() + " 项未登分成绩");
+        actions.add("T+7 复评各教学班红黄灯与均分变化");
+        return numbered(actions);
+    }
+
+    private String numbered(List<String> actions) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < actions.size(); i++) sb.append(i + 1).append("）").append(actions.get(i)).append("；");
+        return sb.toString();
+    }
+
     // ============================================================ 解析
     private ReportContent parseContent(String text) {
         List<ReportContent.Section> sections = new ArrayList<>();
@@ -875,8 +1024,16 @@ public class GroupReportService {
                 .filter(s -> s.length() > 40).findFirst().orElse(null);
     }
 
-    private void parseInto(String json, GroupReportVO vo) {
-        if (json == null || json.isBlank()) {
+    private Map<String, Object> parseFactJson(Object raw) {
+        if (raw == null || String.valueOf(raw).isBlank()) return Map.of();
+        try {
+            return MAPPER.readValue(String.valueOf(raw), new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            return Map.of();
+        }
+    }
+
+    private void parseInto(String json, GroupReportVO vo) {        if (json == null || json.isBlank()) {
             return;
         }
         try {

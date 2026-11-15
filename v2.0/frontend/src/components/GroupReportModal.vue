@@ -49,25 +49,7 @@
               </div>
             </div>
 
-            <div v-if="report.runId" class="rounded-xl border border-slate-200 px-4 py-3">
-              <div class="flex items-center justify-between gap-2 mb-2">
-                <p class="text-xs font-medium text-slate-700">生成链路</p>
-                <span class="text-[10px] text-slate-400">run #{{ report.runId }} · {{ report.runStatus || '—' }}</span>
-              </div>
-              <div v-if="report.runSteps && report.runSteps.length" class="space-y-1.5">
-                <div v-for="s in report.runSteps" :key="s.stepNo"
-                     class="flex items-center gap-2 text-[11px] text-slate-600">
-                  <span class="w-5 h-5 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center shrink-0">{{ s.stepNo }}</span>
-                  <span class="font-medium text-slate-700">{{ s.name }}</span>
-                  <span class="text-slate-400">{{ s.stepRole || s.toolName || '—' }}</span>
-                  <span class="ml-auto text-slate-400">{{ s.durationMs == null ? '—' : s.durationMs + 'ms' }}</span>
-                  <span class="tag" :class="s.validationStatus === 'PASS' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
-                    {{ s.validationStatus || s.gateStatus || '—' }}
-                  </span>
-                </div>
-              </div>
-              <p v-else class="text-[10px] text-slate-400">运行记录已关联，但该报告没有步骤明细。</p>
-            </div>
+
 
             <div v-if="report.persons && report.persons.length" class="rounded-xl border border-slate-200 px-4 py-3">
               <p class="text-xs text-slate-400 mb-2">报告涉及的学生（点击查看详情）</p>
@@ -86,13 +68,93 @@
                 {{ sectionNo(i) }}、{{ s.title }}
               </h3>
               <p class="text-sm text-slate-600 whitespace-pre-line leading-7">{{ s.text }}</p>
+
+              <div v-if="chartKind(s.title) === 'risk'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3">
+                <div class="flex items-center gap-4">
+                  <div class="w-24 h-24 rounded-full relative shrink-0" :style="{ background: donutStyle }"><div class="absolute inset-4 rounded-full bg-white"></div><div class="absolute inset-0 flex flex-col items-center justify-center"><b class="text-lg text-slate-800">{{ riskTotal }}</b><span class="text-[9px] text-slate-400">学生</span></div></div>
+                  <div class="space-y-1.5 text-[11px] flex-1">
+                    <div class="flex justify-between"><span class="text-slate-500">红灯</span><b class="text-red-600">{{ fact.redCount || 0 }}</b></div>
+                    <div class="flex justify-between"><span class="text-slate-500">黄灯</span><b class="text-amber-600">{{ fact.yellowCount || 0 }}</b></div>
+                    <div class="flex justify-between"><span class="text-slate-500">绿灯</span><b class="text-emerald-600">{{ fact.greenCount || 0 }}</b></div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else-if="chartKind(s.title) === 'score'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3 space-y-2">
+                <div v-for="row in scoreRows" :key="row.label">
+                  <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-500">{{ row.label }}</span><b class="text-slate-700">{{ row.text }}</b></div>
+                  <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full" :style="{ width: row.pct + '%', background: row.color }"></div></div>
+                </div>
+                <div v-if="assessmentRows.length" class="pt-2 mt-2 border-t border-dashed border-[#e6edf5]">
+                  <p class="text-[10px] text-slate-500 mb-1">已录考核项权重构成</p>
+                  <div class="flex h-2 rounded-full overflow-hidden mb-2">
+                    <div v-for="(a, i) in assessmentRows" :key="'aw-'+a.name" :style="{ width: a.weight / assessmentWeightTotal * 100 + '%' }" :class="i % 3 === 0 ? 'bg-[#0f9d8a]' : i % 3 === 1 ? 'bg-[#7aa7c7]' : 'bg-amber-300'"></div>
+                  </div>
+                  <div class="space-y-1">
+                    <div v-for="a in assessmentRows" :key="'ai-'+a.name" class="flex items-center justify-between text-[10px]">
+                      <span class="text-slate-500 truncate">{{ a.name }} · 权重 {{ a.weight }}%</span>
+                      <b class="text-slate-700">平均 {{ a.avgScore.toFixed(1) }}</b>
+                    </div>
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1">上方成绩条是成绩指标；这里才是考核项权重构成。</p>
+                </div>
+              </div>
+
+              <div v-else-if="chartKind(s.title) === 'radar'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3">
+                <div class="flex flex-col md:flex-row items-center gap-4">
+                  <svg viewBox="0 0 300 250" class="w-64 h-52 shrink-0">
+                    <polygon v-for="(ring, i) in radar.rings" :key="'ring-'+i" :points="ring" fill="none" stroke="#dbe7f2" />
+                    <line v-for="(p, i) in radar.points" :key="'axis-'+i" x1="150" y1="120" :x2="p.x" :y2="p.y" stroke="#e6edf5" />
+                    <polygon :points="radar.polygon" fill="rgba(15,157,138,.22)" stroke="#0f9d8a" stroke-width="2" />
+                    <circle v-for="(p, i) in radar.points" :key="'pt-'+i" :cx="p.x" :cy="p.y" r="3" fill="#0f9d8a" />
+                    <text v-for="(p, i) in radar.points" :key="'lb-'+i" :x="p.lx" :y="p.ly" text-anchor="middle" font-size="10" fill="#6b8296">{{ p.label }}</text>
+                  </svg>
+                  <div class="space-y-1.5 text-[11px] flex-1">
+                    <div v-for="p in radar.points" :key="'rv-'+p.label" class="flex justify-between gap-4"><span class="text-slate-500">{{ p.label }}</span><b class="text-slate-700">{{ Math.round(p.value) }}</b></div>
+                    <p class="text-[10px] text-slate-400 pt-1 border-t border-dashed border-[#e6edf5]">每个轴满分 100；成绩水平取当前过程分（期末未计入），风险控制 = 红灯全权重、黄灯半权重。</p>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else-if="chartKind(s.title) === 'classCompare'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3">
+                <div class="flex items-center justify-between text-[9px] text-slate-400 mb-2 px-[145px]">
+                  <span>0</span><span>25</span><span>50</span><span>75</span><span>100 过程分</span>
+                </div>
+                <div class="space-y-3">
+                  <div v-for="d in classCompareRows" :key="'cc-'+d.name" class="grid grid-cols-[130px_1fr_92px] gap-3 items-center">
+                    <span class="text-[10px] text-slate-600 truncate" :title="d.fullName">{{ d.name }}</span>
+                    <div class="relative h-6">
+                      <div class="absolute left-0 right-0 top-1/2 h-px bg-[#dbe7f2]"></div>
+                      <div class="absolute top-1/2 w-3 h-3 rounded-full bg-[#0f9d8a] ring-2 ring-white shadow -translate-y-1/2 -translate-x-1/2" :style="{ left: d.score + '%' }" :title="d.fullName + '：过程分 ' + d.score.toFixed(1)"></div>
+                    </div>
+                    <div class="text-right">
+                      <b class="text-[11px] text-slate-700">{{ d.score.toFixed(1) }}</b>
+                      <span class="text-[10px] text-slate-400 ml-1">红黄 {{ d.risk }}</span>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-2">点越靠右过程分越高；右侧为红黄灯人数，悬停可看教学班全名。</p>
+              </div>
+
+              <div v-else-if="chartKind(s.title) === 'breakdown'" class="mt-3 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3 space-y-2">
+                <div v-for="row in breakdownRows" :key="row.name">
+                  <div class="flex justify-between text-[10px] mb-1"><span class="text-slate-500 truncate">{{ row.name }}</span><b class="text-slate-700">{{ row.text }}</b></div>
+                  <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-[#20b7a4] to-[#7aa7c7]" :style="{ width: row.pct + '%' }"></div></div>
+                </div>
+                <p v-if="!breakdownRows.length" class="text-[11px] text-slate-400 py-2 text-center">暂无分组数据</p>
+              </div>
             </section>
 
             <p class="text-[10px] text-slate-400 border-t border-dashed border-slate-200 pt-3 leading-5">
               生成时间 {{ fmt(report.createTime) }} ｜ 报告里的数字均来自系统判定与成绩数据，可逐项对账；PDF 会保留本页脚。
             </p>
           </template>
+
     </div>
+
+    <GenerationOverlay :open="busy" :step="generationStep" title="正在生成群体学情报告"
+                       subtitle="汇总班级事实、生成研判结论并做数字对账" :agents="generationAgents"
+                       :messages="generationMessages" flow="体检 → 汇总 → 研判 → 生成 → 对账" />
   </ReportModalShell>
 </template>
 
@@ -100,30 +162,163 @@
 import { computed, ref, watch } from 'vue'
 import { groupReportApi } from '../api/ai'
 import ReportModalShell from './ReportModalShell.vue'
+import GenerationOverlay from './GenerationOverlay.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   scope: { type: String, default: 'CLASS' },
   targetId: { type: [Number, String], default: null },
-  title: { type: String, default: '' }
+  title: { type: String, default: '' },
+  generateOnOpen: { type: Boolean, default: false }
 })
 const emit = defineEmits(['close', 'openStudent'])
 
 const report = ref(null)
 const busy = ref(false)
+const generationStep = ref(0)
 const error = ref('')
 const showChecks = ref(false)
+const generationAgents = [
+  { icon: '🩺', name: '数据体检' },
+  { icon: '📊', name: '数据汇总' },
+  { icon: '🧭', name: '学情研判' },
+  { icon: '📚', name: 'RAG 取证' },
+  { icon: '✅', name: '数字对账' },
+  { icon: '📄', name: '报告生成' }
+]
+const generationMessages = [
+  '正在读取班级与课程快照…',
+  '正在汇总成绩、考勤与风险分布…',
+  '正在生成班级研判结论…',
+  '正在绑定课程资料与依据…',
+  '正在逐项核对报告数字…',
+  '报告已生成，正在准备预览…'
+]
 
 const allChecksOk = computed(() =>
   !!report.value && (report.value.checksTotal || 0) === (report.value.checksPassed || 0))
+const fact = computed(() => report.value?.fact || {})
+const riskTotal = computed(() => Number(fact.value.redCount || 0) + Number(fact.value.yellowCount || 0) + Number(fact.value.greenCount || 0))
+const donutStyle = computed(() => {
+  const total = Math.max(1, riskTotal.value)
+  const red = Number(fact.value.redCount || 0), yellow = Number(fact.value.yellowCount || 0)
+  const a = red / total * 100, b = a + yellow / total * 100
+  if (!riskTotal.value) return '#e5e7eb'
+  return `conic-gradient(#ef4444 0 ${a}%, #f59e0b ${a}% ${b}%, #22c55e ${b}% 100%)`
+})
+const scoreRows = computed(() => {
+  const f = fact.value
+  const n = (v) => Number(v || 0)
+  return [
+    { label: '过程分平均', text: num(f.avgProcessScore ?? f.avgScore), pct: Math.min(100, n(f.avgProcessScore ?? f.avgScore)), color: '#20b7a4' },
+    { label: '总评最低', text: num(f.minScore), pct: Math.min(100, n(f.minScore)), color: '#7aa7c7' },
+    { label: '总评最高', text: num(f.maxScore), pct: Math.min(100, n(f.maxScore)), color: '#0f9d8a' },
+    { label: '缺勤超限', text: n(f.absentOverLimitCount) + ' 人', pct: Math.min(100, n(f.absentOverLimitCount) / Math.max(1, n(f.studentCount)) * 100), color: '#ef4444' }
+  ]
+})
+const assessmentRows = computed(() => {
+  const raw = (fact.value.weakItems && fact.value.weakItems.length) ? fact.value.weakItems : (fact.value.items || [])
+  return raw.map(i => ({
+    name: i.name,
+    weight: Number(i.weight || 0),
+    avgScore: Number(i.avgScore || 0)
+  }))
+})
+const assessmentWeightTotal = computed(() => Math.max(1, assessmentRows.value.reduce((n, i) => n + i.weight, 0)))
+const breakdownRows = computed(() => {
+  const f = fact.value
+  if (report.value?.scope === 'OFFERING') {
+    return (f.classes || []).slice(0, 5).map(c => ({
+      name: c.className || c.classCode || '教学班',
+      text: num(c.avgProcessScore ?? c.avgScore) + ' 分',
+      pct: Math.min(100, Number(c.avgProcessScore ?? c.avgScore ?? 0))
+    }))
+  }
+  return (f.weakGroups || []).slice(0, 5).map(g => ({
+    name: g.name,
+    text: pct(g.rate),
+    pct: Math.min(100, Number(g.rate || 0))
+  }))
+})
+const classScatter = computed(() => {
+  const rows = (fact.value.classes || []).slice(0, 10)
+  const maxRisk = Math.max(1, ...rows.map(c => Number(c.red || 0) + Number(c.yellow || 0)))
+  const dots = rows.map(c => {
+    const score = Math.max(0, Math.min(100, Number(c.avgProcessScore ?? c.avgScore ?? 0)))
+    const risk = Number(c.red || 0) + Number(c.yellow || 0)
+    const students = Number(c.studentCount || 0)
+    return {
+      name: c.classCode || c.className || '教学班',
+      fullName: c.className || c.classCode || '教学班',
+      score,
+      risk,
+      students,
+      x: 35 + score / 100 * 285,
+      y: 170 - risk / maxRisk * 130,
+      r: Math.max(7, Math.min(15, 6 + students / 12))
+    }
+  })
+  return { dots, maxRisk, ticks: [0, 25, 50, 75, 100] }
+})
+const classCompareRows = computed(() => (fact.value.classes || []).map(c => ({
+  name: c.classCode || c.className || '教学班',
+  fullName: c.className || c.classCode || '教学班',
+  score: Math.max(0, Math.min(100, Number(c.avgProcessScore ?? c.avgScore ?? 0))),
+  risk: Number(c.red || 0) + Number(c.yellow || 0),
+  students: Number(c.studentCount || 0)
+})))
+const radar = computed(() => {  const f = fact.value
+  const n = v => Number(v || 0)
+  const students = Math.max(1, n(f.studentCount))
+  const attendance = f.plannedWeeks ? Math.max(0, Math.min(100, 100 - n(f.avgAbsent) / n(f.plannedWeeks) * 100)) : 0
+  const axes = [
+    { label: '成绩水平', value: Math.max(0, Math.min(100, n(f.avgProcessScore ?? f.avgScore))) },
+    { label: '出勤', value: attendance },
+    { label: '风险控制', value: Math.max(0, Math.min(100, 100 - (n(f.redCount) + n(f.yellowCount) * 0.5) / students * 100)) },
+    { label: '硬线安全', value: Math.max(0, Math.min(100, 100 - n(f.absentOverLimitCount) / students * 100)) }
+  ]
+  const cx = 150, cy = 120, radius = 82
+  const points = axes.map((a, i) => {
+    const angle = -Math.PI / 2 + i * 2 * Math.PI / axes.length
+    return {
+      ...a,
+      x: cx + Math.cos(angle) * radius * a.value / 100,
+      y: cy + Math.sin(angle) * radius * a.value / 100,
+      lx: cx + Math.cos(angle) * (radius + 25),
+      ly: cy + Math.sin(angle) * (radius + 25)
+    }
+  })
+  const ring = (factor) => axes.map((_, i) => {
+    const angle = -Math.PI / 2 + i * 2 * Math.PI / axes.length
+    return `${cx + Math.cos(angle) * radius * factor},${cy + Math.sin(angle) * radius * factor}`
+  }).join(' ')
+  return { axes, points, polygon: points.map(p => `${p.x},${p.y}`).join(' '), rings: [0.25, 0.5, 0.75, 1].map(ring) }
+})
+const chartReady = computed(() => !!report.value && !!report.value.fact && (riskTotal.value > 0 || fact.value.avgScore != null))
 const scopeLabel = computed(() => props.scope === 'ADMIN_CLASS'
   ? '行政班视角（一个班 × 多门课）'
   : (props.scope === 'OFFERING' ? '课程视角（一门课 × 我教的全部教学班）' : '教学班视角（一门课 × 一个班）'))
 const sourceLabel = computed(() => report.value?.source === 'TEMPLATE' ? '规则生成' : 'AI 生成')
 
+function chartKind(title) {
+  const t = title || ''
+  if (t.includes('班级画像')) return 'radar'
+  if (t.includes('风险结构')) return 'risk'
+  if (t.includes('成绩与考核项')) return 'score'
+  if (t.includes('教学班对比')) return 'classCompare'
+  if (t.includes('薄弱点')) return 'breakdown'
+  return ''
+}
+
 function fmt(v) {
   if (!v) return '—'
   return String(v).replace('T', ' ').slice(0, 16)
+}
+function num(v) {
+  return v == null ? '—' : (Number.isFinite(Number(v)) ? Number(v).toFixed(1) : v)
+}
+function pct(v) {
+  return v == null ? '—' : Number(v).toFixed(1) + '%'
 }
 function sectionNo(i) {
   return ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][i] || String(i + 1)
@@ -149,19 +344,30 @@ async function loadLatest() {
 async function generate() {
   if (!props.targetId || busy.value) return
   busy.value = true
+  generationStep.value = 1
   error.value = ''
+  const startedAt = Date.now()
+  const timer = setInterval(() => { if (generationStep.value < 6) generationStep.value++ }, 600)
   try {
     report.value = await groupReportApi.generate(props.scope, props.targetId)
+    const remain = Math.max(0, 3200 - (Date.now() - startedAt))
+    if (remain) await new Promise(r => setTimeout(r, remain))
+    generationStep.value = 6
   } catch (e) {
     error.value = e?.message || '生成失败'
   } finally {
-    busy.value = false
+    clearInterval(timer)
+    setTimeout(() => { busy.value = false; generationStep.value = 0 }, 500)
   }
 }
 
 watch(
   () => [props.open, props.targetId, props.scope],
-  ([isOpen]) => { if (isOpen) loadLatest() },
+  async ([isOpen]) => {
+    if (!isOpen) return
+    await loadLatest()
+    if (props.generateOnOpen && props.targetId) await generate()
+  },
   { immediate: true }
 )
 </script>

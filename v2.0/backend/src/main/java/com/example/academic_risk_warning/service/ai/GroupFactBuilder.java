@@ -90,16 +90,19 @@ public class GroupFactBuilder {
         // 总分与考勤
         List<Map<String, Object>> agg = jdbc.queryForList("""
                 select avg(sr.total_score) as avg_score, min(sr.total_score) as min_score, max(sr.total_score) as max_score,
+                       avg(cast(json_unquote(json_extract(rs.data_quality_json, '$.processScore')) as decimal(10,2))) as avg_process,
                        sum(case when sr.hard_fail = 1 then 1 else 0 end) as hard_fail,
                        sum(case when sr.absent_count > sr.allowed_absent then 1 else 0 end) as over_limit,
                        avg(sr.absent_count) as avg_absent, max(sr.absent_count) as max_absent,
                        sum(sr.late_count) as late_total
                 from score_result sr join enrollment e on e.id = sr.enrollment_id
+                left join risk_state rs on rs.enrollment_id = e.id and rs.is_void = 0
                 where e.teaching_class_id = ? and sr.is_void = 0
                 """, teachingClassId);
         if (!agg.isEmpty() && agg.get(0).get("avg_score") != null) {
             Map<String, Object> a = agg.get(0);
             f.setAvgScore(dec(a.get("avg_score")));
+            f.setAvgProcessScore(dec(a.get("avg_process")));
             f.setMinScore(dec(a.get("min_score")));
             f.setMaxScore(dec(a.get("max_score")));
             f.setHardFailCount(asInt(a.get("hard_fail")));
@@ -137,19 +140,20 @@ public class GroupFactBuilder {
         // 手工登分项的低分项
         List<ClassFact.Item> items = new ArrayList<>();
         for (Map<String, Object> row : jdbc.queryForList("""
-                select ssi.item_name, avg(si.score) as avg_score, count(*) as n
+                select ssi.item_name, ssi.weight, avg(si.score) as avg_score, count(*) as n
                 from score_item si
                          join score_scheme_item ssi on ssi.id = si.scheme_item_id
                          join enrollment e on e.id = si.enrollment_id
                 where e.teaching_class_id = ? and si.is_void = 0 and si.score is not null
-                group by ssi.id, ssi.item_name
+                group by ssi.id, ssi.item_name, ssi.weight
                 having count(*) >= 3
                 order by avg(si.score) asc
-                limit 3
+                limit 20
                 """, teachingClassId)) {
             ClassFact.Item it = new ClassFact.Item();
             it.setName(asString(row.get("item_name")));
             it.setAvgScore(dec(row.get("avg_score")));
+            it.setWeight(dec(row.get("weight")));
             it.setSampleCount(asInt(row.get("n")));
             items.add(it);
         }
@@ -436,6 +440,8 @@ public class GroupFactBuilder {
         int students = 0;
         int red = 0, yellow = 0, green = 0, unknown = 0, hardFail = 0, overLimit = 0, alerts = 0, ungraded = 0;
         BigDecimal scoreSum = BigDecimal.ZERO;
+        BigDecimal processSum = BigDecimal.ZERO;
+        int processN = 0;
         BigDecimal minScore = null;
         BigDecimal maxScore = null;
         for (ClassFact cf : facts) {
@@ -454,6 +460,10 @@ public class GroupFactBuilder {
             if (cf.getAvgScore() != null && n > 0) {
                 scoreSum = scoreSum.add(cf.getAvgScore().multiply(BigDecimal.valueOf(n)));
             }
+            if (cf.getAvgProcessScore() != null && n > 0) {
+                processSum = processSum.add(cf.getAvgProcessScore().multiply(BigDecimal.valueOf(n)));
+                processN += n;
+            }
             if (cf.getMinScore() != null && (minScore == null || cf.getMinScore().compareTo(minScore) < 0)) {
                 minScore = cf.getMinScore();
             }
@@ -470,6 +480,7 @@ public class GroupFactBuilder {
             row.setGreen(cf.getGreenCount());
             row.setHardFail(cf.getHardFailCount());
             row.setAvgScore(cf.getAvgScore());
+            row.setAvgProcessScore(cf.getAvgProcessScore());
             row.setMinScore(cf.getMinScore());
             row.setMaxScore(cf.getMaxScore());
             row.setAbsentOverLimitCount(cf.getAbsentOverLimitCount());
@@ -489,6 +500,7 @@ public class GroupFactBuilder {
         f.setMaxScore(maxScore);
         if (students > 0) {
             f.setAvgScore(scoreSum.divide(BigDecimal.valueOf(students), 2, RoundingMode.HALF_UP));
+            if (processN > 0) f.setAvgProcessScore(processSum.divide(BigDecimal.valueOf(processN), 2, RoundingMode.HALF_UP));
             f.setFailRate(BigDecimal.valueOf(red).multiply(BigDecimal.valueOf(100))
                     .divide(BigDecimal.valueOf(students), 1, RoundingMode.HALF_UP));
         }
@@ -496,6 +508,30 @@ public class GroupFactBuilder {
         f.getClasses().sort(Comparator
                 .comparingInt((OfferingFact.ClassRow x) -> nz(x.getRed()) * 2 + nz(x.getYellow())).reversed()
                 .thenComparing(x -> x.getClassName() == null ? "" : x.getClassName()));
+
+        // 全课程已录考核项（权重 + 平均分）
+        List<OfferingFact.Item> items = new ArrayList<>();
+        for (Map<String, Object> row : jdbc.queryForList("""
+                select ssi.item_name, ssi.weight, avg(si.score) as avg_score, count(*) as n
+                from score_item si
+                         join score_scheme_item ssi on ssi.id = si.scheme_item_id
+                         join enrollment e on e.id = si.enrollment_id
+                where e.teaching_class_id in (
+                        select id from teaching_class where offering_id = ? and (? is null or teacher_id = ?)
+                    )
+                  and si.is_void = 0 and si.score is not null
+                group by ssi.id, ssi.item_name, ssi.weight
+                having count(*) >= 3
+                order by ssi.sort_no
+                """, offeringId, teacherId, teacherId)) {
+            OfferingFact.Item it = new OfferingFact.Item();
+            it.setName(asString(row.get("item_name")));
+            it.setAvgScore(dec(row.get("avg_score")));
+            it.setWeight(dec(row.get("weight")));
+            it.setSampleCount(asInt(row.get("n")));
+            items.add(it);
+        }
+        f.setItems(items);
 
         // 共性难点：同名分组/题型按题量加权
         f.setWeakGroups(mergeDims(facts, true));

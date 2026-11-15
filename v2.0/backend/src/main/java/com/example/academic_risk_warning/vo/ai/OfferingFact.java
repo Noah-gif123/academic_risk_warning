@@ -48,6 +48,8 @@ public class OfferingFact {
     /** 红灯占选课记录的比例（百分比，保留 1 位） */
     private BigDecimal failRate;
     private BigDecimal avgScore;
+    /** 当前过程分均值（期末未计入时使用这一口径） */
+    private BigDecimal avgProcessScore;
     private BigDecimal minScore;
     private BigDecimal maxScore;
 
@@ -59,6 +61,8 @@ public class OfferingFact {
     /** 全课程共性难点（各教学班按题量加权） */
     private List<Dim> weakGroups = new ArrayList<>();
     private List<Dim> weakTypes = new ArrayList<>();
+    /** 全课程已录考核项（权重 + 平均分） */
+    private List<Item> items = new ArrayList<>();
 
     /** 教学班横向对比（红黄灯多的排前面） */
     private List<ClassRow> classes = new ArrayList<>();
@@ -78,6 +82,7 @@ public class OfferingFact {
         add(out, hardFailCount);
         add(out, failRate);
         add(out, avgScore);
+        add(out, avgProcessScore);
         add(out, minScore);
         add(out, maxScore);
         add(out, absentOverLimitCount);
@@ -103,6 +108,14 @@ public class OfferingFact {
     }
 
     @Data
+    public static class Item {
+        private String name;
+        private BigDecimal avgScore;
+        private BigDecimal weight;
+        private Integer sampleCount;
+    }
+
+    @Data
     public static class ClassRow {
         private Long teachingClassId;
         private String classCode;
@@ -113,6 +126,7 @@ public class OfferingFact {
         private Integer green;
         private Integer hardFail;
         private BigDecimal avgScore;
+        private BigDecimal avgProcessScore;
         private BigDecimal minScore;
         private BigDecimal maxScore;
         private Integer absentOverLimitCount;

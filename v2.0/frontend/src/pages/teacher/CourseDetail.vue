@@ -1,24 +1,39 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex items-center gap-3 flex-wrap">
-        <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/home')">← 返回首页</button>
-        <h1>{{ card ? card.courseName : '课程详情' }}</h1>
-        <span v-if="card" class="tag bg-slate-100 text-slate-500">{{ card.termName }}</span>
-        <span v-if="card" class="tag bg-brand-50 text-brand-600">{{ card.classCount }} 个教学班 · {{ card.studentCount }} 人</span>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <button class="text-sm text-slate-400 hover:text-slate-600" @click="$router.push('/teacher/courses')">← 全部课程</button>
+          <h1>{{ card ? card.courseName : '课程详情' }}</h1>
+          <span v-if="card" class="tag bg-white text-slate-500 border border-[#e6edf5]">{{ card.termName }}</span>
+          <span v-if="card" class="tag bg-[#e9f6f2] text-[#0b7d6e]">{{ courseTypeLabel(card.courseType) }}</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">{{ card ? card.classCount + ' 个教学班 · ' + card.studentCount + ' 名学生' : '课程教学与考核' }}</p>
       </div>
-      <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
+      <div class="flex items-center gap-2">
+        <button class="btn-ghost text-sm" @click="$router.push('/teacher/reports')">学情报告</button>
+      </div>
+    </header>
+
+    <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
+
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">教学班</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ classes.length }}</p><p class="text-[11px] text-slate-400 mt-2">本人任教</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">学生</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ card?.studentCount || 0 }}</p><p class="text-[11px] text-slate-400 mt-2">选课人数</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-300"></span><p class="text-[11px] text-slate-400">进行中</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ activeClasses }}</p><p class="text-[11px] text-slate-400 mt-2">未结课教学班</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">已选考核班</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ selectedClassId || '—' }}</p><p class="text-[11px] text-slate-400 mt-2">统计/考核对象</p></div>
+    </section>
 
     <div class="flex flex-wrap gap-2">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
-              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
+              :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-[#e6edf5]'"
               @click="tab = t.key">{{ t.label }}</button>
     </div>
 
     <!-- 教学班级 -->
     <div class="card p-5" v-if="tab === 'classes'">
       <h2 class="font-medium text-slate-700 mb-3">教学班级</h2>
+      <div class="overflow-x-auto border border-[#e6edf5] rounded-xl">
       <table class="w-full text-sm">
         <thead class="text-slate-500 border-b border-slate-200">
           <tr>
@@ -54,6 +69,7 @@
           <tr v-if="!classes.length"><td colspan="6" class="py-6 text-center text-slate-400">没有教学班</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
 
     <!-- 教学统计 -->
@@ -69,7 +85,7 @@
         </label>
         <div class="flex items-center gap-2">
           <button class="btn-ghost text-sm" @click="exportStudents">导出学生数据</button>
-          <button class="btn-ghost text-sm" @click="showReport = !showReport">查看课程报告</button>
+          <button class="btn-ghost text-sm" @click="$router.push('/teacher/reports')">查看学情报告</button>
         </div>
       </div>
 
@@ -111,15 +127,6 @@
           <p class="text-xs text-slate-500">未开始 {{ stats.notStartedProject }} ｜ 进行中 {{ stats.runningProject }} ｜ 已截止 {{ stats.finishedProject }}</p>
         </div>
       </div>
-
-      <div v-if="showReport && stats" class="card p-4 text-sm space-y-1">
-        <h3 class="font-medium text-slate-700">课程报告（{{ stats.courseName }} · {{ stats.className }}）</h3>
-        <p>教师：{{ stats.teacherName }} ｜ 学生：{{ stats.studentCount }} 人 ｜ 有效课次：{{ stats.effectiveSessions ?? '—' }}</p>
-        <p>出勤率 {{ stats.attendanceRate ?? '—' }}%（已点名 {{ stats.calledSessions }} 次）</p>
-        <p>已发布资料 {{ stats.materialCount }} 项、测验 {{ stats.quizCount }} 次、作业 {{ stats.homeworkCount }} 次、项目 {{ stats.projectCount }} 个</p>
-        <p>平均成绩 {{ stats.avgScore ?? '未定稿' }} ｜ 已定稿 {{ stats.scoredCount }} 人 ｜ 通过率 {{ stats.passRate ?? '—' }}%</p>
-        <p class="text-xs text-slate-400">完整明细请用「导出学生数据」或成绩矩阵的「导出成绩矩阵」。</p>
-      </div>
     </div>
 
     <!-- 课程考核 -->
@@ -149,6 +156,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { teacherPortalApi } from '../../api/teacherPortal'
+import { courseTypeLabel } from '../../labels'
 import Scores from './Scores.vue'
 
 const route = useRoute()
@@ -163,12 +171,12 @@ const tab = ref('classes')
 const home = ref(null)
 const stats = ref(null)
 const selectedClassId = ref(0)
-const showReport = ref(false)
 const message = ref('')
 const ok = ref(true)
 
 const card = computed(() => (home.value ? (home.value.courses || []).find((c) => c.offeringId === offeringId) : null))
 const classes = computed(() => (card.value ? card.value.classes || [] : []))
+const activeClasses = computed(() => classes.value.filter(c => c.status !== 'CLOSED').length)
 const totalTasks = computed(() => {
   if (!stats.value) return 0
   return (stats.value.materialCount || 0) + (stats.value.quizCount || 0)

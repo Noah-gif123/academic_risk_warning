@@ -1,38 +1,37 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex items-center gap-3 flex-wrap">
-        <button class="text-sm text-slate-400 hover:text-slate-600" @click="back">← 返回课程</button>
-        <h1>成绩构成</h1>
-        <span v-if="scheme" class="tag bg-brand-50 text-brand-600">{{ scheme.courseName }}</span>
-        <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ scheme.termName }}</span>
-        <span v-if="scheme" class="tag bg-slate-100 text-slate-500">{{ courseTypeLabel(scheme.courseType) }} · {{ scheme.level }}</span>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <button class="text-sm text-slate-400 hover:text-slate-600" @click="back">← 返回课程</button>
+          <h1>成绩构成</h1>
+          <span v-if="scheme" class="tag bg-white text-slate-500 border border-[#e6edf5]">{{ scheme.courseName }}</span>
+          <span v-if="scheme" class="tag bg-[#e9f6f2] text-[#0b7d6e]">{{ courseTypeLabel(scheme.courseType) }}</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">{{ scheme?.termName || '当前学期' }} · 成绩构成决定可发布活动、学生端页签和成绩册列。</p>
       </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
+    </header>
+
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">版本</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">v{{ scheme?.version ?? '—' }}</p><p class="text-[11px] text-slate-400 mt-2">{{ scheme?.level || '当前构成' }}</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">一级评分项</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ items.length }}</p><p class="text-[11px] text-slate-400 mt-2">含 {{ childCount }} 个二级项</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1" :class="rootSum === 100 ? 'bg-emerald-300' : 'bg-red-300'"></span><p class="text-[11px] text-slate-400">权重合计</p><p class="text-[28px] leading-none font-semibold mt-3" :class="rootSum === 100 ? 'text-emerald-600' : 'text-red-600'">{{ rootSum }}%</p><p class="text-[11px] text-slate-400 mt-2">一级项必须为 100%</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">确认 / 状态</p><p class="text-[20px] leading-none font-semibold text-[#17324b] mt-3">{{ scheme?.confirmDone ?? 0 }}/{{ scheme?.teacherCount ?? 0 }}</p><p class="text-[11px] text-slate-400 mt-2">{{ scheme?.locked ? '已锁定 · 只读' : statusText + ' · ' + (scheme?.myConfirmed ? '我已确认' : '我未确认') }}</p></div>
+    </section>
 
     <p class="text-xs text-slate-400">
-      成绩构成是课程的「总开关」：这里定义的评分项决定后续可以发布哪些活动、学生端显示哪些页签，也决定成绩册的列。
       同一层级权重之和必须为 100%；考勤（出勤）不作为评分项，只通过缺课硬门槛与违纪扣分影响结果。
     </p>
 
     <!-- 状态条 -->
-    <div class="card p-5" v-if="scheme">
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-        <div><p class="text-xs text-slate-400">版本</p><p class="font-medium">v{{ scheme.version }}</p></div>
-        <div><p class="text-xs text-slate-400">根层权重合计</p>
-          <p class="font-medium" :class="rootSum === 100 ? 'text-emerald-600' : 'text-red-600'">{{ rootSum }}%</p></div>
-        <div><p class="text-xs text-slate-400">课程组确认</p><p class="font-medium">{{ scheme.confirmDone }} / {{ scheme.teacherCount }}</p></div>
-        <div><p class="text-xs text-slate-400">状态</p>
-          <p class="font-medium" :class="scheme.locked ? 'text-emerald-600' : 'text-amber-600'">{{ statusText }}</p></div>
-        <div><p class="text-xs text-slate-400">我的确认</p>
-          <p class="font-medium">{{ scheme.myConfirmed ? '已确认' : '未确认' }}</p></div>
+    <div class="card p-4" v-if="scheme">
+      <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
+        <span class="text-slate-500">锁定方式：<b class="text-slate-700">{{ lockText }}</b><span v-if="scheme.lockedByName"> · {{ scheme.lockedByName }}</span><span v-if="scheme.lockedAt"> · {{ fmtTime(scheme.lockedAt) }}</span></span>
+        <span class="tag" :class="scheme.locked ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">{{ scheme.locked ? '已锁定' : '可编辑' }}</span>
       </div>
-      <p class="text-xs text-slate-400 mt-3">
-        锁定方式：{{ lockText }}<span v-if="scheme.lockedByName"> · {{ scheme.lockedByName }}</span>
-        <span v-if="scheme.lockedAt"> · {{ scheme.lockedAt }}</span>
-        <span v-if="scheme.remark"> ｜ 备注：{{ scheme.remark }}</span>
-      </p>
+      <div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full" :class="rootSum === 100 ? 'bg-[#20b7a4]' : 'bg-red-400'" :style="{ width: Math.min(100, rootSum) + '%' }"></div></div>
+      <p v-if="rootSum !== 100" class="text-xs text-red-600 mt-2">一级项权重合计 {{ rootSum }}%，保存前必须调整为 100%。</p>
     </div>
 
     <!-- 还没有构成：套用模板 -->
@@ -60,6 +59,16 @@
         <span class="text-xs" :class="rootSum === 100 ? 'text-emerald-600' : 'text-red-600'">
           一级项权重合计 {{ rootSum }} / 100
         </span>
+      </div>
+
+      <div v-if="items.length" class="mb-4 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3">
+        <div class="flex items-center justify-between mb-2"><p class="text-[11px] text-slate-500">一级项权重构成</p><span class="text-[10px] text-slate-400">合计 {{ rootSum }}%</span></div>
+        <div class="flex h-3 rounded-full overflow-hidden bg-slate-100">
+          <div v-for="(it, i) in items" :key="'w-'+i" :style="{ width: Math.max(0, Number(it.weight || 0)) + '%' }" :class="i % 4 === 0 ? 'bg-[#0f9d8a]' : i % 4 === 1 ? 'bg-[#7aa7c7]' : i % 4 === 2 ? 'bg-amber-300' : 'bg-indigo-300'"></div>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[10px] text-slate-500">
+          <span v-for="(it, i) in items" :key="'wl-'+i" class="flex items-center gap-1"><i class="w-2 h-2 rounded-sm inline-block" :class="i % 4 === 0 ? 'bg-[#0f9d8a]' : i % 4 === 1 ? 'bg-[#7aa7c7]' : i % 4 === 2 ? 'bg-amber-300' : 'bg-indigo-300'"></i>{{ it.itemName || '未命名' }} {{ it.weight }}%</span>
+        </div>
       </div>
 
       <div class="space-y-3">
@@ -169,13 +178,15 @@ const categories = [
 
 const readonly = computed(() => !!(scheme.value && scheme.value.locked))
 const rootSum = computed(() => round(items.value.reduce((s, it) => s + Number(it.weight || 0), 0)))
+const childCount = computed(() => items.value.reduce((n, it) => n + (it.children?.length || 0), 0))
+function fmtTime(v) { return v ? String(v).replace('T', ' ').slice(0, 16) : '—' }
 const statusText = computed(() => {
   const m = { DRAFT: '草稿', CONFIRMING: '确认中', CONFIRMED: '已确认', LOCKED: '已锁定' }
   return m[scheme.value?.confirmStatus] || scheme.value?.confirmStatus || '—'
 })
 const lockText = computed(() => {
   const m = { TEACHER_COLLECTIVE: '课程组全体确认后锁定', ADMIN_RULED: '教务裁定锁定', TEMPLATE_AUTO: '模板默认' }
-  return m[scheme.value?.lockType] || '未锁定'
+  return m[scheme.value?.lockType] || (scheme.value?.locked ? '已锁定（历史数据未记录锁定方式）' : '未锁定')
 })
 
 function round(n) { return Math.round(n * 100) / 100 }

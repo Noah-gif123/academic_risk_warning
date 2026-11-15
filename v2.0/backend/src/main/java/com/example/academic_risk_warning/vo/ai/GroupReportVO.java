@@ -23,6 +23,9 @@ public class GroupReportVO {
     private String source;
     private String createTime;
 
+    /** 报告生成时的事实包（班级/课程聚合指标，供前端图表） */
+    private Map<String, Object> fact;
+
     /** Q2：报告生成后班级数据又被重判过 → 结论过期，前端应提示重新生成 */
     private Boolean stale = false;
     /** 过期原因（整句，前端直接展示） */

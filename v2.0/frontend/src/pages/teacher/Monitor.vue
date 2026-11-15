@@ -14,6 +14,7 @@
             {{ c.classCode }} · {{ c.courseName }}
           </option>
         </select>
+        <button class="btn-ghost text-sm" @click="$router.push('/teacher/reports')">学情报告</button>
         <button class="btn-ghost text-sm" :disabled="loading" @click="reload">刷新</button>
         <button class="btn-primary text-sm" :disabled="evaluating" @click="reevaluate">
           {{ evaluating ? '判定中…' : '重新判定' }}
@@ -37,11 +38,72 @@
     <!-- 总览 -->
     <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
       <div v-for="c in cards" :key="c.key" class="card p-4 relative overflow-hidden">
+        <span class="absolute left-0 top-0 bottom-0 w-1" :class="c.key === 'red' ? 'bg-red-400' : c.key === 'orange' ? 'bg-amber-400' : c.key === 'yellow' ? 'bg-yellow-400' : c.key === 'pending' ? 'bg-[#20b7a4]' : 'bg-slate-300'"></span>
         <p class="text-xs text-slate-400">{{ c.label }}</p>
         <p class="text-2xl font-semibold mt-1" :class="c.color">{{ c.value }}</p>
         <p class="text-xs text-slate-400 mt-1 truncate">{{ c.hint }}</p>
       </div>
     </div>
+
+    <!-- 风险概览 -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3"><h2>预警分布</h2><span class="text-[11px] text-slate-400">按当前筛选</span></div>
+        <div class="flex items-center gap-4">
+          <div class="w-28 h-28 rounded-full relative shrink-0" :style="{ background: donutStyle }">
+            <div class="absolute inset-5 rounded-full bg-white"></div>
+            <div class="absolute inset-0 flex flex-col items-center justify-center"><b class="text-xl">{{ riskTotal }}</b><span class="text-[9px] text-slate-400">预警</span></div>
+          </div>
+          <div class="space-y-2 text-xs flex-1">
+            <div v-for="d in distributionRows" :key="d.key" class="flex items-center justify-between"><span class="flex items-center gap-1.5 text-slate-500"><i class="w-2 h-2 rounded-full inline-block" :style="{ background: d.color }"></i>{{ d.label }}</span><b>{{ d.value }}</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-5 lg:col-span-2">
+        <div class="flex items-center justify-between mb-3"><h2>班级风险排名</h2><span class="text-[11px] text-slate-400">按预警学生数</span></div>
+        <div class="space-y-2">
+          <div v-for="c in classRanking" :key="c.classCode" class="grid grid-cols-[130px_1fr_70px] gap-3 items-center">
+            <span class="text-xs text-slate-600 truncate" :title="c.classCode">{{ c.classCode }}</span>
+            <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-amber-400 to-red-500" :style="{ width: c.rate + '%' }"></div></div>
+            <span class="text-[11px] text-slate-500 text-right">{{ c.students }} 人 / {{ c.rows }} 条</span>
+          </div>
+          <p v-if="!classRanking.length" class="text-sm text-slate-400 py-6 text-center">当前筛选下暂无风险班级</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3"><h2>处置进度</h2><span class="text-[11px] text-slate-400">当前筛选范围</span></div>
+        <div class="space-y-3">
+          <div v-for="s in statusRows" :key="s.key">
+            <div class="flex items-center justify-between text-xs mb-1"><span class="text-slate-600">{{ s.label }}</span><b class="text-slate-700">{{ s.value }}</b></div>
+            <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full" :class="s.color" :style="{ width: s.pct + '%' }"></div></div>
+          </div>
+        </div>
+        <div class="mt-4 pt-3 border-t border-[#eef4f9] flex items-center justify-between text-xs">
+          <span class="text-slate-400">待核实申诉</span>
+          <b :class="stats.appealPending ? 'text-amber-600' : 'text-slate-500'">{{ stats.appealPending || 0 }} 条</b>
+        </div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3"><h2>优先处理</h2><span class="text-[11px] text-slate-400">按风险分排序</span></div>
+        <div v-if="priorityRows.length" class="divide-y divide-[#eef4f9]">
+          <div v-for="r in priorityRows" :key="'prio-'+r.id" class="flex items-center gap-3 py-2.5">
+            <span class="w-7 h-7 rounded-full bg-[#e9f6f2] text-[#0b7d6e] text-xs flex items-center justify-center shrink-0">{{ (r.studentName || '?').slice(0, 1) }}</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-medium text-slate-700 truncate">{{ r.studentName }} <span class="text-slate-400 font-normal">{{ r.classCode }}</span></p>
+              <p class="text-[10px] text-slate-400 truncate">{{ r.courseName }} · {{ triggerRuleLabel(r.triggerRule) }}</p>
+            </div>
+            <span class="tag shrink-0" :class="riskLevelBadge(r.alertLevel)">{{ num(r.riskScore) }}</span>
+            <button class="text-xs text-[#0f9d8a] hover:underline shrink-0" @click="openDetail(r)">详情</button>
+          </div>
+        </div>
+        <p v-else class="text-sm text-slate-400 py-8 text-center">当前没有待处理预警</p>
+      </div>
+    </section>
 
     <!-- 名单 -->
     <div class="card p-5 space-y-4">
@@ -82,62 +144,70 @@
         </div>
       </div>
 
-      <div class="overflow-x-auto border border-slate-200 rounded-lg">
+      <div class="overflow-x-auto border border-[#e6edf5] rounded-xl bg-white">
         <table class="w-full text-sm">
-          <thead class="text-slate-500 bg-slate-50 border-b border-slate-200">
+          <thead class="text-[11px] text-slate-400 bg-[#f8fbfd] border-b border-[#e6edf5]">
             <tr>
-              <th class="py-2 pl-2 w-8">
+              <th class="py-2.5 pl-3 w-8">
                 <input type="checkbox" :checked="allChecked" @change="toggleAll($event.target.checked)" />
               </th>
-              <th class="text-left py-2">学号</th>
-              <th class="text-left py-2">姓名</th>
-              <th class="text-left py-2">教学班</th>
-              <th class="text-left py-2">课程</th>
-              <th class="text-left py-2">等级</th>
-              <th class="text-right py-2">风险分</th>
-              <th class="text-right py-2" title="缺课 / 允许缺课 / 剩余额度">缺课额度</th>
-              <th class="text-right py-2" title="期末未考 = 期末需考多少分；大作业已批 = 还差多少分">需考 / 还差</th>
-              <th class="text-left py-2">触发规则</th>
-              <th class="text-left py-2">状态</th>
-              <th class="text-right py-2 pr-2">操作</th>
+              <th class="text-left py-2.5">学号</th>
+              <th class="text-left py-2.5">学生</th>
+              <th class="text-left py-2.5">教学班 / 课程</th>
+              <th class="text-left py-2.5">等级</th>
+              <th class="text-right py-2.5">风险分</th>
+              <th class="text-right py-2.5" title="缺课 / 允许缺课">缺课</th>
+              <th class="text-right py-2.5" title="期末未考 = 期末需考多少分；大作业已批 = 还差多少分">需考 / 还差</th>
+              <th class="text-left py-2.5">触发规则</th>
+              <th class="text-left py-2.5">状态</th>
+              <th class="text-right py-2.5 pr-3">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in pageRows" :key="r.id" class="border-b border-slate-100 hover:bg-slate-50/60">
-              <td class="py-1.5 pl-2">
+            <tr v-for="r in pageRows" :key="r.id"
+                class="border-b border-[#eef4f9] border-l-4 hover:bg-[#f8fbfd] transition"
+                :class="r.alertLevel === 'RED' ? 'border-l-red-400' : r.alertLevel === 'ORANGE' ? 'border-l-amber-400' : 'border-l-yellow-300'">
+              <td class="py-2.5 pl-3">
                 <input type="checkbox" :value="r.id" v-model="selectedIds" />
               </td>
-              <td class="py-1.5 text-slate-500">{{ r.studentNo }}</td>
-              <td class="py-1.5">{{ r.studentName }}</td>
-              <td class="py-1.5 text-slate-500">{{ r.classCode }}</td>
-              <td class="py-1.5 text-slate-500">{{ r.courseName }}</td>
-              <td class="py-1.5">
+              <td class="py-2.5 text-slate-400 text-xs">{{ r.studentNo }}</td>
+              <td class="py-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="w-7 h-7 rounded-full bg-[#e9f6f2] text-[#0b7d6e] text-xs flex items-center justify-center shrink-0">{{ (r.studentName || '?').slice(0, 1) }}</span>
+                  <b class="text-xs font-medium text-slate-700">{{ r.studentName }}</b>
+                </div>
+              </td>
+              <td class="py-2.5">
+                <p class="text-xs text-slate-600">{{ r.classCode }}</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">{{ r.courseName }}</p>
+              </td>
+              <td class="py-2.5">
                 <span class="tag" :class="riskLevelBadge(r.alertLevel)">{{ riskLevelLabel(r.alertLevel) }}</span>
                 <span v-if="r.escalated" class="tag bg-red-500 text-white ml-1">升级</span>
               </td>
-              <td class="py-1.5 text-right font-medium">{{ num(r.riskScore) }}</td>
-              <td class="py-1.5 text-right" :class="r.hardFail ? 'text-red-600 font-medium' : ''">
-                {{ r.absentCount ?? 0 }} / {{ r.allowedAbsent ?? 0 }} / {{ r.remainingAbsent ?? 0 }}
+              <td class="py-2.5 text-right"><span class="inline-flex min-w-10 justify-center rounded-md bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">{{ num(r.riskScore) }}</span></td>
+              <td class="py-2.5 text-right text-xs" :class="r.hardFail ? 'text-red-600 font-medium' : 'text-slate-600'">
+                {{ r.absentCount ?? 0 }} / {{ r.allowedAbsent ?? 0 }}
               </td>
-              <td class="py-1.5 text-right">
+              <td class="py-2.5 text-right text-xs">
                 <span v-if="r.finalUnreachable" class="text-red-600">不可达</span>
                 <span v-else>{{ r.finalExamNeeded == null ? '—' : num(r.finalExamNeeded) }}</span>
               </td>
-              <td class="py-1.5 text-xs" :title="r.alertReason">{{ triggerRuleLabel(r.triggerRule) }}</td>
-              <td class="py-1.5">
+              <td class="py-2.5 text-[11px] text-slate-500" :title="r.alertReason">{{ triggerRuleLabel(r.triggerRule) }}</td>
+              <td class="py-2.5">
                 <span class="tag" :class="statusBadge(r.status)">{{ alertStatusLabel(r.status) }}</span>
                 <span v-if="r.studentResponse" class="tag bg-amber-50 text-amber-700 border border-amber-200 ml-1">
                   {{ r.teacherReply ? '已回复' : '申诉待回' }}
                 </span>
               </td>
-              <td class="py-1.5 pr-2 text-right whitespace-nowrap">
-                <button class="text-brand-600 hover:underline" @click="openDetail(r)">详情</button>
-                <button v-if="canOperate(r)" class="text-slate-500 hover:underline ml-2" @click="remind(r)">提醒</button>
-                <button v-if="canOperate(r)" class="text-slate-500 hover:underline ml-2" @click="claim(r)">认领</button>
+              <td class="py-2.5 pr-3 text-right whitespace-nowrap">
+                <button class="px-2 py-1 rounded-md bg-[#e9f6f2] text-[#0b7d6e] text-xs hover:bg-[#d9f0ea]" @click="openDetail(r)">详情</button>
+                <button v-if="canOperate(r)" class="px-2 py-1 rounded-md bg-slate-50 text-slate-500 text-xs hover:bg-slate-100 ml-1" @click="remind(r)">提醒</button>
+                <button v-if="canOperate(r)" class="px-2 py-1 rounded-md bg-slate-50 text-slate-500 text-xs hover:bg-slate-100 ml-1" @click="claim(r)">认领</button>
               </td>
             </tr>
             <tr v-if="!filteredRows.length">
-              <td colspan="12" class="py-8 text-center text-slate-400">
+              <td colspan="11" class="py-10 text-center text-slate-400">
                 {{ loading ? '加载中…' : '暂无预警：当前教学班学生都处于安全区' }}
               </td>
             </tr>
@@ -359,37 +429,6 @@ const evaluating = ref(false)
 const exporting = ref(false)
 const batching = ref(false)
 const acting = ref(false)
-// ---- 班级报告（M8）：仅当选中某个教学班时可用
-const reportOpen = ref(false)
-const reportTargetId = ref(null)
-const reportTitle = ref('')
-
-function openClassReport() {
-  if (!filters.teachingClassId) {
-    message.value = '先在右上角选择一个教学班，再生成班级报告'
-    ok.value = false
-    return
-  }
-  const c = (classOptions.value || []).find((x) => String(x.teachingClassId) === String(filters.teachingClassId))
-  reportTargetId.value = Number(filters.teachingClassId)
-  reportTitle.value = c ? `${c.classCode} · ${c.courseName} 班级学情报告` : '班级学情报告'
-  reportOpen.value = true
-}
-
-/** 报告里点学生名：关掉报告，把预警名单过滤到这名学生 */
-function focusStudentFromReport(p) {
-  reportOpen.value = false
-  if (!p) return
-  if (p.teachingClassId) {
-    filters.teachingClassId = String(p.teachingClassId)
-  }
-  // 先清掉可能把目标挡掉的筛选，否则点了名字却看不到这一行
-  filters.level = ''
-  filters.status = ''
-  filters.appealPending = false
-  filters.keyword = p.studentName || ''
-  reload()
-}
 const message = ref('')
 const ok = ref(true)
 
@@ -429,6 +468,44 @@ const cards = computed(() => [
   { key: 'appealPending', label: '待核实申诉', value: stats.appealPending, color: 'text-amber-600', hint: '学生已申诉、待回复' },
   { key: 'evaluated', label: '已判定学生', value: stats.evaluated, color: 'text-slate-800', hint: stats.lastEvalTime ? '最近 ' + fmt(stats.lastEvalTime) : '尚未判定' }
 ])
+
+const riskTotal = computed(() => Number(stats.red || 0) + Number(stats.orange || 0) + Number(stats.yellow || 0))
+const distributionRows = computed(() => [
+  { key: 'red', label: '红色', value: stats.red || 0, color: '#ef4444' },
+  { key: 'orange', label: '橙色', value: stats.orange || 0, color: '#f59e0b' },
+  { key: 'yellow', label: '黄色', value: stats.yellow || 0, color: '#eab308' }
+])
+const donutStyle = computed(() => {
+  const total = Math.max(1, riskTotal.value)
+  const red = stats.red || 0, orange = stats.orange || 0
+  const a = red / total * 100, b = a + orange / total * 100
+  if (!riskTotal.value) return '#e5e7eb'
+  return `conic-gradient(#ef4444 0 ${a}%, #f59e0b ${a}% ${b}%, #eab308 ${b}% 100%)`
+})
+const classRanking = computed(() => {
+  const map = new Map()
+  rows.value.forEach(r => {
+    const k = r.classCode || '未分组'
+    if (!map.has(k)) map.set(k, { classCode: k, rows: 0, students: new Set() })
+    const x = map.get(k)
+    x.rows += 1
+    x.students.add(r.studentId)
+  })
+  const arr = [...map.values()].map(x => ({ classCode: x.classCode, rows: x.rows, students: x.students.size }))
+  const max = Math.max(1, ...arr.map(x => x.rows))
+  return arr.sort((a, b) => b.rows - a.rows).slice(0, 6).map(x => ({ ...x, rate: Math.round(x.rows / max * 100) }))
+})
+const statusTotal = computed(() => Math.max(1, Number(stats.active || 0) + Number(stats.handling || 0) + Number(stats.closed || 0)))
+const statusRows = computed(() => [
+  { key: 'active', label: '待处理', value: stats.active || 0, color: 'bg-red-400', pct: Math.round((stats.active || 0) / statusTotal.value * 100) },
+  { key: 'handling', label: '处理中', value: stats.handling || 0, color: 'bg-amber-400', pct: Math.round((stats.handling || 0) / statusTotal.value * 100) },
+  { key: 'closed', label: '已关闭', value: stats.closed || 0, color: 'bg-emerald-400', pct: Math.round((stats.closed || 0) / statusTotal.value * 100) }
+])
+const priorityRows = computed(() => rows.value
+  .filter(r => r.status !== 'CLOSED' && r.status !== 'DISMISSED')
+  .slice()
+  .sort((a, b) => Number(b.riskScore || 0) - Number(a.riskScore || 0))
+  .slice(0, 3))
 
 const filteredRows = computed(() => {
   const kw = filters.keyword.trim()

@@ -14,6 +14,13 @@
       期中 / 期末归档提交后由教务确认，确认后考勤冻结（教师不能再改）。
     </p>
 
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#20b7a4]"></span><p class="text-[11px] text-slate-400">课次</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ attendanceStats.sessions }}</p><p class="text-[11px] text-slate-400 mt-2">已建课次</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">已点名</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ attendanceStats.called }}</p><p class="text-[11px] text-slate-400 mt-2">已记录名单</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-red-300"></span><p class="text-[11px] text-slate-400">缺课合计</p><p class="text-[28px] leading-none font-semibold text-red-600 mt-3">{{ attendanceStats.absent }}</p><p class="text-[11px] text-slate-400 mt-2">全部课次</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">已归档</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ attendanceStats.archived }}</p><p class="text-[11px] text-slate-400 mt-2">教务已确认</p></div>
+    </section>
+
     <div class="flex flex-wrap gap-2">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"
               :class="tab === t.key ? 'bg-[#0f9d8a] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'"
@@ -264,6 +271,12 @@ const submitting = ref(false)
 /** 已提交（CALLED）或已归档 → 只读锁定 */
 const rosterLocked = computed(() => !!(active.value && (active.value.archived || active.value.rollCallStatus === 'CALLED')))
 const exceptionCount = computed(() => roster.value.filter((r) => r.status !== 'PRESENT').length)
+const attendanceStats = computed(() => ({
+  sessions: sessions.value.length,
+  called: sessions.value.filter(s => s.rollCallStatus === 'CALLED').length,
+  absent: sessions.value.reduce((n, s) => n + Number(s.absentCount || 0), 0),
+  archived: sessions.value.filter(s => s.archived).length
+}))
 
 function hasArchive(phase) {
   return archives.value.some((a) => a.phase === phase && a.status !== 'RETURNED')
