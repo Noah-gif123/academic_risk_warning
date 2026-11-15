@@ -888,7 +888,7 @@ public class GroupReportService {
         if (f.getMultiRiskStudents().isEmpty()) {
             multi.append("没有学生出现两门及以上课程预警。");
         } else {
-            multi.append("共 ").append(f.getMultiRiskStudents().size()).append(" 人：");
+            multi.append("多门预警学生 ").append(f.getMultiRiskStudents().size()).append(" 人：");
             int i = 1;
             for (AdminClassFact.Student st : f.getMultiRiskStudents()) {
                 if (i > 10) break;

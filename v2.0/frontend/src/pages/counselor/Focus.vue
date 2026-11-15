@@ -131,7 +131,7 @@
             <div><p class="text-[10px] text-slate-400">最低总评</p><b class="text-sm text-slate-700">{{ s.minTotalScore ?? '—' }}</b></div>
           </div>
           <div class="flex justify-end mt-2">
-            <button class="text-xs text-brand-600 hover:underline" @click.stop="openReport(s)">查看报告</button>
+            <button class="text-xs text-brand-600 hover:underline" @click.stop="openReport(s)">学期汇总</button>
           </div>
         </div>
         <div v-if="!topStudents.length" class="text-sm text-slate-400 py-8 text-center xl:col-span-2">当前筛选下没有风险学生</div>
@@ -166,7 +166,7 @@
               <td class="py-2 text-right font-medium">{{ num(s.riskScore) }}</td>
               <td class="py-2 px-3 text-right">
                 <button class="text-brand-600 hover:underline" @click="open(s)">详情</button>
-                <button class="text-brand-600 hover:underline ml-2" @click="openReport(s)">报告</button>
+                <button class="text-brand-600 hover:underline ml-2" @click="openReport(s)">学期汇总</button>
               </td>
             </tr>
             <tr v-if="!shown.length"><td colspan="9" class="py-6 text-center text-slate-400">当前筛选下没有学生</td></tr>
@@ -177,12 +177,12 @@
 
     <StudentDetailPanel v-if="detail" :detail="detail"
                         @close="detail = null"
+                        @report="openReport"
                         @refer="refer"
                         @terminate="terminate"
                         @saved="reloadDetail" />
 
-    <StudentReportModal :open="reportOpen" :student="reportStudent" :courses="reportCourses"
-                        mode="counselor" @close="reportOpen = false" />
+    <CounselorStudentReportModal :open="reportOpen" :student="reportDetail" @close="reportOpen = false" />
   </div>
 </template>
 
@@ -190,7 +190,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { counselorApi } from '../../api/counselor'
 import StudentDetailPanel from './StudentDetailPanel.vue'
-import StudentReportModal from '../../components/StudentReportModal.vue'
+import CounselorStudentReportModal from '../../components/CounselorStudentReportModal.vue'
 
 const classes = ref([])
 const students = ref([])
@@ -199,8 +199,7 @@ const adminClassId = ref(0)
 const onlyRisky = ref(true)
 const detail = ref(null)
 const reportOpen = ref(false)
-const reportStudent = ref(null)
-const reportCourses = ref([])
+const reportDetail = ref(null)
 const loading = ref(false)
 const message = ref('')
 const ok = ref(true)
@@ -271,9 +270,7 @@ async function load() {
 }
 async function open(s) { detail.value = await counselorApi.studentDetail(s.studentId) }
 async function openReport(s) {
-  const d = await counselorApi.studentDetail(s.studentId)
-  reportStudent.value = s
-  reportCourses.value = d.courses || []
+  reportDetail.value = await counselorApi.studentDetail(s.studentId)
   reportOpen.value = true
 }
 async function reloadDetail() {

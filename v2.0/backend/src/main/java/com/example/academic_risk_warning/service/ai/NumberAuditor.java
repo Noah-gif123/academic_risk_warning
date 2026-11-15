@@ -75,6 +75,7 @@ public final class NumberAuditor {
             for (AdminClassFact.CourseRisk c : f.getCourseRisks()) {
                 addAlt(perClass, "红灯人数", c.getRed(), c.getCourseName());
                 addAlt(perClass, "黄灯人数", c.getYellow(), c.getCourseName());
+                addAlt(perClass, "风险率", c.getFailRate(), c.getCourseName());
             }
         }
         return new Facts(f.getStudentCount(), f.getRedCount(), f.getYellowCount(), f.getGreenCount(),

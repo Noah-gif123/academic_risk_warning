@@ -87,9 +87,12 @@
 
     <StudentDetailPanel v-if="detail" :detail="detail"
                         @close="detail = null"
+                        @report="openStudentReport"
                         @refer="refer"
                         @terminate="terminate"
                         @saved="reloadDetail" />
+    <CounselorStudentReportModal :open="studentReportOpen" :student="studentReportDetail"
+                                @close="studentReportOpen = false" />
   </div>
 </template>
 
@@ -99,6 +102,7 @@ import { useRoute } from 'vue-router'
 import { counselorApi } from '../../api/counselor'
 import StudentDetailPanel from './StudentDetailPanel.vue'
 import GroupReportModal from '../../components/GroupReportModal.vue'
+import CounselorStudentReportModal from '../../components/CounselorStudentReportModal.vue'
 
 const route = useRoute()
 const classes = ref([])
@@ -106,6 +110,8 @@ const students = ref([])
 const adminClassId = ref(Number(route.query.adminClassId || 0))
 const onlyRisky = ref(false)
 const detail = ref(null)
+const studentReportOpen = ref(false)
+const studentReportDetail = ref(null)
 const reportOpen = ref(false)
 const reportTitle = ref('')
 
@@ -128,6 +134,11 @@ async function openStudentFromReport(p) {
   } catch (e) {
     toast(e.message, false)
   }
+}
+
+function openStudentReport(d) {
+  studentReportDetail.value = d
+  studentReportOpen.value = true
 }
 
 const message = ref('')

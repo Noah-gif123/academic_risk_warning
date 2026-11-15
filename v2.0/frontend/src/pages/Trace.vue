@@ -1,23 +1,30 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
+    <header class="flex items-start justify-between gap-4 flex-wrap">
       <div>
-        <h1 class="text-xl font-semibold text-slate-800">运行轨迹</h1>
-        <p class="text-xs text-slate-400 mt-1">每步角色/工具/入参/返回/门控；数字可回溯到台账来源步。</p>
+        <div class="flex items-center gap-3 flex-wrap"><h1>运行轨迹</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">Agent 执行记录</span></div>
+        <p class="text-xs text-slate-500 mt-2">查看每一步角色、工具、入参、返回与门控；数字可回溯到台账来源步。</p>
       </div>
-      <button class="btn-secondary" :disabled="loading" @click="loadRuns">刷新</button>
-    </div>
+      <button class="btn-ghost text-sm" :disabled="loading" @click="loadRuns">{{ loading ? '刷新中…' : '刷新' }}</button>
+    </header>
+
     <div v-if="error" class="card p-3 text-sm text-red-600">{{ error }}</div>
+
+    <section class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-[#7aa7c7]"></span><p class="text-[11px] text-slate-400">最近运行</p><p class="text-[28px] leading-none font-semibold text-[#17324b] mt-3">{{ runs.length }}</p><p class="text-[11px] text-slate-400 mt-2">最多展示 20 条</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-300"></span><p class="text-[11px] text-slate-400">已完成</p><p class="text-[28px] leading-none font-semibold text-emerald-600 mt-3">{{ runs.filter(r => r.status === 'DONE' || r.status === 'PUBLISHED').length }}</p><p class="text-[11px] text-slate-400 mt-2">成功落库</p></div>
+      <div class="card p-4 relative overflow-hidden"><span class="absolute left-0 top-0 bottom-0 w-1 bg-amber-300"></span><p class="text-[11px] text-slate-400">当前步骤</p><p class="text-[28px] leading-none font-semibold text-amber-600 mt-3">{{ detail?.steps?.length || 0 }}</p><p class="text-[11px] text-slate-400 mt-2">run #{{ detail?.id || '—' }}</p></div>
+    </section>
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
       <aside class="card p-2 lg:col-span-1 max-h-[70vh] overflow-y-auto">
-        <div v-for="r in runs" :key="r.id" class="p-2 rounded cursor-pointer text-xs"
-             :class="detail && detail.id === r.id ? 'bg-brand-50 text-brand-700' : 'hover:bg-slate-50'"
+        <div v-for="r in runs" :key="r.id" class="p-3 rounded-xl cursor-pointer text-xs mb-1 border border-transparent"
+             :class="detail && detail.id === r.id ? 'bg-[#f0faf7] border-[#b9e8df] text-[#0b7d6e]' : 'hover:bg-slate-50'"
              @click="open(r.id)">
-          <div class="flex justify-between"><b>#{{ r.id }}</b><span>{{ r.status }}</span></div>
+          <div class="flex justify-between gap-2"><b>#{{ r.id }}</b><span class="tag" :class="r.status === 'DONE' || r.status === 'PUBLISHED' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">{{ r.status }}</span></div>
           <div class="text-slate-400 mt-1">{{ r.createTime }} · {{ r.provider }}</div>
         </div>
-        <div v-if="!runs.length" class="p-2 text-xs text-slate-400">暂无运行记录</div>
+        <div v-if="!runs.length" class="p-4 text-xs text-slate-400 text-center">暂无运行记录</div>
       </aside>
 
       <section class="lg:col-span-3 space-y-3" v-if="detail">

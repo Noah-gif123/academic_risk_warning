@@ -1,13 +1,9 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
+    <header class="flex items-start justify-between gap-4 flex-wrap">
       <div>
-        <h1>统计看板</h1>
-        <p class="text-xs text-slate-400 mt-1">
-          数据重算于 {{ meta.materializedAt || '—' }}
-          <span v-if="meta.refreshed" class="text-brand-600 ml-1">（因 {{ meta.refreshReason }} 已自动重算）</span>
-          <span v-else-if="meta.stale" class="text-amber-600 ml-1">（数据过期，读取时已触发重算）</span>
-        </p>
+        <div class="flex items-center gap-3 flex-wrap"><h1>统计看板</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">{{ period === 'term' ? '本学期' : (period === 'month' ? '本月' : '本周') }}</span></div>
+        <p class="text-xs text-slate-500 mt-2">数据重算于 {{ meta.materializedAt || '—' }}<span v-if="meta.refreshed" class="text-[#0b7d6e] ml-1">（因 {{ meta.refreshReason }} 已自动重算）</span><span v-else-if="meta.stale" class="text-amber-600 ml-1">（数据过期，读取时已触发重算）</span></p>
       </div>
       <div class="flex items-center gap-2">
         <select v-model="period" class="input !w-28" @change="load">
@@ -15,15 +11,15 @@
           <option value="month">本月</option>
           <option value="week">本周</option>
         </select>
-        <button class="btn-secondary" :disabled="loading" @click="load">刷新</button>
-        <button class="btn-secondary" @click="exportCsv">导出 CSV</button>
+        <button class="btn-ghost text-sm" :disabled="loading" @click="load">{{ loading ? '刷新中…' : '刷新' }}</button>
+        <button class="btn-ghost text-sm" @click="exportCsv">导出 CSV</button>
       </div>
-    </div>
+    </header>
 
     <div v-if="error" class="card p-3 text-sm text-red-600">{{ error }}</div>
 
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-      <StatCard label="风险学生" :value="ov.total" unit="人" :hint="`覆盖 ${ov.classCount || 0} 个教学班`" />
+      <StatCard label="风险记录" :value="ov.total" unit="条" :hint="`覆盖 ${ov.classCount || 0} 个教学班 · 选课记录口径`" />
       <StatCard label="红黄占比" :value="ov.riskRatio" unit="%" hint="红+橙+黄 ÷ 学生数">
         <template #label>红黄占比
           <InfoTooltip title="风险面变化率（指标 5）" definition="红黄灯占比 =（红+橙+黄）÷ 学生数；与上一自然周快照对比得到变化（百分点）。"
