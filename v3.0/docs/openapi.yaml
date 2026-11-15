@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: 学情预警系统 v3 API
+  version: 3.0.0
+  description: 核心业务接口（认证、AI 健康、报告、学生学期报告）。完整实现以控制器为准。
+servers:
+  - url: http://127.0.0.1:18101
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Result:
+      type: object
+      properties:
+        code: { type: integer, example: 0 }
+        message: { type: string, example: ok }
+        data: { nullable: true }
+    ReportSection:
+      type: object
+      properties:
+        title: { type: string }
+        text: { type: string }
+    GroupReport:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        scope: { type: string, enum: [CLASS, OFFERING, ADMIN_CLASS, STUDENT_TERM] }
+        title: { type: string }
+        summary: { type: string }
+        source: { type: string, enum: [DIFY, LLM, TEMPLATE] }
+        model: { type: string, nullable: true }
+        promptVersion: { type: string, nullable: true }
+        tokens: { type: integer, nullable: true }
+        sections:
+          type: array
+          items: { $ref: '#/components/schemas/ReportSection' }
+        checksPassed: { type: integer }
+        checksTotal: { type: integer }
+        fact: { type: object, additionalProperties: true }
+paths:
+  /api/auth/captcha:
+    get:
+      security: []
+      summary: 获取图形验证码
+      responses:
+        '200': { description: OK }
+  /api/auth/captcha/debug:
+    get:
+      security: []
+      summary: 本地联调读取验证码（仅 DebugCaptcha 开启）
+      parameters:
+        - { name: captchaId, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK }
+  /api/auth/login:
+    post:
+      security: []
+      summary: 登录并获取 Bearer Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [loginNo, password, captchaId, captchaCode]
+              properties:
+                loginNo: { type: string }
+                password: { type: string }
+                captchaId: { type: string }
+                captchaCode: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/ai/health:
+    get:
+      security: []
+      summary: AI 通道健康检查
+      responses:
+        '200': { description: OK }
+  /api/teacher/reports/class/{teachingClassId}/latest:
+    get:
+      summary: 教学班最新报告
+      parameters:
+        - { name: teachingClassId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: 报告或 null
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/GroupReport' }
+  /api/teacher/reports/class/{teachingClassId}:
+    post:
+      summary: 生成教学班报告（真实 AI 可用时为 LLM）
+      parameters:
+        - { name: teachingClassId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: OK }
+  /api/counselor/reports/admin-class/{adminClassId}:
+    post:
+      summary: 生成行政班报告
+      parameters:
+        - { name: adminClassId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: OK }
+  /api/counselor/reports/students/{studentId}/term-report:
+    post:
+      summary: 生成学生学期汇总报告（当前学期全部课程）
+      parameters:
+        - { name: studentId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: OK }
+  /api/counselor/reports/students/{studentId}/term-report/latest:
+    get:
+      summary: 学生学期汇总报告最新快照
+      parameters:
+        - { name: studentId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200': { description: OK }
+  /api/counselor/reports/students/{studentId}/term-report/history:
+    get:
+      summary: 学生学期汇总报告历史
+      parameters:
+        - { name: studentId, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: limit, in: query, schema: { type: integer, default: 10, maximum: 50 } }
+      responses:
+        '200': { description: OK }
+  /api/counselor/reports/students/{studentId}/term-report/pdf:
+    get:
+      summary: 学生学期汇总报告 PDF
+      parameters:
+        - { name: studentId, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        '200':
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '404': { description: 暂无报告 }

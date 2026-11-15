@@ -58,6 +58,18 @@ GET http://localhost:5174/index.html
 
 `/api/ai/health` 返回 `directReady=true` 时，真实 AI 报告可用；否则系统仍可用，报告自动降级为规则模板。
 
+## P1 验收
+
+```powershell
+# 健康、四端登录、权限矩阵、学生学期报告、PDF、问卷/通知（方案 B）
+powershell -NoProfile -ExecutionPolicy Bypass -File v3.0/tool/verify_p1.ps1
+
+# 额外跑一次真实 AI 教学班报告
+powershell -NoProfile -ExecutionPolicy Bypass -File v3.0/tool/verify_p1.ps1 -CheckLiveAi
+```
+
+核心接口契约见 `v3.0/docs/openapi.yaml`，CI 配置见 `.github/workflows/ci.yml`。
+
 ## 关键复现点
 
 - 报告事实包：`ai_group_report.fact_json`
