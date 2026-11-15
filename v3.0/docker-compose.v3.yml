@@ -1,0 +1,96 @@
+# =============================================================================
+# 学情预警系统 v3.0 · 一键应用栈（MySQL + 后端 + 前端）
+#   数据：使用 v3.0/sql/snapshot_v3.sql 作为 MySQL 初始化快照（含演示数据与报告）
+#   访问：前端 http://localhost:5174  /  后端 http://localhost:18101
+#   用法：从仓库根目录执行
+#     docker compose -f v3.0/docker-compose.v3.yml up -d --build
+#   停止：docker compose -f v3.0/docker-compose.v3.yml down
+# =============================================================================
+name: arw-v3
+
+services:
+  mysql:
+    image: mysql:8.0.30
+    container_name: arw-v3-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: study_warning_system_v3
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --default-time-zone=+08:00
+    ports:
+      - "3307:3306"
+    volumes:
+      - arw-v3-mysql-data:/var/lib/mysql
+      - ./sql/snapshot_v3.sql:/docker-entrypoint-initdb.d/01-snapshot.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      - arw-v3-net
+
+  app:
+    build:
+      context: ../v2.0/backend
+      dockerfile: Dockerfile
+    image: academic-risk-warning-backend:3.0.0
+    container_name: arw-v3-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/study_warning_system_v3?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_LLM_BASE_URL: ${AI_LLM_BASE_URL:-}
+      AI_LLM_KEY: ${AI_LLM_KEY:-}
+      AI_LLM_MODEL: ${AI_LLM_MODEL:-}
+      AI_DIFY_BASE_URL: ${AI_DIFY_BASE_URL:-http://host.docker.internal:8090}
+      AI_GROUP_REPORT_APP_KEY: ${AI_GROUP_REPORT_APP_KEY:-}
+      AI_REPORT_APP_KEY: ${AI_REPORT_APP_KEY:-}
+      AI_ALERT_APP_KEY: ${AI_ALERT_APP_KEY:-}
+      AI_QUESTION_APP_KEY: ${AI_QUESTION_APP_KEY:-}
+      AI_CHAT_APP_KEY: ${AI_CHAT_APP_KEY:-}
+      TZ: Asia/Shanghai
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75.0"
+    ports:
+      - "18101:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - arw-v3-file-store:/app/file-store
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    networks:
+      - arw-v3-net
+
+  web:
+    build:
+      context: ../v2.0/frontend
+      dockerfile: Dockerfile
+    image: academic-risk-warning-frontend:3.0.0
+    container_name: arw-v3-web
+    ports:
+      - "5174:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - arw-v3-net
+
+volumes:
+  arw-v3-mysql-data:
+  arw-v3-file-store:
+
+networks:
+  arw-v3-net:

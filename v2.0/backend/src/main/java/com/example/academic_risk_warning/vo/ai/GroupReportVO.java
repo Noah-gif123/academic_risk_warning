@@ -21,6 +21,12 @@ public class GroupReportVO {
     private List<Map<String, Object>> actions = new ArrayList<>();
     /** DIFY / LLM / TEMPLATE */
     private String source;
+    /** 生成通道的模型名（TEMPLATE 时为空） */
+    private String model;
+    /** Prompt 版本，用于复现与追溯 */
+    private String promptVersion;
+    /** 本次报告 token 用量 */
+    private Integer tokens;
     private String createTime;
 
     /** 报告生成时的事实包（班级/课程聚合指标，供前端图表） */

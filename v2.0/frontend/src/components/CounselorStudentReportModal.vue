@@ -15,8 +15,8 @@
     <div v-else class="space-y-4">
       <div class="rounded-xl border border-slate-200 bg-[#fbfdff] p-4">
         <div class="flex items-center justify-between gap-2 flex-wrap">
-          <div><p class="text-[11px] text-slate-400">{{ student?.termName || '当前学期' }}</p><h2 class="text-lg font-semibold text-[#17324b] mt-1">{{ student?.studentName }} · 学期学情汇总</h2></div>
-          <span class="tag" :class="riskTag">{{ riskLabel }}</span>
+          <div><p class="text-[11px] text-slate-400">{{ activeStudent?.termName || '当前学期' }}</p><h2 class="text-lg font-semibold text-[#17324b] mt-1">{{ activeStudent?.studentName }} · 学期学情汇总</h2></div>
+          <div class="flex items-center gap-2"><span v-if="serverReport" class="tag bg-[#e9f6f2] text-[#0b7d6e]">{{ reportSourceText }}</span><span class="tag" :class="riskTag">{{ riskLabel }}</span></div>
         </div>
         <p class="text-sm text-slate-600 leading-7 mt-3">{{ summaryText }}</p>
         <div class="grid grid-cols-2 md:grid-cols-6 gap-2 mt-3">
@@ -117,6 +117,7 @@
 import { computed, ref, watch } from 'vue'
 import ReportModalShell from './ReportModalShell.vue'
 import GenerationOverlay from './GenerationOverlay.vue'
+import { counselorApi } from '../api/counselor'
 
 const props = defineProps({
   open: Boolean,
@@ -127,6 +128,15 @@ const emit = defineEmits(['close'])
 const ready = ref(false)
 const generating = ref(false)
 const generationStep = ref(0)
+const serverReport = ref(null)
+const serverLoading = ref(false)
+const activeStudent = computed(() => serverReport.value?.fact || props.student || {})
+const reportSourceText = computed(() => {
+  const s = serverReport.value?.source
+  if (s === 'LLM' || s === 'DIFY') return 'AI 生成'
+  if (s) return '规则汇总'
+  return '学期汇总'
+})
 const generationMessages = [
   '正在读取当前学期全部课程…',
   '正在汇总风险等级与成绩…',
@@ -142,8 +152,8 @@ const generationAgents = [
   { icon: '✅', name: '质量校验' },
   { icon: '📄', name: '报告生成' }
 ]
-const courses = computed(() => props.student?.courses || [])
-const interventions = computed(() => props.student?.interventions || [])
+const courses = computed(() => activeStudent.value.courses || [])
+const interventions = computed(() => activeStudent.value.interventions || [])
 const riskCourses = computed(() => courses.value.filter(c => ['RED', 'ORANGE', 'YELLOW'].includes(c.riskLevel) || c.fail))
 const riskCount = computed(() => riskCourses.value.length)
 const hardCount = computed(() => courses.value.filter(c => c.hardFail).length)
@@ -198,21 +208,47 @@ const actions = computed(() => {
   const arr = []
   if (hardCount.value) arr.push(`优先核对 ${hardCount.value} 门硬门槛课程的缺课与考试资格`)
   if (riskCount.value) arr.push(`逐一约谈 ${riskCount.value} 门风险课程对应的学习问题`)
-  if (props.student?.interventions?.some(i => i.effective === 'INEFFECTIVE')) arr.push('复核无效干预，必要时上报教务')
+  if (activeStudent.value.interventions?.some(i => i.effective === 'INEFFECTIVE')) arr.push('复核无效干预，必要时上报教务')
   arr.push('T+7 复评本学期风险课程变化')
   return arr
 })
 function fmt(v) { return v ? String(v).replace('T', ' ').slice(0, 16) : '—' }
 function close() { emit('close') }
-function printReport() { window.print() }
+async function loadServerReport() {
+  const studentId = props.student?.studentId
+  if (!studentId) return
+  serverLoading.value = true
+  try {
+    let r = await counselorApi.termReportLatest(studentId)
+    if (!r) r = await counselorApi.termReportGenerate(studentId)
+    serverReport.value = r
+  } catch (e) {
+    // 离线或只读场景仍允许用当前详情数据生成预览
+    serverReport.value = null
+  } finally {
+    serverLoading.value = false
+  }
+}
+async function printReport() {
+  const studentId = props.student?.studentId
+  if (serverReport.value?.id && studentId) {
+    try {
+      await counselorApi.termReportPdf(studentId)
+      return
+    } catch (e) { /* 回退浏览器打印 */ }
+  }
+  window.print()
+}
 let timer = null
 watch(() => props.open, (v) => {
-  if (!v) { ready.value = false; generating.value = false; generationStep.value = 0; clearInterval(timer); return }
+  if (!v) { ready.value = false; generating.value = false; generationStep.value = 0; serverReport.value = null; clearInterval(timer); return }
   ready.value = false
   generating.value = true
   generationStep.value = 0
+  serverReport.value = null
+  loadServerReport()
   clearInterval(timer)
   timer = setInterval(() => { if (generationStep.value < 7) generationStep.value++ }, 450)
-  setTimeout(() => { clearInterval(timer); generating.value = false; ready.value = true; if (props.printOnOpen) setTimeout(() => window.print(), 120) }, 3200)
+  setTimeout(() => { clearInterval(timer); generating.value = false; ready.value = true; if (props.printOnOpen) setTimeout(() => printReport(), 120) }, 3200)
 })
 </script>

@@ -20,6 +20,9 @@
               <div class="flex items-center gap-2 mb-2">
                 <span class="tag bg-brand-50 text-brand-700">多智能体报告</span>
                 <span class="text-[10px] text-slate-400">生成于 {{ fmt(report.createTime) }}</span>
+                <span class="text-[10px] text-slate-400">{{ sourceLabel }}</span>
+                <span v-if="report.promptVersion" class="text-[10px] text-slate-400">Prompt {{ report.promptVersion }}</span>
+                <span v-if="report.model" class="text-[10px] text-slate-400">{{ report.model }}</span>
               </div>
               <p class="text-sm text-slate-700 leading-7 whitespace-pre-line">{{ report.summary }}</p>
             </div>

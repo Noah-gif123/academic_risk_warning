@@ -2,6 +2,7 @@ package com.example.academic_risk_warning.service.ai;
 
 import com.example.academic_risk_warning.common.BizException;
 import com.example.academic_risk_warning.config.AiProperties;
+import com.example.academic_risk_warning.vo.CounselorStudentDetailVO;
 import com.example.academic_risk_warning.vo.ai.AdminClassFact;
 import com.example.academic_risk_warning.vo.ai.ClassFact;
 import com.example.academic_risk_warning.vo.ai.GroupReportVO;
@@ -396,7 +397,7 @@ public class GroupReportService {
     public GroupReportVO detail(Long id) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "select g.id, g.scope, g.target_id, g.teaching_class_id, g.admin_class_id, g.title, g.summary, "
-                        + "g.content_json, g.fact_json, g.source, g.create_time, g.run_id, g.status, "
+                        + "g.content_json, g.fact_json, g.source, g.model, g.prompt_version, g.tokens, g.create_time, g.run_id, g.status, "
                         + "(select max(rs.last_eval_time) from risk_state rs "
                         + "   where (g.teaching_class_id is not null and rs.teaching_class_id = g.teaching_class_id) "
                         + "      or (g.scope = 'OFFERING' and g.offering_id is not null "
@@ -416,6 +417,9 @@ public class GroupReportService {
         vo.setTitle(String.valueOf(r.get("title")));
         vo.setSummary(r.get("summary") == null ? null : String.valueOf(r.get("summary")));
         vo.setSource(String.valueOf(r.get("source")));
+        vo.setModel(r.get("model") == null ? null : String.valueOf(r.get("model")));
+        vo.setPromptVersion(r.get("prompt_version") == null ? null : String.valueOf(r.get("prompt_version")));
+        vo.setTokens(r.get("tokens") == null ? null : ((Number) r.get("tokens")).intValue());
         vo.setCreateTime(r.get("create_time") == null ? null : String.valueOf(r.get("create_time")));
         vo.setFact(parseFactJson(r.get("fact_json")));
         vo.setRunStatus(r.get("status") == null ? null : String.valueOf(r.get("status")));
@@ -483,7 +487,8 @@ public class GroupReportService {
             ps.setString(i++, content.getSummary());
             ps.setString(i++, "PUBLISHED");
             ps.setString(i++, source);
-            ps.setString(i++, props.getModel());
+            ps.setString(i++, "TEMPLATE".equals(source) ? null
+                    : ("DIFY".equals(source) ? props.getModel() : props.directModel()));
             ps.setString(i++, props.getGroupReportAppKey() == null || props.getGroupReportAppKey().isBlank()
                     ? null : maskKey(props.getGroupReportAppKey()));
             ps.setString(i++, "group-report-v1");
@@ -854,6 +859,92 @@ public class GroupReportService {
     private String summaryOf(List<ReportContent.Section> sections) {
         String s = sections.isEmpty() ? "" : sections.get(0).getText();
         return s.length() <= 290 ? s : s.substring(0, 289) + "…";
+    }
+
+    // ============================================================ 学生学期汇总（辅导员视角：一个学生 × 多门课）
+    /**
+     * 学生当前学期全部课程的汇总报告。
+     *
+     * <p>与 ai_report 的“学生 × 单课程”报告区分：这里由辅导员查看，口径是一个学生
+     * 在当前学期的所有课程，不允许复用单课程报告。事实包保留课程/干预明细，前端图表
+     * 与 PDF 都从同一份快照渲染。</p>
+     */
+    public GroupReportVO generateStudentTermReport(CounselorStudentDetailVO d, Long operatorId) {
+        List<CounselorStudentDetailVO.CourseRow> courses = d.getCourses() == null ? List.of() : d.getCourses();
+        List<CounselorStudentDetailVO.InterventionRow> interventions = d.getInterventions() == null ? List.of() : d.getInterventions();
+        int riskCount = 0, hardCount = 0, incomplete = 0, absent = 0, late = 0, leave = 0;
+        BigDecimal total = BigDecimal.ZERO;
+        int scored = 0;
+        StringBuilder focus = new StringBuilder();
+        for (CounselorStudentDetailVO.CourseRow c : courses) {
+            boolean risk = Boolean.TRUE.equals(c.getFail()) || "RED".equals(c.getRiskLevel())
+                    || "ORANGE".equals(c.getRiskLevel()) || "YELLOW".equals(c.getRiskLevel());
+            if (risk) {
+                riskCount++;
+                if (focus.length() > 0) focus.append("；");
+                focus.append(c.getCourseName()).append("：缺课 ")
+                        .append(c.getAbsentCount() == null ? 0 : c.getAbsentCount()).append("/")
+                        .append(c.getAllowedAbsent() == null ? 0 : c.getAllowedAbsent())
+                        .append("，总评 ").append(c.getTotalScore() == null ? "未定稿" : c.getTotalScore());
+            }
+            if (Boolean.TRUE.equals(c.getHardFail())) hardCount++;
+            if (c.getTotalScore() == null) incomplete++;
+            absent += c.getAbsentCount() == null ? 0 : c.getAbsentCount();
+            late += c.getLateCount() == null ? 0 : c.getLateCount();
+            leave += c.getLeaveCount() == null ? 0 : c.getLeaveCount();
+            if (c.getTotalScore() != null) {
+                total = total.add(c.getTotalScore());
+                scored++;
+            }
+        }
+        String avg = scored == 0 ? "—" : total.divide(BigDecimal.valueOf(scored), 1, java.math.RoundingMode.HALF_UP).toPlainString();
+        Map<String, Object> fact = new LinkedHashMap<>();
+        fact.put("studentId", d.getStudentId());
+        fact.put("studentNo", d.getStudentNo());
+        fact.put("studentName", d.getStudentName());
+        fact.put("majorName", d.getMajorName());
+        fact.put("adminClassName", d.getAdminClassName());
+        fact.put("enrollYear", d.getEnrollYear());
+        fact.put("termId", d.getTermId());
+        fact.put("termName", d.getTermName());
+        fact.put("courseCount", courses.size());
+        fact.put("riskCourseCount", riskCount);
+        fact.put("hardFailCount", hardCount);
+        fact.put("incompleteCount", incomplete);
+        fact.put("absentTotal", absent);
+        fact.put("lateTotal", late);
+        fact.put("leaveTotal", leave);
+        fact.put("avgTotalScore", avg);
+        fact.put("courses", courses);
+        fact.put("interventions", interventions);
+        List<ReportContent.Section> sections = new ArrayList<>();
+        sections.add(new ReportContent.Section("报告摘要",
+                d.getStudentName() + "（" + d.getStudentNo() + "）当前学期共 " + courses.size()
+                        + " 门课程，" + riskCount + " 门存在风险，" + hardCount + " 门触发硬门槛；累计缺课 "
+                        + absent + " 次、迟到 " + late + " 次、请假 " + leave + " 次，平均总评 " + avg + "。"));
+        sections.add(new ReportContent.Section("学期课程总览",
+                "本学期课程与考核明细见下表；成绩未齐 " + incomplete + " 门，未定稿课程不参与平均总评。"));
+        sections.add(new ReportContent.Section("考勤与学习投入",
+                "累计缺课 " + absent + " 次、迟到 " + late + " 次、请假 " + leave + " 次；缺课超硬门槛课程 "
+                        + hardCount + " 门。"));
+        sections.add(new ReportContent.Section("重点关注课程",
+                focus.length() == 0 ? "当前学期没有触发风险门槛的课程。" : focus.toString()));
+        sections.add(new ReportContent.Section("处理记录与干预效果",
+                "当前学期共有 " + interventions.size() + " 条处理记录；有效 "
+                        + interventions.stream().filter(i -> "EFFECTIVE".equals(i.getEffective())).count()
+                        + " 条，无效 " + interventions.stream().filter(i -> "INEFFECTIVE".equals(i.getEffective())).count()
+                        + " 条，已上报 " + interventions.stream().filter(i -> "REFERRED".equals(i.getReferStatus())).count()
+                        + " 条。"));
+        sections.add(new ReportContent.Section("辅导员动作清单",
+                "1）核对 " + hardCount + " 门硬门槛课程的缺课与考试资格；2）约谈 " + riskCount
+                        + " 门风险课程对应的学习问题；3）T+7 复评缺课与成绩变化。"));
+        ReportContent content = new ReportContent(
+                d.getStudentName() + " 当前学期 " + courses.size() + " 门课程，" + riskCount
+                        + " 门风险，平均总评 " + avg + "。", sections);
+        String title = d.getStudentName() + " · 学生学期学情汇总报告（" + nz(d.getTermName()) + "）";
+        Long id = persist("STUDENT_TERM", d.getStudentId(), null, null, null, null,
+                d.getTermId(), title, fact, content, "TEMPLATE", null, 0, operatorId);
+        return detail(id);
     }
 
     // ============================================================ 七段式（与学生报告同构）

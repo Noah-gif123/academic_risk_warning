@@ -14,6 +14,10 @@ export const counselorApi = {
   },
   // termId 可选：不传=当前学期（与学生端「我的课程」同口径）；传 4/5/8 可查历史与合成学期
   studentDetail: (studentId, termId) => http.get(`/counselor/students/${studentId}` + (termId ? `?termId=${termId}` : '')),
+  termReportLatest: (studentId) => http.get(`/counselor/reports/students/${studentId}/term-report/latest`),
+  termReportGenerate: (studentId) => http.post(`/counselor/reports/students/${studentId}/term-report`, {}),
+  termReportHistory: (studentId) => http.get(`/counselor/reports/students/${studentId}/term-report/history`),
+  termReportPdf: (studentId) => http.downloadWithPicker(`/counselor/reports/students/${studentId}/term-report/pdf`, `student-term-${studentId}.pdf`),
   addIntervention: (body) => http.post('/counselor/interventions', body),
   refer: (id, note) => http.post(`/counselor/interventions/${id}/refer`, { note }),
   terminate: (id, reason) => http.post(`/counselor/interventions/${id}/terminate`, { reason }),

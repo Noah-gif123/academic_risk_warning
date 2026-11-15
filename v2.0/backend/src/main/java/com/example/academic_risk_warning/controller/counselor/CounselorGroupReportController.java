@@ -7,6 +7,8 @@ import com.example.academic_risk_warning.security.RequireRole;
 import com.example.academic_risk_warning.security.UserContext;
 import com.example.academic_risk_warning.service.ai.GroupReportService;
 import com.example.academic_risk_warning.service.ai.ReportPdfService;
+import com.example.academic_risk_warning.service.CounselorPortalService;
+import com.example.academic_risk_warning.vo.CounselorStudentDetailVO;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +37,7 @@ public class CounselorGroupReportController {
 
     private final GroupReportService groupReportService;
     private final ReportPdfService pdfService;
+    private final CounselorPortalService counselorService;
 
     private Long me() {
         LoginUser user = UserContext.require();
@@ -72,5 +75,36 @@ public class CounselorGroupReportController {
                                                @RequestParam(defaultValue = "10") int limit) {
         groupReportService.assertCounselorOwns(adminClassId, me());
         return Result.ok(groupReportService.list("ADMIN_CLASS", adminClassId, Math.min(limit, 50)));
+    }
+
+    // ============================================================ 学生学期汇总（一个学生 × 多门课）
+    @PostMapping("/students/{studentId}/term-report")
+    public Result<GroupReportVO> generateStudentTermReport(@PathVariable Long studentId) {
+        Long counselorId = me();
+        CounselorStudentDetailVO detail = counselorService.studentDetail(counselorId, studentId, null);
+        return Result.ok(groupReportService.generateStudentTermReport(detail, counselorId));
+    }
+
+    @GetMapping("/students/{studentId}/term-report/latest")
+    public Result<GroupReportVO> latestStudentTermReport(@PathVariable Long studentId) {
+        counselorService.studentDetail(me(), studentId, null);
+        return Result.ok(groupReportService.latest("STUDENT_TERM", studentId));
+    }
+
+    @GetMapping("/students/{studentId}/term-report/history")
+    public Result<List<GroupReportVO>> studentTermHistory(@PathVariable Long studentId,
+                                                          @RequestParam(defaultValue = "10") int limit) {
+        counselorService.studentDetail(me(), studentId, null);
+        return Result.ok(groupReportService.list("STUDENT_TERM", studentId, Math.min(limit, 50)));
+    }
+
+    @GetMapping("/students/{studentId}/term-report/pdf")
+    public ResponseEntity<byte[]> studentTermPdf(@PathVariable Long studentId) {
+        counselorService.studentDetail(me(), studentId, null);
+        GroupReportVO r = groupReportService.latest("STUDENT_TERM", studentId);
+        if (r == null) throw new BizException(404, "暂无学生学期报告");
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=student-term-" + studentId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF).body(pdfService.renderGroup(r));
     }
 }

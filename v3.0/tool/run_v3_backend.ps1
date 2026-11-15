@@ -11,7 +11,7 @@
   powershell -NoProfile -ExecutionPolicy Bypass -File v3.0/tool/run_v3_backend.ps1 -Port 8081 -DebugCaptcha
 #>
 param(
-    [int]$Port = 8080,
+    [int]$Port = 18101,
     [string]$Db = 'study_warning_system_v3',
     [switch]$DebugCaptcha,
     [string]$Xmx = '512m',
@@ -39,7 +39,7 @@ $argList = @(
 if ($DebugCaptcha) { $argList += '--app.auth.captcha-debug=true' }
 
 Write-Host ("== 启动 v3.0 后端：端口 {0} / 库 {1}" -f $Port, $Db) -ForegroundColor Cyan
-Write-Host ("   前端：cd v2.0\frontend && npm run dev  （代理到 127.0.0.1:8080）")
+Write-Host ("   前端：cd v2.0\frontend && npm run dev -- --port 5174（VITE_API_TARGET=http://127.0.0.1:{0}）" -f $Port)
 Write-Host ("   v2.0 演示：不传本脚本参数、直接按 v2.0 原方式启动即可（连 study_warning_system_v2）")
 Push-Location $backend
 try {
