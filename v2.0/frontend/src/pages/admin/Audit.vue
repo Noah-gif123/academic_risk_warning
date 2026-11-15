@@ -1,13 +1,12 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">审计日志</h1>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap"><h1>审计日志</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">关键操作留痕</span></div>
+        <p class="text-xs text-slate-500 mt-2">改分、考勤、归档、成绩构成锁定、项目评分与导入回滚均可追溯。</p>
+      </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
-
-    <p class="text-xs text-slate-400">
-      改分、改考勤、归档与退回、成绩构成锁定、项目评分、导入回滚等关键操作都会留痕；考勤还有行级留痕表。
-    </p>
+    </header>
 
     <div class="card p-4">
       <div class="grid grid-cols-1 md:grid-cols-6 gap-3">

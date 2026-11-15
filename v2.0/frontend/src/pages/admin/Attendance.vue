@@ -1,17 +1,15 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <div class="flex items-center gap-3">
-        <h1 class="text-lg font-semibold text-slate-800">考勤归档</h1>
-        <button class="text-xs text-brand-600 hover:underline" @click="$router.push('/admin/coverage')">覆盖率督办 →</button>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap"><h1>考勤归档</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">审核与冻结</span></div>
+        <p class="text-xs text-slate-500 mt-2">教师提交的期中 / 期末考勤在这里审核；确认后进入归档口径并冻结。</p>
       </div>
-      <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
-
-    <p class="text-xs text-slate-400">
-      教师提交的期中 / 期末归档在这里审核：确认后该阶段考勤变为归档口径并冻结（教师不能再改）；
-      退回后教师可重新提交。点名覆盖率低于 1/3 的教学班列为督办对象。
-    </p>
+      <div class="flex items-center gap-2">
+        <button class="btn-ghost text-sm" @click="$router.push('/admin/coverage')">覆盖率督办</button>
+        <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
+      </div>
+    </header>
 
     <div class="card p-4">
       <div class="flex items-center justify-between flex-wrap gap-2 mb-3">

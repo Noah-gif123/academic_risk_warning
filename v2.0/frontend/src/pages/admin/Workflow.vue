@@ -1,9 +1,12 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">流程与问卷</h1>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap"><h1>流程与问卷</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">流程留痕</span></div>
+        <p class="text-xs text-slate-500 mt-2">入课知会、导入批次、问卷流转与审计记录集中在这里查看。</p>
+      </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
+    </header>
 
     <div class="flex flex-wrap gap-2">
       <button v-for="t in tabs" :key="t.key" class="px-3 py-1.5 rounded-lg text-sm"

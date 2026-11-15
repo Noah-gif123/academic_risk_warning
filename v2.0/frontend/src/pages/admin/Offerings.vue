@@ -1,9 +1,12 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-slate-800">排课与教学班</h1>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap"><h1>排课与教学班</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">学期运行</span></div>
+        <p class="text-xs text-slate-500 mt-2">维护课程开课、教学班与任课教师，是成绩、考勤和学生选课的上游数据。</p>
+      </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
+    </header>
 
     <!-- 学期 + 新增开课 -->
     <div class="card p-4">

@@ -1,13 +1,9 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
+    <header class="flex items-start justify-between gap-4 flex-wrap">
       <div>
-        <h1 class="text-xl font-semibold text-slate-800">统计看板（教务）</h1>
-        <p class="text-xs text-slate-400 mt-1">
-          数据重算于 {{ meta.materializedAt || '—' }}
-          <span v-if="meta.refreshed" class="text-brand-600 ml-1">（因 {{ meta.refreshReason }} 已自动重算）</span>
-          <span v-else-if="meta.stale" class="text-amber-600 ml-1">（数据过期，读取时已触发重算）</span>
-        </p>
+        <div class="flex items-center gap-3 flex-wrap"><h1>统计看板</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">教务视角</span></div>
+        <p class="text-xs text-slate-500 mt-2">数据重算于 {{ meta.materializedAt || '—' }}<span v-if="meta.refreshed" class="text-[#0b7d6e] ml-1">（因 {{ meta.refreshReason }} 已自动重算）</span><span v-else-if="meta.stale" class="text-amber-600 ml-1">（数据过期，读取时已触发重算）</span></p>
       </div>
       <div class="flex items-center gap-2">
         <select v-model="period" class="input !w-28" @change="load">
@@ -15,11 +11,11 @@
           <option value="month">本月</option>
           <option value="week">本周</option>
         </select>
-        <button class="btn-secondary" :disabled="loading" @click="load">刷新</button>
-        <button class="btn-secondary" :disabled="loading" @click="recompute">重算</button>
-        <button class="btn-secondary" @click="exportCsv">导出 CSV</button>
+        <button class="btn-ghost text-sm" :disabled="loading" @click="load">{{ loading ? '刷新中…' : '刷新' }}</button>
+        <button class="btn-ghost text-sm" :disabled="loading" @click="recompute">重算</button>
+        <button class="btn-ghost text-sm" @click="exportCsv">导出 CSV</button>
       </div>
-    </div>
+    </header>
 
     <div v-if="error" class="card p-3 text-sm text-red-600">{{ error }}</div>
 

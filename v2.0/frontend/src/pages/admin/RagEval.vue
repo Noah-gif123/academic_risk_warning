@@ -1,8 +1,8 @@
-﻿<template>
+<template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-lg font-semibold text-slate-800">RAG 检索评测</h1>
+        <h1>RAG 检索评测</h1>
         <p class="text-xs text-slate-400 mt-1">全文 / 向量 / 混合三组对比；指标来自检索评测，不消耗生成 token。</p>
       </div>
       <select v-model="scope" class="input text-xs mr-2" @change="run"><option value="">训练集 44</option><option value="HOLDOUT">留出集 20</option><option value="INDEPENDENT_V2">独立集 20</option></select><button class="btn-primary text-sm" :disabled="loading" @click="run">

@@ -1,9 +1,13 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-slate-800">基础数据</h1>
-      <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap"><h1>基础数据</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">主数据维护</span></div>
+        <p class="text-xs text-slate-500 mt-2">维护学期、课程、教师行政班与学生基础档案，供排课和成绩模块引用。</p>
+      </div>
+      <button class="btn-ghost text-sm" @click="loadAll">刷新数据</button>
+    </header>
+    <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
 
     <!-- 页签 -->
     <div class="flex gap-1 border-b border-slate-200">
@@ -411,6 +415,17 @@ async function doUnassign(a) {
   if (!confirm('确定解除 ' + a.counselorName + ' 对 ' + a.className + ' 的带班关系？')) return
   try { await adminApi.unassign(a.id); toast('已解除'); await loadAssignments() }
   catch (e) { toast(e.message, false) }
+}
+
+async function loadAll() {
+  try {
+    await loadTerms()
+    await loadMajors()
+    await loadClasses()
+    await loadCounselors()
+    await loadAssignments()
+    toast('基础数据已刷新')
+  } catch (e) { toast(e.message, false) }
 }
 
 onMounted(async () => {

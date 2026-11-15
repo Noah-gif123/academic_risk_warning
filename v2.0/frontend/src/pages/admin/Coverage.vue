@@ -1,14 +1,12 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">覆盖率督办</h1>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap"><h1>覆盖率督办</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">低置信度治理</span></div>
+        <p class="text-xs text-slate-500 mt-2">点名覆盖率低于 1/3 的教学班需要督办，并同步催办未提交的归档批次。</p>
+      </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
-
-    <p class="text-xs text-slate-400">
-      点名覆盖率 = 已点名课次 / 已过日期课次。覆盖率低于 <b>1/3</b> 的教学班判为低置信度，需要督办；
-      督办会记入审计，并同时催办该班未提交的归档批次。
-    </p>
+    </header>
 
     <div class="card p-4">
       <div class="flex items-center justify-between flex-wrap gap-2 mb-3">

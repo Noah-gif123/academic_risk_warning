@@ -3,7 +3,7 @@
     <!-- 标题 -->
     <div class="flex items-center justify-between flex-wrap gap-2">
       <div class="flex items-center gap-3 flex-wrap">
-        <h1 class="text-lg font-semibold text-slate-800">规则配置</h1>
+        <h1>规则配置</h1>
         <span v-if="active" class="tag bg-brand-50 text-brand-700">生效版本 {{ active.engineVersion }}</span>
         <span v-if="active?.effectiveTime" class="text-xs text-slate-400">
           生效于 {{ fmt(active.effectiveTime) }}

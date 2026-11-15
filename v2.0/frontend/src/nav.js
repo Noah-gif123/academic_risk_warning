@@ -35,10 +35,10 @@ export const NAV = {
     { text: 'RAG评测', path: '/admin/rag-eval' },
     { text: '运行轨迹', path: '/admin/trace' },
     { text: '基础数据', path: '/admin/base' },
-    { text: '排课与教学班', path: '/admin/offerings' },
-    { text: '成绩构成', path: '/admin/schemes' },
-    { text: '考勤归档', path: '/admin/attendance' },
-    { text: '规则配置', path: '/admin/rules' },
-    { text: '流程与问卷', path: '/admin/workflow' }
+    { text: '排课', path: '/admin/offerings' },
+    { text: '成绩', path: '/admin/schemes' },
+    { text: '考勤', path: '/admin/attendance' },
+    { text: '规则', path: '/admin/rules' },
+    { text: '流程', path: '/admin/workflow' }
   ]
 }

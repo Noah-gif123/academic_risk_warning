@@ -1,14 +1,12 @@
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between flex-wrap gap-2">
-      <h1 class="text-lg font-semibold text-slate-800">成绩构成</h1>
+    <header class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="flex items-center gap-3 flex-wrap"><h1>成绩构成</h1><span class="tag bg-white text-slate-500 border border-[#e6edf5]">审批与锁定</span></div>
+        <p class="text-xs text-slate-500 mt-2">成绩构成由课程组教师确认后自动锁定；教务负责审批与未达成一致时的裁定。</p>
+      </div>
       <p v-if="message" class="text-sm" :class="ok ? 'text-emerald-600' : 'text-red-600'">{{ message }}</p>
-    </div>
-
-    <p class="text-xs text-slate-400">
-      成绩构成由课程组任课教师共同确定并确认后自动锁定；教务只做审批与「未达成一致」时的裁定锁定，不直接改教师的评分项。
-      考勤不计分，只通过缺课硬门槛与违纪扣分影响结果。
-    </p>
+    </header>
 
     <!-- 模板 -->
     <div class="card p-4">
