@@ -14,7 +14,7 @@
 版本：v3.0
 前端：Vue 3 + Vite，默认 5174
 后端：Spring Boot 4 + Java 17，默认 18101
-数据库：MySQL，study_warning_system_v3
+数据库：MySQL，代码主库 study_warning_system_v3；比赛固定演示库 study_warning_system_demo
 AI：Dify / OpenAI 兼容直连 / 规则模板三层降级
 ```
 
@@ -212,71 +212,145 @@ RAG 采用全文 + 向量双路召回 + RRF 融合，引用带 `chunkId`，可�
 - Agent 评测报告：`v3.0/eval/agent_eval_report.json`
 - P3 parity：`v3.0/eval/p3_parity.json`
 - 证据卡：`v3.0/evidence/`
+- AI Prompt 历史快照：`v3.0/docs/prompt-snapshots/README.md`
 
 评测数字请结合对应证据卡理解，不要把规则基线评测当成真实 LLM 全链路效果。
 
 ---
 
-## 7. 快速启动
+## 7. 10 分钟复现（评委 / 录制机）
 
-### 方式 A：Docker 一键栈（推荐给评委）
+> 目标：从空目录开始，10 分钟内看到固定演示数据和四端页面。
+> 推荐使用 Docker；不需要先装 JDK、Node 或 MySQL。
 
-前置：Docker Desktop。
+### 7.1 前置
+
+```text
+Docker Desktop 4.x（或 Docker Engine + Compose v2）
+8 GB 内存
+端口 5174 / 18101 / 3307 未被占用
+```
+
+### 7.2 拉取仓库
 
 ```bash
-# 仓库根目录
+git clone https://github.com/Noah-gif123/academic_risk_warning.git
+cd academic_risk_warning
+```
+
+### 7.3 准备环境变量
+
+Windows：
+
+```powershell
 copy v3.0\.env.v3.example v3.0\.env
-
-# 可选：在 v3.0\.env 填真实 AI Key
-docker compose -f v3.0/docker-compose.v3.yml up -d --build
 ```
 
-访问：
-
-```text
-前端 http://localhost:5174
-后端 http://localhost:18101
-```
-
-停止：
+Linux / macOS：
 
 ```bash
-docker compose -f v3.0/docker-compose.v3.yml down
+cp v3.0/.env.v3.example v3.0/.env
 ```
 
-说明：
+不填 `AI_LLM_KEY` 也能启动，报告自动降级为规则模板。
+本地录制要真实 AI 时，才在 `v3.0/.env` 里填 `AI_LLM_BASE_URL`、`AI_LLM_KEY`、`AI_LLM_MODEL`。
 
-- MySQL 初始化使用 `v3.0/sql/snapshot_v3.sql`
-- 不填 AI Key 也能启动，报告自动降级为模板
-- Docker 首次构建需要拉取镜像，时间较长
+### 7.4 启动固定演示包
 
-### 方式 B：本机启动
+```bash
+docker compose --env-file v3.0/.env -f v3.0/docker-compose.demo.yml up -d --build
+```
 
-前置：
+第一次需要拉取 MySQL / Gradle / Node 镜像，通常 3–6 分钟。
+
+### 7.5 等待并检查
+
+```bash
+docker compose --env-file v3.0/.env -f v3.0/docker-compose.demo.yml ps
+curl http://127.0.0.1:18101/api/ai/health
+curl -I http://localhost:5174
+```
+
+预期：
 
 ```text
-JDK 17
-Node 18+
-MySQL 8
+arw-demo-mysql  healthy
+arw-demo-app    healthy
+arw-demo-web    healthy
+前端 HTTP 200
+后端 code=0
 ```
 
-数据库初始化（只做一次）：
+### 7.6 打开页面
+
+```text
+http://localhost:5174/index.html#/login
+```
+
+固定演示数据：
+
+```text
+1 个学期 / 1 个行政班 / 12 名学生
+4 门课程 / 4 个教学班 / 48 条选课
+8 条预警 / 3 条干预 / 4 份报告 / 2 条通知
+```
+
+### 7.7 四端账号
+
+| 角色 | 账号 | 口令 |
+|---|---|---|
+| 学生 | `20250001` | `000000` |
+| 教师 | `1001` | `000000` |
+| 辅导员 | `C001` | `000000` |
+| 教务 | `admin001` | `000000` |
+
+### 7.8 可选：运行 P1 验收
+
+`verify_p1.mjs` 需要验证码调试接口，启动前在 `v3.0/.env` 增加一行：
+
+```text
+CAPTCHA_DEBUG=true
+```
+
+重启后端后运行：
+
+```bash
+node v3.0/tool/verify_p1.mjs
+```
+
+预期：
+
+```text
+PASS=14 FAIL=0
+```
+
+验收完成后把 `CAPTCHA_DEBUG` 改回 `false`。
+
+### 7.9 停止
+
+```bash
+docker compose --env-file v3.0/.env -f v3.0/docker-compose.demo.yml down
+```
+
+### 7.10 常见问题
+
+| 现象 | 处理 |
+|---|---|
+| 端口被占用 | 停止本机 5174/18101/3307 进程后重试 |
+| MySQL 一直不 healthy | 删除 `arw-demo` volume，重新启动 |
+| 报告是模板 | 检查 `.env` 的 AI Key；`/api/ai/health` 的 `directReady` 应为 true |
+| 页面统计为 PARTIAL | 固定演示数据只有当前快照，属预期，不要作为演示重点 |
+| 首次构建很慢 | 正常，先等 Docker 拉取基础镜像 |
+
+### 7.11 方式 B：本机启动（可选）
+
+前置：JDK 17、Node 18+、MySQL 8。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0/tool/run_v3_pipeline.ps1
-```
-
-编译后端：
-
-```powershell
 cd v2.0/backend
 .\gradlew.bat compileJava
-```
-
-启动：
-
-```powershell
-# 仓库根目录
+cd ../..
 powershell -NoProfile -ExecutionPolicy Bypass -File v3.0/tool/start_v3.ps1 -EnableAi -DebugCaptcha
 ```
 
@@ -351,7 +425,7 @@ GitHub Actions 配置：
 .github/workflows/ci.yml
 ```
 
-后端编译 + 单测，前端安装 + 构建。
+后端编译 + 单测，前端安装 + 构建，MySQL + 后端 P1 集成验收。
 
 ---
 
