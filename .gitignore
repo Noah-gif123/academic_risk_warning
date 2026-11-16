@@ -162,3 +162,5 @@ v3.0/word/*.docx
 ### v3 local runtime ###
 v3.0/.env
 v3.0/.tmp-start/
+
+v3.0/release/

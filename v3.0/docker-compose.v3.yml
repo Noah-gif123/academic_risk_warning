@@ -55,6 +55,8 @@ services:
       AI_ALERT_APP_KEY: ${AI_ALERT_APP_KEY:-}
       AI_QUESTION_APP_KEY: ${AI_QUESTION_APP_KEY:-}
       AI_CHAT_APP_KEY: ${AI_CHAT_APP_KEY:-}
+      # 仅本地验收用；生产/正式演示保持 false
+      APP_AUTH_CAPTCHA_DEBUG: ${CAPTCHA_DEBUG:-false}
       TZ: Asia/Shanghai
       JAVA_OPTS: "-XX:MaxRAMPercentage=75.0"
     ports:
