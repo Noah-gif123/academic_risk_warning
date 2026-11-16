@@ -8,7 +8,7 @@
 
 | Prompt | 当前版本 | 代码/文件位置 | 用途 |
 |---|---|---|---|
-| 群体报告（教学班/课程/行政班） | `group-report-v1` | `GroupReportService.groupSystemPrompt` + `persist` | 生成班级/课程/行政班报告 |
+| 群体报告（教学班/课程/行政班） | `group-report-v2` | `GroupReportService.groupSystemPrompt` + `AiProperties.groupReportPromptVersion` | 生成班级/课程/行政班报告 |
 | 学生报告 | `report-student-v1` | `StudentReportService` | 学生单课程评价报告 |
 | 预警解释卡 | `alert-explain-v1` | `AlertExplainService` | 解释单个预警 |
 | AI 批改辅助 | `grading-assist-v1` | `GradingAssistService` | 批改建议与评语 |
@@ -29,7 +29,7 @@
 - 课程报告扩展为：课程摘要 / 教学班对比 / 课程风险结构 / 成绩与考核项 / 跨班重点学生 / 课程教学动作。
 - 行政班报告扩展为：报告摘要 / 班级画像 / 集中风险课程 / 多门预警学生 / 班级风险结构 / 重点关注学生 / 干预动作。
 - 事实包增加 `courseRisks`、`items`、`multiRiskStudents` 等图表字段，长名单改为数据图表。
-- 注意：代码中的 `prompt_version` 仍标记为 `group-report-v1`；结构与 Prompt 文本已扩展但未 bump 版本，这是需要继续收口的技术债。
+- 注意：`group-report-v2` 已把报告结构变更纳入版本；此后任何 Prompt 文本变化都必须继续 bump。
 
 ### 2026-11-10：Diagnostician Prompt 与工具契约
 

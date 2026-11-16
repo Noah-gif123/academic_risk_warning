@@ -491,7 +491,7 @@ public class GroupReportService {
                     : ("DIFY".equals(source) ? props.getModel() : props.directModel()));
             ps.setString(i++, props.getGroupReportAppKey() == null || props.getGroupReportAppKey().isBlank()
                     ? null : maskKey(props.getGroupReportAppKey()));
-            ps.setString(i++, "group-report-v1");
+            ps.setString(i++, props.getGroupReportPromptVersion());
             setNullableLong(ps, i++, runId);
             ps.setInt(i++, tokens);
             ps.setBigDecimal(i++, cost);

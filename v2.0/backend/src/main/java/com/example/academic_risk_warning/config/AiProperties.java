@@ -58,8 +58,11 @@ public class AiProperties {
     /** 计费单价：元 / 千 token（默认按 qwen-plus 混合价估算） */
     private double yuanPerKToken = 0.0015;
 
-    /** 工作流版本（写进 ai_run.prompt_version 与 ai_prompt_template） */
+    /** 学生报告工作流版本（写进 ai_run.prompt_version 与 ai_prompt_template） */
     private String reportPromptVersion = "report-student-v1";
+
+    /** 群体报告 Prompt 版本；结构变更时同步 bump，避免只改文本不改版本 */
+    private String groupReportPromptVersion = "group-report-v2";
 
     /** 直连通道：DashScope（OpenAI 兼容）。Dify 工作流未配置时的备用模型通道 */
     private String dashscopeKey = "";

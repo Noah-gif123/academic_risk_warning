@@ -292,18 +292,44 @@ public class GroupFactBuilder {
             Map<String, Object> a = agg.get(0);
             int total = nz(asInt(a.get("total")));
             f.setEnrollmentCount(total);
+            f.setAvgScore(dec(a.get("avg_score")));
+            f.setCourseCount(nz(asInt(a.get("courses"))));
+        }
+
+        // 行政班是“一个学生 × 多门课”：红灯/黄灯/绿灯按学生去重，
+        // 不能把同一学生在多门课的选课记录重复算成多个人。
+        List<Map<String, Object>> riskAgg = jdbc.queryForList("""
+                select sum(case when has_red = 1 then 1 else 0 end) as red,
+                       sum(case when has_red = 0 and has_yellow = 1 then 1 else 0 end) as yellow,
+                       sum(case when has_red = 0 and has_yellow = 0 and has_green = 1 then 1 else 0 end) as green,
+                       sum(case when has_red = 0 and has_yellow = 0 and has_green = 0 then 1 else 0 end) as unknown,
+                       sum(hard_fail) as hard_fail
+                from (
+                    select s.id,
+                           max(case when rs.risk_level = 'RED' then 1 else 0 end) as has_red,
+                           max(case when rs.risk_level = 'YELLOW' then 1 else 0 end) as has_yellow,
+                           max(case when rs.risk_level = 'GREEN' then 1 else 0 end) as has_green,
+                           max(case when sr.hard_fail = 1 then 1 else 0 end) as hard_fail
+                    from enrollment e
+                             join student s on s.id = e.student_id
+                             join term t on t.id = e.term_id and t.is_current = 1
+                             left join risk_state rs on rs.enrollment_id = e.id and rs.is_void = 0
+                             left join score_result sr on sr.enrollment_id = e.id and sr.is_void = 0
+                    where s.admin_class_id = ?
+                    group by s.id
+                ) x
+                """, adminClassId);
+        if (!riskAgg.isEmpty()) {
+            Map<String, Object> a = riskAgg.get(0);
             f.setRedCount(nz(asInt(a.get("red"))));
             f.setYellowCount(nz(asInt(a.get("yellow"))));
             f.setGreenCount(nz(asInt(a.get("green"))));
             f.setUnknownCount(nz(asInt(a.get("unknown"))));
             f.setHardFailCount(nz(asInt(a.get("hard_fail"))));
-            f.setAvgScore(dec(a.get("avg_score")));
-            f.setCourseCount(nz(asInt(a.get("courses"))));
-            if (total > 0) {
-                f.setFailRate(BigDecimal.valueOf(nz(asInt(a.get("red"))))
-                        .multiply(BigDecimal.valueOf(100))
-                        .divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP));
-            }
+            int students = Math.max(1, nz(f.getStudentCount()));
+            f.setFailRate(BigDecimal.valueOf(nz(f.getRedCount()))
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(students), 1, RoundingMode.HALF_UP));
         }
 
         // 集中风险课程

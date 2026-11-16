@@ -11,7 +11,8 @@
 param(
     [string]$OutDir = '',
     [switch]$NoZip,
-    [switch]$Force
+    [switch]$Force,
+    [switch]$IncludeLocalEnv
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +20,7 @@ $v3Dir = Split-Path -Parent $PSScriptRoot
 $root = Split-Path -Parent $v3Dir
 if (-not $OutDir) { $OutDir = Join-Path $v3Dir 'release' }
 $pkg = Join-Path $OutDir 'academic-risk-warning-v3.0'
-$zip = Join-Path $OutDir 'academic-risk-warning-v3.0.zip'
+$zip = Join-Path $OutDir $(if ($IncludeLocalEnv) { 'academic-risk-warning-v3.0-local-ai.zip' } else { 'academic-risk-warning-v3.0.zip' })
 
 function Copy-Tree([string]$src, [string]$dst, [string[]]$excludeDirs, [string[]]$excludeFiles) {
     if (-not (Test-Path $src)) { throw "源目录不存在：$src" }
@@ -51,9 +52,10 @@ Copy-Tree (Join-Path $root 'v2.0\frontend') (Join-Path $pkg 'frontend') `
 
 Write-Host '== 复制 SQL 与文档'
 Copy-Tree (Join-Path $root 'v2.0\sql') (Join-Path $pkg 'sql') @() @()
-Copy-Item (Join-Path $root 'v3.0\sql\snapshot_v3.sql') (Join-Path $pkg 'sql\snapshot_v3.sql') -Force
+Copy-Item (Join-Path $root 'v3.0\sql\snapshot_demo.sql') (Join-Path $pkg 'sql\snapshot_demo.sql') -Force
+Copy-Tree (Join-Path $root 'v3.0\sql\seeds') (Join-Path $pkg 'sql\seeds') @() @()
 New-Item -ItemType Directory -Force -Path (Join-Path $pkg 'sql\v3') | Out-Null
-Get-ChildItem (Join-Path $root 'v3.0\sql') -File -Filter '*.sql' | ForEach-Object {
+Get-ChildItem (Join-Path $root 'v3.0\sql') -File -Filter '*.sql' | Where-Object { $_.Name -notin @('snapshot_v3.sql','snapshot_demo.sql') } | ForEach-Object {
     Copy-Item $_.FullName (Join-Path $pkg 'sql\v3') -Force
 }
 New-Item -ItemType Directory -Force -Path (Join-Path $pkg 'docs') | Out-Null
@@ -75,9 +77,20 @@ foreach ($f in @('rag-eval.md','report-workflow.md','README.md')) {
 }
 
 # 提交包的 compose 使用包内相对路径
-$compose = Get-Content (Join-Path $root 'v3.0\docker-compose.v3.yml') -Raw -Encoding UTF8
+$compose = Get-Content (Join-Path $root 'v3.0\docker-compose.demo.yml') -Raw -Encoding UTF8
 $compose = $compose.Replace('../v2.0/backend', './backend').Replace('../v2.0/frontend', './frontend')
 Set-Content -Path (Join-Path $pkg 'docker-compose.yml') -Value $compose -Encoding UTF8
+
+if ($IncludeLocalEnv) {
+    # 仅用于个人录制：把本机 ai.env 中的直连 Key 写入包内 .env；不要上传到公开仓库/公开网盘。
+    $secretSource = Join-Path $root 'v2.0\backend\ai.env'
+    if (-not (Test-Path $secretSource)) { throw '缺少 v2.0/backend/ai.env' }
+    $secret = Get-Content $secretSource -Encoding UTF8 | Where-Object { $_ -match '^AI_LLM_(BASE_URL|KEY|MODEL)=' }
+    if (-not ($secret -match '^AI_LLM_KEY=.')) { throw 'ai.env 缺少 AI_LLM_KEY' }
+    $envLines = @('DB_ROOT_PASSWORD=root', 'AI_ENABLED=true') + $secret + @('CAPTCHA_DEBUG=false')
+    Set-Content -Path (Join-Path $pkg '.env') -Value $envLines -Encoding UTF8
+    Write-Host '== 已写入本地 AI Key（该 zip 只能本地/私有使用，禁止公开上传）' -ForegroundColor Yellow
+}
 
 $commit = (git -C $root rev-parse HEAD 2>$null)
 if (-not $commit) { $commit = 'unknown' }
@@ -87,16 +100,17 @@ if (-not $commit) { $commit = 'unknown' }
     "gitCommit=$commit",
     'backend=v2.0/backend -> backend',
     'frontend=v2.0/frontend -> frontend',
-    'database=study_warning_system_v3',
+    'database=study_warning_system_demo',
     'frontendPort=5174',
-    'backendPort=18101'
+    'backendPort=18101',
+    ('aiKeyIncluded=' + $(if ($IncludeLocalEnv) { 'true (LOCAL ONLY)' } else { 'false' }))
 ) | Set-Content -Path (Join-Path $pkg 'source-manifest.txt') -Encoding UTF8
 
 Write-Host '== 检查包内容'
 $files = Get-ChildItem $pkg -Recurse -File | Measure-Object
 $size = (Get-ChildItem $pkg -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
 Write-Host ("   文件数={0} 大小={1:N1} MB" -f $files.Count, $size)
-foreach ($must in @('backend\build.gradle','frontend\package.json','sql\snapshot_v3.sql','docker-compose.yml','README.md')) {
+foreach ($must in @('backend\build.gradle','frontend\package.json','sql\snapshot_demo.sql','docker-compose.yml','README.md')) {
     if (-not (Test-Path (Join-Path $pkg $must))) { throw "提交包缺少：$must" }
 }
 
